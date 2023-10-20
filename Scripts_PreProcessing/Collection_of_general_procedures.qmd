@@ -1,0 +1,145 @@
+---
+title: "Collection_of_general_procedures"
+author: "Friederike Wölke"
+format: html
+editor: visual
+---
+
+# 0) Setting Libraries and Variables
+
+```{r}
+#| label: Clean Environment
+# Clear current environment
+rm(list=ls())
+```
+
+```{r}
+#| label: Libraries
+
+
+library(gridExtra)  # plotting
+library(sf)         # spatial functions
+library(tidyverse)  # plotting & data manipulations (dplyr, ggplot2)
+library(tmap)       # mapping
+library(rstatix) #stat tests for plotting with ggplot
+library(viridis) # color palette
+library(ggpubr) # plotting stats
+library(scales) # to adjust graph axis
+```
+
+```{r}
+#| label: Variables
+
+
+# folder path to Atlas data
+source_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_Alberta/"
+# folder path to output folder
+out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/output/"
+
+# create path to read in data and grids from variables
+data_path <- paste0(source_path,"Birds_Atlas_Alberta_beast_data.rds")
+grid_path <-  paste0(source_path,"Birds_Atlas_Alberta_grid.gpkg") 
+
+# save names of layers from file (needed to read them in):
+layers <- st_layers(grid_path)$name
+
+```
+
+# 1) Handling one dataset
+
+This will become useful when all data sets have been merged to the long-file, but for now it also helps to explore the data and some of it's issues more generally.
+
+## Atlas Presence data
+
+The data has the following columns:
+
+```         
+"verbatim_name"      "taxa"               "samp_effort_type"   "dataset"            "start_year"         "end_year"           "license"            "cell_grouping"      "cell_label"         "cell_area_km2"      "cell_perimeter_km2" "cell_leng"          "cell_ns_leng"       "cell_ew_leng"       "cell_long"          "cell_lat"           "samp_effort"        "cell_samp_area"  
+```
+
+```{r}
+#| label: I. Atlas Presence data
+
+# Bird presence data ============================================================ #
+presence_data <- readRDS(data_path)
+
+## re-code columns to factors for correct grouping ====================================================== #
+
+# Define the desired order of factor levels
+desired_levels <- c("cell1grid", "cell2grid", "cell4grid", "cell8grid", "cell16grid", "cell32grid", "cell64grid", "cell128grid")
+
+# Reorder the levels in the "cell_grouping" column
+presence_data <- presence_data %>%
+  mutate(cell_grouping = factor(cell_grouping, levels = desired_levels))
+
+# Re-code some other columns to factor
+presence_data$cell_label <- as.factor(presence_data$cell_label)
+presence_data$dataset <- as.factor(presence_data$dataset)
+presence_data$taxa <- as.factor(presence_data$taxa)
+
+## make variables for time slots =========================================================== #
+times <- unique(presence_data$start_year)
+time_slot1 <- times[1]
+time_slot2 <- times[2]
+
+# some Atlases have 3 sampling periods:
+if (length(times) > 2) time_slot3 <- times[3]
+```
+
+## Geopackage (Grid files)
+
+```{r}
+#| label: II. Geopackage (Grids)
+
+#| warning: false
+#| echo: false
+#| message: false
+#| label: geopackage  
+
+## Read in geopackage file layers  =========================================================== #
+
+# Read in individual grids into list using sapply(), st_read() & character vector with paths and layers
+
+# it's faster than doing it in a loop:
+#    loop: 0.15 sec elapsed
+#    sapply: 0.14 sec elapsed
+
+tic("sapply")
+grid_list <- sapply(layers, function(i) {
+  st_read(grid_path, paste(i), quiet = TRUE)
+}, simplify = FALSE)
+toc() # sapply: 0.14 sec elapsed
+
+```
+
+## Exploring the data
+
+Things to consider:
+
+-   What is the sampling effort and its unit?
+
+-   Not all cells that are present in the smallest gridding of the map have been sampled. Sometimes this relates to the accessibility of the area (e.g., steep slopes in mountain ranges or large distance from roads and cities).
+
+    -   How many cells (and which ones) have been sampled at all?
+
+    -   Which have never been visited?
+
+    -   What is the proportion?
+
+    -   Since often these unsampled cells are clustered spatially, consider cutting the extent of the study area to a part of the atlas where sampling has been more or less complete for more robust results.
+
+    -   Could be explored e.g., using sampling curves to find a threshold for cutting the area on scales larger then the original sampling scale.
+
+        -   ? i.e., average sampling effort across cells (sampled and unsampled). Calculate sampling curves for grid cells. If average sampling effort of sampled and unsampled cells in the smallest grid falls below a threshold on the sampling curve for larger grids, this means that sampling was not complete enough in this larger cell and it should be discarded.
+
+        -   Some Resources to check:
+
+            -   iNEXT package: [https://doi.org/10.1111/2041-210X.1261](https://doi.org/10.1111/2041-210X.12613)
+
+            -   Corals and sampling strategy: <https://doi.org/10.1111/1440-1703.12096>
+
+            -   Flo's Github repo: <https://github.com/bienflorencia/Multiple-forms-of-hotspots-of-tetrapod-biodiversity>
+
+```{r}
+presence_data %>% ungroup() %>% group_by(start_year, cell_grouping) %>% select(samp_effort, samp_effort_type) %>% get_summary_stats(type = "common")
+```
