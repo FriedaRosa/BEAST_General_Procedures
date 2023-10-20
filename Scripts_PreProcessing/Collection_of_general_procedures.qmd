@@ -1,7 +1,10 @@
 ---
 title: "Collection_of_general_procedures"
 author: "Friederike Wölke"
-format: html
+format: 
+  html:
+    code-fold: true
+    page-layout: full
 editor: visual
 ---
 
@@ -15,7 +18,9 @@ rm(list=ls())
 
 ```{r}
 #| label: Libraries
-
+#| warning: false
+#| echo: false
+#| message: false
 
 library(gridExtra)  # plotting
 library(sf)         # spatial functions
@@ -25,14 +30,18 @@ library(rstatix) #stat tests for plotting with ggplot
 library(viridis) # color palette
 library(ggpubr) # plotting stats
 library(scales) # to adjust graph axis
+library(tictoc)
 ```
 
 ```{r}
 #| label: Variables
-
+#| warning: false
+#| echo: false
+#| message: false
 
 # folder path to Atlas data
 source_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_Alberta/"
+
 # folder path to output folder
 out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/output/"
 
@@ -114,32 +123,352 @@ toc() # sapply: 0.14 sec elapsed
 
 ## Exploring the data
 
+### I. Species Richness
+
+Explore species richness and how it changes spatially and temporally.
+
+```{r, fig.height = 4, fig.width = 6}
+#| label: Species Richness Summary
+
+# Calculate species richness per cell, scale and sampling period:
+temp_df <- presence_data %>% filter_all(any_vars(!is.na(.))) %>%
+  group_by(dataset, cell_grouping, cell_label, start_year) %>% 
+  summarise(
+    SR_cell = n()) %>% 
+  # Calculate range, mean (+ sd) of SR and mean Difference (+ sd) in SR between years:
+  ungroup() %>%
+  group_by(dataset, cell_grouping, start_year) %>%  
+  mutate (minSR_cell = min(SR_cell),
+          maxSR_cell = max(SR_cell),
+          meanSR_cell = mean(SR_cell),
+          sdSR_cell = sd(SR_cell)) %>% 
+  mutate(Diff_SR_meanSR = SR_cell - meanSR_cell) %>% 
+  mutate(Diff_SR_meanSR = round(Diff_SR_meanSR, 2),
+          sdSR_cell = round(sdSR_cell, 2)) %>% 
+   ungroup() 
+
+
+
+
+# How does species richness scale across sampling periods? ====================================== #
+
+temp_df %>%
+   ggplot(aes(
+     y = meanSR_cell, 
+     x = cell_grouping, 
+     col = as.factor(start_year))) +
+   geom_point(alpha = 0.6) +
+   geom_line(aes(group = start_year))+
+   ylab("mean Species Richness") +
+   xlab("Scale") +
+   theme_light() +
+   labs(color = "Start Year of Sampling Period", 
+       title = "Mean Species Richness across Scales",
+       subtitle = "Number above boxes = mean species richness") +
+   scale_y_continuous(breaks = seq(0, 400, by = 50), limits = c(0, 400)) +
+   geom_text(aes(label = round(meanSR_cell, 2), y = meanSR_cell),
+            vjust = -3, size = 2, position = position_dodge(width = 1)) + # Adjust position to dodge labels
+   scale_color_viridis(discrete = TRUE, alpha = 0.9)
+ggsave(plot = last_plot(), filename = paste0(out_path, "Figs/SpeciesRichness.pdf"))
+
+```
+
+### II. Sampling Effort
+
 Things to consider:
 
--   What is the sampling effort and its unit?
+-   What is the sampling effort and its unit?\
+    Note: sampling effort per cell varies among sampling periods!
 
--   Not all cells that are present in the smallest gridding of the map have been sampled. Sometimes this relates to the accessibility of the area (e.g., steep slopes in mountain ranges or large distance from roads and cities).
+```{r, fig.width = 8, fig.height = 6}
+# What's the unit of sampling effort in this Atlas? =========================================== #
+presence_data %>% pull(samp_effort_type) %>% unique()
 
-    -   How many cells (and which ones) have been sampled at all?
+# How does sampling effort scale? ============================================================= #
+presence_data %>% ungroup() %>% group_by(start_year, cell_grouping) %>% select(samp_effort) %>% get_summary_stats(type = "mean_sd")
 
-    -   Which have never been visited?
+presence_data %>% 
+  ungroup() %>% 
+  select(start_year, cell_grouping, samp_effort) %>% 
+  unique() %>% 
+  group_by(start_year, cell_grouping) %>% 
+  summarise(n= n(),
+            min_samp_effort = min(samp_effort),
+            mean_samp_effort = mean(samp_effort),
+            sd_samp_effort = sd(samp_effort),
+            max_samp_effort = max(samp_effort))
 
-    -   What is the proportion?
+presence_data %>%
+  ungroup() %>%
+  select(start_year, cell_grouping, samp_effort) %>%
+  filter(cell_grouping != "cell128grid") %>%
+  unique() %>%
+  group_by(start_year, cell_grouping) %>%
+  mutate(mean_samp_effort = mean(samp_effort)) %>%
+  
+  ggplot(aes(y = samp_effort, x = cell_grouping, fill = as.factor(start_year))) +
+  geom_boxplot(alpha = 0.6) +
+  ylab("Sampling Effort (N Collectors)") +
+  xlab("Scale") +
+  theme_light() +
+  scale_fill_viridis(discrete = TRUE, alpha = 0.7) +
+  labs(fill = "Start Year of Sampling Period", 
+       title = "Scaling of Sampling Effort across Sampling Periods",
+       subtitle = "Number above boxes = mean sampling effort") +
+  scale_y_continuous(breaks = seq(0, max(presence_data$samp_effort), by = 100)) +
+  geom_text(aes(label = round(mean_samp_effort, 2), y = mean_samp_effort),
+            vjust = -15, size = 2, position = position_dodge(width = 0.75))  # Adjust position to dodge labels
 
-    -   Since often these unsampled cells are clustered spatially, consider cutting the extent of the study area to a part of the atlas where sampling has been more or less complete for more robust results.
+ggsave(plot = last_plot(), filename = paste0(out_path, "Figs/SamplingEffort.pdf"))
 
-    -   Could be explored e.g., using sampling curves to find a threshold for cutting the area on scales larger then the original sampling scale.
+```
 
-        -   ? i.e., average sampling effort across cells (sampled and unsampled). Calculate sampling curves for grid cells. If average sampling effort of sampled and unsampled cells in the smallest grid falls below a threshold on the sampling curve for larger grids, this means that sampling was not complete enough in this larger cell and it should be discarded.
+### III. Un-sampled cells
 
-        -   Some Resources to check:
+Not all cells that are present in the smallest grid of the map have been sampled. Sometimes this relates to the accessibility of the area (e.g., steep slopes in mountain ranges or large distance from roads and cities).\
+Note: this varies among sampling periods!
 
-            -   iNEXT package: [https://doi.org/10.1111/2041-210X.1261](https://doi.org/10.1111/2041-210X.12613)
+-   How many cells (and which ones) have been sampled at all?
 
-            -   Corals and sampling strategy: <https://doi.org/10.1111/1440-1703.12096>
+-   Which have never been visited?
 
-            -   Flo's Github repo: <https://github.com/bienflorencia/Multiple-forms-of-hotspots-of-tetrapod-biodiversity>
+-   What is the proportion?
+
+-   Since often these unsampled cells are clustered spatially, consider cutting the extent of the study area to a part of the atlas where sampling has been more or less complete for more robust results.
+
+-   Could be explored e.g., using sampling curves to find a threshold for cutting the area on scales larger then the original sampling scale.
+
+    -   ? i.e., average sampling effort across cells (sampled and unsampled). Calculate sampling curves for grid cells. If average sampling effort of sampled and unsampled cells in the smallest grid falls below a threshold on the sampling curve for larger grids, this means that sampling was not complete enough in this larger cell and it should be discarded.
+
+    -   Some Resources to check:
+
+        -   iNEXT package: [https://doi.org/10.1111/2041-210X.1261](https://doi.org/10.1111/2041-210X.12613)
+
+        -   Corals and sampling strategy: <https://doi.org/10.1111/1440-1703.12096>
+
+        -   Flo's Github repo: <https://github.com/bienflorencia/Multiple-forms-of-hotspots-of-tetrapod-biodiversity>
+
+```{r, fig.show='hold'}
+#| label: unsampled cells
+
+# Detect cells that have not been sampled by finding the difference between the grids and the presence data
+
+# For each scale separately:
+grid_list2 <- list()
+for (i in 1:length(layers)){
+  current_layer <- layers[i]
+  current_grid <- grid_list[[i]]
+  print(current_layer)
+  ## Sampling period 1
+  cell_labels1 <- presence_data %>% 
+    filter(start_year == "1987", cell_grouping == current_layer) %>% 
+    pull(cell_label) %>% unique()
+  
+  # differences in label names between grid and presence data
+  unsampled_cells_time1 <- setdiff(current_grid$cell_label, cell_labels1)
+  print(paste0("N cells not sampled in time 1 = ", length(unsampled_cells_time1)))
+  
+  ## Sampling period 2
+  cell_labels2 <- presence_data %>% 
+    filter(start_year == "2000", cell_grouping == current_layer) %>% 
+    pull(cell_label) %>% unique()
+  
+  # differences in label names between grid and presence data
+  unsampled_cells_time2 <- setdiff(current_grid$cell_label, cell_labels2)
+  print(paste0("N cells not sampled in time 2 = ", length(unsampled_cells_time2)))
+  
+  # add column with dummy variable for each time slot
+
+current_grid <- current_grid %>%
+  mutate(sampled_1 = if_else(cell_label %in% unsampled_cells_time1, '0', '1'),
+         sampled_2 = if_else(cell_label %in% unsampled_cells_time2, '0', '1')) %>%
+  mutate(sampled_1 = as.factor(sampled_1),
+         sampled_2 = as.factor(sampled_2)) %>%
+  group_by(sampled_1) %>%
+  mutate(n_1 = n(), 
+         Total_Area_per_scale_time1 = sum(cell_area_km2)) %>% ungroup() %>%
+  group_by(sampled_2) %>%
+  mutate(n_2 = n(), 
+         Total_Area_per_scale_time2 = sum(cell_area_km2))
+  
+
+grid_list2[[i]] <- current_grid 
+  
+}
+  
+# exclude cells that were not sampled from the analysis:
+grid_list_reduced1 <- list()
+grid_list_reduced2 <- list()
+p_list <- list()
+for (i in 1:length(grid_list2)){
+  grid_list_reduced1[[i]] <- grid_list2[[i]] %>% filter(!(cell_label %in% unsampled_cells_time1))
+  grid_list_reduced2[[i]] <- grid_list2[[i]] %>% filter(!(cell_label %in% unsampled_cells_time2))
+if(unique(grid_list_reduced1[[i]]$cell_grouping) != "cell128grid") p1 <- grid_list_reduced1[[i]] %>%
+  tm_shape() +
+  tm_fill("sampled_1", palette=c("viridis")) +
+  tm_borders()  
+if (unique(grid_list_reduced2[[i]]$cell_grouping) != "cell128grid") p2 <- grid_list_reduced2[[i]] %>%
+  tm_shape() +
+  tm_fill("sampled_2", palette=c("viridis")) +
+  tm_borders() 
+  
+p_list[[i]] <- tmap_arrange(p1, p2)
+  
+}
+
+p_list
+
+rm(p_list, p1, p2)
+```
+
+## Calculate Species' Occupancy
+
+Notes:
+
+-   even though cells have not been sampled, we assume that the species covers the whole are of the cell (column: cell_area_km2)
+
+-   since the Atlas presence data only has cells that have been sampled, we have to base our calculation on the full grid
+
+-   Formulas:
+
+    -   Occupancy = sum of areas of all cells where a species is present
+
+    -   Relative Occupancy = Occupancy divided by the total Area of the Atlas (sum of all cells at a given scale)
+
+-   This workflow requires **grouping** by:
+
+    -   verbatim_name (as we want to calculate occupancy for each species separately)
+
+    -   cell_grouping (as we want to calculate occupancy for each scale separately)
+
+    -   start_year (as we want to calculate occupancy for each sampling period separately)
 
 ```{r}
-presence_data %>% ungroup() %>% group_by(start_year, cell_grouping) %>% select(samp_effort, samp_effort_type) %>% get_summary_stats(type = "common")
+#| label: AOO calculation across scales and species
+
+occ_data_list <- list()
+
+# We run the loop for each scale (N = 8)
+for (i in 1:length(grid_list2)){
+  
+  # subset the grid_list and work on a single scale:
+  map_atlas <- grid_list2[[i]] 
+  
+# Calculate total area of alberta based on grid1 (original scale):
+total_area_Atlas <- map_atlas %>% 
+  select(cell_grouping, cell_label, cell_area_km2) %>% 
+  mutate(total_area = sum(cell_area_km2)) %>% 
+  pull(total_area) %>% 
+  unique()
+
+# Create column for total Area:
+pres_data <- presence_data %>% filter(cell_grouping == unique(map_atlas$cell_grouping) )
+
+# Merge sampled and unsampled cells for calculations:
+pres_data_full <- merge(pres_data, map_atlas, by = intersect(names(pres_data), names(map_atlas)), all = T)
+pres_data_full$total_area_Atlas <- total_area_Atlas
+
+# Make subset of the data for the calculations.
+pres_data_full_reduced <- pres_data_full %>% 
+  ungroup() %>% 
+  select(verbatim_name, start_year, cell_grouping, cell_area_km2, cell_label, total_area_Atlas,
+         Total_Area_per_scale_time1, Total_Area_per_scale_time2)
+
+
+## ============================================================================================= ##
+##  ================================== Calculate Occupancy ===================================== ##
+## ============================================================================================= ##
+
+
+occ_data <- pres_data_full_reduced %>%
+  ungroup() %>%
+
+# Necessary grouping to calculate occupancy:
+  group_by(verbatim_name, start_year, cell_grouping) %>%
+  
+# Calculate Occupancy:
+
+  mutate(occupancy_area = sum(cell_area_km2)) %>%
+  
+# Calculate relative Occupancy:
+  mutate(relative_occupancy = case_when(
+    start_year == time_slot1 ~ occupancy_area/Total_Area_per_scale_time1,
+    start_year == time_slot2 ~ occupancy_area/Total_Area_per_scale_time2)) %>%
+  
+# Round values to 2 digits after the comma:
+  mutate(relative_occupancy = round(relative_occupancy,2)) %>% 
+  filter(!is.na(verbatim_name)) %>%
+# Remove duplicated rows:
+  unique() 
+
+
+
+# save to list:
+occ_data_list[[i]] <- occ_data
+
+}
+
+
+# Bind to one dataframe:
+occ_data_full_df <- plyr::rbind.fill(occ_data_list, fill=T)
+occ_data_full_df %>%  filter_all(any_vars(is.na(.)))
+# create scale column as the average cell_area_km2 per cell_grouping
+occ_data_full_df <- occ_data_full_df %>% group_by(cell_grouping, start_year) %>% mutate(Scale_km2 = mean(cell_area_km2))    
+
+occ_data_full_df %>% 
+  group_by(cell_grouping, start_year) %>% 
+  get_summary_stats(c(relative_occupancy, occupancy_area, Total_Area_per_scale_time1, Total_Area_per_scale_time2, Scale_km2), type="mean_sd")
+
+                                    
+
+cols_n <- intersect(names(presence_data), names(occ_data_full_df))
+occ_data_full <- unique(merge(presence_data, occ_data_full_df, by = cols_n, all.y = T))
+gc()
+```
+
+```{r,  fig.height = 10, fig.width = 8 }
+#| label: Occupancy Plots
+# Proportional AOO (per sampled area)
+
+plot_data <- occ_data_full_df %>% 
+  filter(cell_grouping != "cell128grid") %>% 
+  unique() %>%
+  select(cell_grouping, start_year, 
+         cell_area_km2, Scale_km2,
+         verbatim_name, relative_occupancy, occupancy_area) %>% unique() %>% ungroup() 
+ 
+ 
+gg1 <- ggplot(data = plot_data, 
+                aes(y = log10(relative_occupancy+1), 
+                    x = log10(Scale_km2), 
+                    col = as.factor(verbatim_name), 
+                    group = factor(verbatim_name))) +
+  geom_point(show.legend = F) +
+  ylim(-0.05, 0.35)+
+  geom_line() +
+  facet_wrap(start_year~.) +
+  theme_light() +
+  scale_color_viridis(discrete = TRUE, alpha = 0.7) +
+  labs(title = "Relative Occupancy [0,1] Across Scales (km2)") +
+  theme(legend.position = "none") 
+
+
+# Absolute AOO (per sampled area)
+gg2 <- ggplot(data = plot_data, 
+              aes(y = log10(occupancy_area), 
+                  x = log10(Scale_km2), 
+                  col = as.factor(verbatim_name), 
+                  group = factor(verbatim_name))) +
+  geom_point(show.legend = F) +
+  ylim(1.8, 5.9)+
+  geom_line() +
+  facet_wrap(start_year~.) +
+  theme_light() +
+  scale_color_viridis(discrete = TRUE, alpha = 0.7) +
+  labs(title = "Absolute Occupancy (km2) Across Scales (km2)")  + 
+  theme(legend.position = "none")
+
+gg_grid <- grid.arrange(gg1, gg2, nrow = 2)
+
+ggsave(plot = gg_grid, filename = paste0(out_path, "Figs/OccupancyAcrossScales.pdf"), height = 10, width = 8 )
 ```
