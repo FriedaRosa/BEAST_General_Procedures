@@ -8,7 +8,7 @@ format:
 editor: visual
 ---
 
-# 0) Setting Libraries and Variables
+# 0) Setting Libraries
 
 ```{r}
 #| label: Clean Environment
@@ -33,32 +33,33 @@ library(scales) # to adjust graph axis
 library(tictoc)
 ```
 
+# 1) Handling one dataset
+
+## 1.1) Variables
+
+This will become useful when all data sets have been merged to the long-file, but for now it also helps to explore the data and some of it's issues more generally.
 ```{r}
-#| label: Variables
+#| label: Variables 1 dataset
 #| warning: false
 #| echo: false
 #| message: false
 
 # folder path to Atlas data
-source_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_Alberta/"
+source_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_EBBA/"
 
 # folder path to output folder
 out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/output/"
 
 # create path to read in data and grids from variables
-data_path <- paste0(source_path,"Birds_Atlas_Alberta_beast_data.rds")
-grid_path <-  paste0(source_path,"Birds_Atlas_Alberta_grid.gpkg") 
+data_path <- paste0(source_path,"Birds_Atlas_EBBA_beast_data.rds")
+grid_path <-  paste0(source_path,"Birds_Atlas_EBBA_grid.gpkg") 
 
 # save names of layers from file (needed to read them in):
 layers <- st_layers(grid_path)$name
-
 ```
 
-# 1) Handling one dataset
 
-This will become useful when all data sets have been merged to the long-file, but for now it also helps to explore the data and some of it's issues more generally.
-
-## Atlas Presence data
+## 1.2) Atlas Presence data
 
 The data has the following columns:
 
@@ -75,7 +76,7 @@ presence_data <- readRDS(data_path)
 ## re-code columns to factors for correct grouping ====================================================== #
 
 # Define the desired order of factor levels
-desired_levels <- c("cell1grid", "cell2grid", "cell4grid", "cell8grid", "cell16grid", "cell32grid", "cell64grid", "cell128grid")
+desired_levels <- c("cell1grid", "cell2grid", "cell4grid", "cell8grid", "cell16grid", "cell32grid", "cell64grid", "cell128grid", "cellfullgrid")
 
 # Reorder the levels in the "cell_grouping" column
 presence_data <- presence_data %>%
@@ -95,7 +96,20 @@ time_slot2 <- times[2]
 if (length(times) > 2) time_slot3 <- times[3]
 ```
 
-## Geopackage (Grid files)
+
+```{r}
+presence_data %>% 
+  group_by(start_year, cell_grouping) %>% 
+  summarize(n_cells = length(unique(cell_label)),
+            n_species = length(unique(verbatim_name)))
+
+
+presence_data %>% filter(is.na(start_year))
+```
+
+
+
+## 1.3) Geopackage (Grid files)
 
 ```{r}
 #| label: II. Geopackage (Grids)
@@ -121,9 +135,9 @@ toc() # sapply: 0.14 sec elapsed
 
 ```
 
-## Exploring the data
+## 1.4) Exploring the data
 
-### I. Species Richness
+### 1.4.1. Species Richness
 
 Explore species richness and how it changes spatially and temporally.
 
@@ -151,6 +165,8 @@ temp_df <- presence_data %>% filter_all(any_vars(!is.na(.))) %>%
 
 
 # How does species richness scale across sampling periods? ====================================== #
+min <- min(temp_df$meanSR_cell)
+max <- max(temp_df$meanSR_cell)+10
 
 temp_df %>%
    ggplot(aes(
@@ -165,7 +181,7 @@ temp_df %>%
    labs(color = "Start Year of Sampling Period", 
        title = "Mean Species Richness across Scales",
        subtitle = "Number above boxes = mean species richness") +
-   scale_y_continuous(breaks = seq(0, 400, by = 50), limits = c(0, 400)) +
+   scale_y_continuous(breaks = seq(0, max, by = 50), limits = c(0, max)) +
    geom_text(aes(label = round(meanSR_cell, 2), y = meanSR_cell),
             vjust = -3, size = 2, position = position_dodge(width = 1)) + # Adjust position to dodge labels
    scale_color_viridis(discrete = TRUE, alpha = 0.9)
@@ -173,7 +189,7 @@ ggsave(plot = last_plot(), filename = paste0(out_path, "Figs/SpeciesRichness.pdf
 
 ```
 
-### II. Sampling Effort
+### 1.4.2. Sampling Effort
 
 Things to consider:
 
@@ -223,7 +239,7 @@ ggsave(plot = last_plot(), filename = paste0(out_path, "Figs/SamplingEffort.pdf"
 
 ```
 
-### III. Un-sampled cells
+### 1.4.3. Un-sampled cells
 
 Not all cells that are present in the smallest grid of the map have been sampled. Sometimes this relates to the accessibility of the area (e.g., steep slopes in mountain ranges or large distance from roads and cities).\
 Note: this varies among sampling periods!
@@ -321,7 +337,7 @@ p_list
 rm(p_list, p1, p2)
 ```
 
-## Calculate Species' Occupancy
+## 1.5) Calculate Species' Occupancy
 
 Notes:
 
@@ -471,4 +487,188 @@ gg2 <- ggplot(data = plot_data,
 gg_grid <- grid.arrange(gg1, gg2, nrow = 2)
 
 ggsave(plot = gg_grid, filename = paste0(out_path, "Figs/OccupancyAcrossScales.pdf"), height = 10, width = 8 )
+```
+
+# 2) Handling multiple datasets (not merged together yet)
+
+## 2.1) Variables
+
+```{r}
+
+options(scipen=999) # turn off scientific notations
+
+
+# folder path to data
+
+source_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/"
+out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST-Project/R/out/"
+
+data_path <- paste0(source_path, list.files(source_path, pattern="*_beast_data.rds", all.files =  T, recursive = T))
+
+
+grid_path <-  paste0(source_path, list.files(source_path, pattern="*_grid.gpkg", all.files =  T, recursive = T))
+
+
+
+lay <- lapply(grid_path, st_layers)
+
+layers <- list()
+
+for (i in 1:length(lay)) 
+  {
+layers[[i]] <- c(lay[[i]]$name) # grid resolutions
+}
+
+
+```
+
+
+
+## 2.2) Atlas data
+
+```{r}
+#| warning: false
+#| echo: false
+#| message: false
+#| label: species data 
+
+# Bird presence data ============================================================ #
+
+presence_data_list <- lapply(paste0(data_path), readRDS) # read datasets to list
+
+# Extract the names of the datasets to a vector ================================================ #
+v_data <- list()
+
+for (i in 1:length(presence_data_list))
+  {
+  v_data[i] <- c(unique(presence_data_list[[i]]$dataset))
+}
+
+datasets <- do.call(c, v_data) # make vector of datasets
+
+# Extract time slots from datasets and make dataframe ================================================ #
+times <- list()
+
+for (i in 1:length(datasets))
+  {
+  dd_temp <- presence_data_list[[i]]
+  times_temp <- unique(dd_temp$start_year)
+  times[[i]] <- data.frame(dataset = datasets[i],
+                           time_slot1 = times_temp[1],
+                           time_slot2 = times_temp[2],
+                           time_slot3 = if (length(times_temp) == 2) NA else times_temp[3])
+
+}
+
+times
+names(times) <- datasets # name datasets
+times_df <- plyr:::rbind.fill(times) # fills missing with NA
+
+
+# Merge List of dataframes to one long dataframe ================================================ #
+
+presence_data_df <- plyr:::rbind.fill(presence_data_list) # bind list to data frame and fills with NAs where no data is available (the columns names don't match yet between datasets)
+
+
+presence_data <- presence_data_df # make working copy 
+
+
+
+#### =============================== exclude during test run =================================== #### 
+# presence_data <- presence_data %>% 
+#   mutate(verbatim_name = coalesce(verbatim_name, scientific_name)) %>%
+#   mutate(cell_samp_area = coalesce(cell_samp_area, cell_samp_area1))
+
+
+# make sure the columns are coded correctly
+presence_data$dataset <- as.factor(presence_data$dataset)
+presence_data$cell_grouping <- factor(presence_data$cell_grouping, levels = unique(presence_data$cell_grouping))
+presence_data$cell_label <- as.factor(presence_data$cell_label)
+presence_data$dataset <- as.factor(presence_data$dataset)
+presence_data$start_year <- as.factor(presence_data$start_year)
+# presence_data$taxa <- as.factor(presence_data$taxa)
+
+
+# reduce data columns:
+presence_data <- presence_data %>% 
+  ungroup() %>%
+  dplyr::select(c(dataset,
+                  verbatim_name,
+                  cell_grouping, 
+                  cell_label, 
+                  cell_area_km2, 
+                  cell_samp_area, 
+                  cell_perimeter_km2, 
+                  cell_long, cell_lat, 
+                  samp_effort, samp_effort_type, 
+                  start_year)) %>% unique()
+
+presence_data
+
+presence_data %>% select(start_year) %>% pull() %>% unique()
+
+for (i in 1:length(times)){
+  
+  times_temp <- times[[i]]
+  presence_data$time_slot1[presence_data$start_year == times_temp$time_slot1] <- paste(as.factor(times_temp$time_slot1))
+  presence_data$time_slot2[presence_data$start_year == times_temp$time_slot2] <- paste(as.factor(times_temp$time_slot2))
+  presence_data$time_slot3[presence_data$start_year == times_temp$time_slot3] <- paste(as.factor(times_temp$time_slot3))
+  
+}
+
+presence_data %>%  filter_all(any_vars(is.na(.))) # only NAs in sampling effort for Catalonia Birds
+
+```
+
+
+## 2.3) Geopackage loop to list
+
+```{r}
+#| warning: false
+#| echo: false
+#| message: false
+#| label: geopackage  
+
+
+## Read in geopackage file layers
+
+grid_list <- sapply(grid_path, function(current_path) {
+  layers_per_dataset <- lapply(layers, function(current_layer_v) {
+    current_layer <- st_read(current_path, current_layer_v, quiet = TRUE)
+    return(current_layer)
+  })
+  return(layers_per_dataset)
+}, simplify = F, USE.NAMES = T)
+
+
+
+names(grid_list) <- datasets
+```
+
+## 2.4) Exploring the data
+
+### 2.4.1 Species Richness
+
+```{r}
+# quick summary stats about the species data:
+
+temp_df <- presence_data %>% 
+  group_by(dataset, cell_grouping, cell_label, start_year) %>% 
+  summarise(
+    SR_cell = n()
+    ) 
+
+ temp_df %>% 
+  ungroup() %>% 
+  group_by(dataset, cell_grouping, start_year) %>% 
+  mutate (meanSR_cell = mean(SR_cell),
+          sdSR_cell = sd(SR_cell)) %>% 
+  mutate(Diff_SR_meanSR = SR_cell - meanSR_cell) %>% 
+  mutate(Diff_SR_meanSR = round(Diff_SR_meanSR, 2),
+          sdSR_cell = round(sdSR_cell, 2)) # %>% 
+   # ungroup() %>%
+   # ggplot(aes(group = cell_label))+ 
+   # geom_violin(aes(Diff_SR_meanSR, x =start_year)) 
+
+
 ```
