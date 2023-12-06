@@ -7,8 +7,25 @@ format:
     page-layout: full
 editor: visual
 ---
-
 # 0) Setting Libraries
+```{r}
+#| label: solving issues with sparta installation
+
+# Some users have reported issues with devtools not correctly installing
+# dependencies. Run the following lines to avoid these issues
+
+
+# library(devtools)
+# list.of.packages <- c("minqa", "lme4", "gtools", "gtable", "scales",
+#                       "assertthat", "magrittr", "tibble", "stringr")
+# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+# if(length(new.packages)) install.packages(new.packages)
+# 
+# # Now install sparta
+# install_github('BiologicalRecordsCentre/sparta', force = T)
+```
+
+
 
 ```{r}
 #| label: Clean Environment
@@ -31,6 +48,8 @@ library(viridis) # color palette
 library(ggpubr) # plotting stats
 library(scales) # to adjust graph axis
 library(tictoc)
+library(sparta)
+library(dplyr)
 ```
 
 # 1) Handling one dataset
@@ -38,6 +57,7 @@ library(tictoc)
 ## 1.1) Variables
 
 This will become useful when all data sets have been merged to the long-file, but for now it also helps to explore the data and some of it's issues more generally.
+
 ```{r}
 #| label: Variables 1 dataset
 #| warning: false
@@ -45,19 +65,18 @@ This will become useful when all data sets have been merged to the long-file, bu
 #| message: false
 
 # folder path to Atlas data
-source_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_EBBA/"
+source_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_Czechia/"
 
 # folder path to output folder
 out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/output/"
 
 # create path to read in data and grids from variables
-data_path <- paste0(source_path,"Birds_Atlas_EBBA_beast_data.rds")
-grid_path <-  paste0(source_path,"Birds_Atlas_EBBA_grid.gpkg") 
+data_path <- paste0(source_path,"Birds_Atlas_Czechia_beast_data.rds")
+grid_path <-  paste0(source_path,"Birds_Atlas_Czechia_grid.gpkg") 
 
 # save names of layers from file (needed to read them in):
 layers <- st_layers(grid_path)$name
 ```
-
 
 ## 1.2) Atlas Presence data
 
@@ -76,7 +95,7 @@ presence_data <- readRDS(data_path)
 ## re-code columns to factors for correct grouping ====================================================== #
 
 # Define the desired order of factor levels
-desired_levels <- c("cell1grid", "cell2grid", "cell4grid", "cell8grid", "cell16grid", "cell32grid", "cell64grid", "cell128grid", "cellfullgrid")
+desired_levels <- layers
 
 # Reorder the levels in the "cell_grouping" column
 presence_data <- presence_data %>%
@@ -88,26 +107,276 @@ presence_data$dataset <- as.factor(presence_data$dataset)
 presence_data$taxa <- as.factor(presence_data$taxa)
 
 ## make variables for time slots =========================================================== #
-times <- unique(presence_data$start_year)
-time_slot1 <- times[1]
-time_slot2 <- times[2]
 
-# some Atlases have 3 sampling periods:
-if (length(times) > 2) time_slot3 <- times[3]
+presence_data$start_year <- as.numeric(presence_data$start_year)
+presence_data$end_year <- as.numeric(presence_data$end_year)
+
+
+start_times <- sort(unique(presence_data$start_year))
+end_times <- sort(unique(presence_data$end_year))
+
+time_periods <- data.frame(start_year = year(start_times),
+                           end_year = year(end_times), 
+                           tp = c(1,2,3), 
+                           years = paste0(start_times, "-", end_times),
+                           time_periods = as.Date(strptime(paste(end_times,"/12/31", sep=''), "%Y/%m/%d")) ) #arbitrary dates for function
+
+
+
+presence_data2 <- merge(presence_data, time_periods, by=c("start_year", "end_year"), all.x=T)
+
+# time_slot1 <- times[1]
+# time_slot2 <- times[2]
+# 
+# # some Atlases have 3 sampling periods:
+# if (length(times) > 2) time_slot3 <- times[3]
 ```
 
+### Quality checks:
 
 ```{r}
-presence_data %>% 
-  group_by(start_year, cell_grouping) %>% 
+# Quick summary table:
+presence_data2 %>% 
+  group_by(tp, cell_grouping) %>% 
   summarize(n_cells = length(unique(cell_label)),
             n_species = length(unique(verbatim_name)))
 
 
-presence_data %>% filter(is.na(start_year))
+# presence_data2 %>% filter(is.na(start_year))
+
+# Subset data to sampling resolution for continuous tests:
+myData <- presence_data2 %>% 
+  filter(cell_grouping == "cell1grid") %>% 
+  select(start_year, end_year,cell_label, cellID, verbatim_name, cell_grouping,tp, time_periods,effort, years) %>% unique()
+
+
+# ## Filter by species that are not influenced by increased sampling over the years:
+# myData2 <- presence_data2 %>% filter(verbatim_name %in% sp_list_new) %>%
+#   filter(cell_grouping == "cell1grid") %>% 
+#   select(start_year, end_year,cell_label, cellID, verbatim_name, cell_grouping,tp, time_periods,effort, years) %>% unique()
+# 
+
+
+results <- sparta::dataDiagnostics(taxa = myData$verbatim_name,
+                           site = myData$cell_label,
+                           time_period = myData$tp,
+                           progress_bar = FALSE)
+
+# results2 <- sparta::dataDiagnostics(taxa = myData2$verbatim_name,
+#                            site = myData2$cell_label,
+#                            time_period = myData2$tp,
+#                            progress_bar = FALSE)
+
+results$VisitListLength
+results$RecordsPerYear
+summary(results$modelRecs) # There is no detectable change in the number of records over time (count ~ time period)
+summary(results$modelList) # There is a significant change in list lengths over time (listlength ~ time period)
+
+# results2 # still significant change over time
+# summary(results2$modelRecs) # There is no detectable change in the number of records over time (count ~ time period)
+# summary(results2$modelList) # There is a significant change in list lengths over time (listlength ~ time period)
+
 ```
 
+### Telfer Index
 
+It's a measure of relative change only as the average real trend across species is obscured (Isaac et al (2014); Telfer et al, 2002).Telfer is used for comparing two time periods and if you have more than this the telfer function will all pair-wise comparisons.
+
+```{r}
+# Telfer:
+telfer_results <- telfer(taxa = myData$verbatim_name,
+                         site = myData$cell_label,
+                         time_period = myData$tp,
+                         minSite = 2)
+head(telfer_results)
+
+
+# Note: It would be nice to group this a bit by genus or family. E.g., by using the taxadb package to get taxonomic details for species
+par(mfrow = c(2,2))
+hist(telfer_results$Telfer_1_2, ylim=c(0,80), xlim=c(-4,4))
+hist(telfer_results$Telfer_2_3, ylim=c(0,80), xlim=c(-4,4))
+hist(telfer_results$Telfer_1_3, ylim=c(0,80), xlim=c(-4,4))
+
+
+telfer_results %>% summarize(avgTelfer_1_2 = mean(Telfer_1_2, na.rm = T),
+                             avgTelfer_2_3 = mean(Telfer_2_3, na.rm = T),
+                             avgTelfer_1_3 = mean(Telfer_1_3, na.rm = T),
+                             sdTelfer_1_2 = sd(Telfer_1_2, na.rm = T),
+                             sdTelfer_2_3 = sd(Telfer_2_3, na.rm = T),
+                             sdTelfer_1_3 = sd(Telfer_1_3, na.rm = T),
+                             medTelfer_1_2 = median(Telfer_1_2, na.rm = T),
+                             medTelfer_2_3 = median(Telfer_2_3, na.rm = T),
+                             medTelfer_1_3 = median(Telfer_1_3, na.rm = T)) %>% t()
+
+```
+
+### Sub-Setting
+
+1.  by list length (to select well-sampled sites for the analysis)
+    -   list length = The min. number of taxa recorded at a site at a given time period
+2.  by sampling per year
+    -   minimum number of time periods a site must be sampled for it to be considered well sampled
+
+```{r}
+# Uneven site sampling: 
+
+# Subset our data as above but in one go
+myDataSubset  <- siteSelection(taxa = myData$verbatim_name,
+                         site = myData$cell_label,
+                         time_period = myData$tp,
+                               minL = 3,
+                               minTP = 3,
+                               LFirst = FALSE) # first subset by cells that are sampled at least twice, then by min list length of 3
+
+
+nrow(myData) - nrow(myDataSubset) # 1968 cells removed
+
+range(myData$effort)
+
+myDataSubset2 <- myData %>% filter(effort > 3)
+
+
+
+myDataSubset3 <- siteSelection(taxa = myDataSubset2$verbatim_name,
+                         site = myDataSubset2$cell_label,
+                         time_period = myDataSubset2$tp,
+                               minL = 3,
+                               minTP = 3,
+                               LFirst = FALSE) # first subset by cells that are sampled at least twice, then by min list length of 3
+
+nrow(myData) - nrow(myDataSubset2) # removed 49469 lines
+nrow(myDataSubset2) - nrow(myDataSubset3) # removed another 70775 lines
+```
+
+```{r}
+
+```
+
+```{r}
+
+## We will now recreate the ‘Well-sampled sites’ method that is presented in Roy et al (2012) and Thomas et al (2015). This is made available in the function WSS which is a simple wrapper around siteSelection and reportingratemodel. In this variant the data is subset by list length and the number of years each site was sampled before being run in a GLMM with site as a random effect.
+
+WSS_out <- WSS(taxa = myDataSubset2$verbatim_name,
+               site = myDataSubset2$cell_label,
+               time_period = myDataSubset2$time_periods,
+               minL = 2,
+               minTP = 3,
+               print_progress = T)
+
+
+with(WSS_out[1:100,],
+     # Plot graph
+     {plot(x = 1:100, y = year.estimate,
+           #ylim = range(c(year.estimate - year.stderror,
+                          #year.estimate + year.stderror)),
+           ylab = 'Year effect (+/- Std Dev)',
+           xlab = 'Species',
+           xaxt="n")
+     # Add x-axis with species names
+     axis(1, at=1:100, labels = species_name[1:100])
+     # Add the error bars
+     arrows(1:10, year.estimate - year.stderror,
+            1:10, year.estimate + year.stderror,
+            length=0.05, angle=90, code=3)}
+     )
+
+
+
+library(ggplot2)
+library(dplyr)
+
+# Subset of data for plotting (first 10 rows)
+
+
+# Create a sequence for x-axis (species)
+WSS_out$species_index <- as.numeric(rownames(WSS_out))
+str(WSS_out)
+
+test <- WSS_out %>% group_by(species_name) %>% summarize(mean_year_effect = mean(year.estimate),
+                                                 mean_se_year_effect = mean(year.stderror)) %>% ungroup() 
+WSS_out %>% filter(year.stderror > 100)
+
+# Create the plot with error bars using ggplot2
+ggplot(WSS_out, aes(x = species_index, y = year.estimate)) +
+  geom_errorbar(aes(ymin = year.estimate - year.stderror, ymax = year.estimate + year.stderror), width = 0.2) +
+  geom_point(size = 3) +
+  #ylim(range(WSS_out$year.estimate - WSS_out$year.stderror, WSS_out$year.estimate + WSS_out$year.stderror)) +
+  ylim(-100,100) +
+  labs(y = 'Year effect (+/- Std Dev)', x = 'Species') +
+  scale_x_continuous(breaks = WSS_out$species_index, labels = WSS_out$species_name) +
+  theme_minimal()+
+   theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+
+
+
+sp_list_new <- WSS_out %>% filter(year.pvalue >= 0.05) %>% pull(species_name) # only keep species where year is not significant
+
+```
+
+## Occupancy Model
+
+```{r}
+
+#myData2 <- myData %>% filter(verbatim_name %in% sp_list_new)
+#myData <- myData2
+myData <- myDataSubset2
+taxa <- unique(myData$verbatim_name)
+
+occ_data <- formatOccData(
+  myData$verbatim_name,
+  myData$cell_label,
+  myData$start_year,
+  replicate = NULL,
+  closure_period = (myData$start_year),
+  includeJDay = FALSE
+)
+
+occ_out <- occDetFunc(taxa_name = taxa[1],
+                      n_iterations = 50,
+                      burnin = 15, 
+                      occDetdata = occ_data$occDetdata,
+                      spp_vis = occ_data$spp_vis,
+                      write_results = FALSE)
+
+
+occ_out <- occDetFunc(taxa_name = taxa[1],
+                            occDetdata = occ_data$occDetdata,
+                            spp_vis = occ_data$spp_vis,
+                            n_iterations = 50000,
+                            burnin = 5000,
+                            n_chains = 2)
+
+
+
+# did not converge: Error in x$Version : $ operator is invalid for atomic vectors
+
+
+# Other options for the model:
+occ_out<-NULL
+
+
+
+  
+ results <- occ_out <- occDetFunc(taxa_name = taxa[2],
+                            occDetdata = occ_data$occDetdata,
+                            spp_vis = occ_data$spp_vis,
+                            n_iterations = 200,
+                        write_results = F,
+                            burnin = 15,
+                            n_chains = 3,
+                            thinning = 3,
+                            seed = 123)
+
+
+
+  
+  occDetFunc(taxa_name = taxa[1],
+                      n_iterations = 50,
+                      burnin = 15, 
+                      occDetdata = occ_data$occDetdata,
+                      spp_vis = occ_data$spp_vis,
+                      write_results = FALSE)
+```
 
 ## 1.3) Geopackage (Grid files)
 
@@ -201,28 +470,28 @@ Things to consider:
 presence_data %>% pull(samp_effort_type) %>% unique()
 
 # How does sampling effort scale? ============================================================= #
-presence_data %>% ungroup() %>% group_by(start_year, cell_grouping) %>% select(samp_effort) %>% get_summary_stats(type = "mean_sd")
+presence_data %>% ungroup() %>% group_by(start_year, cell_grouping) %>% select(effort) %>% get_summary_stats(type = "mean_sd")
 
 presence_data %>% 
   ungroup() %>% 
-  select(start_year, cell_grouping, samp_effort) %>% 
+  select(start_year, cell_grouping, effort) %>% 
   unique() %>% 
   group_by(start_year, cell_grouping) %>% 
   summarise(n= n(),
-            min_samp_effort = min(samp_effort),
-            mean_samp_effort = mean(samp_effort),
-            sd_samp_effort = sd(samp_effort),
-            max_samp_effort = max(samp_effort))
+            min_effort = min(effort),
+            mean_effort = mean(effort),
+            sd_effort = sd(effort),
+            max_effort = max(effort))
 
 presence_data %>%
   ungroup() %>%
-  select(start_year, cell_grouping, samp_effort) %>%
-  filter(cell_grouping != "cell128grid") %>%
+  select(start_year, cell_grouping, effort) %>%
+  filter(cell_grouping != "cellfullgrid") %>%
   unique() %>%
   group_by(start_year, cell_grouping) %>%
-  mutate(mean_samp_effort = mean(samp_effort)) %>%
+  mutate(mean_effort = mean(effort)) %>%
   
-  ggplot(aes(y = samp_effort, x = cell_grouping, fill = as.factor(start_year))) +
+  ggplot(aes(y = effort, x = cell_grouping, fill = as.factor(start_year))) +
   geom_boxplot(alpha = 0.6) +
   ylab("Sampling Effort (N Collectors)") +
   xlab("Scale") +
@@ -231,11 +500,11 @@ presence_data %>%
   labs(fill = "Start Year of Sampling Period", 
        title = "Scaling of Sampling Effort across Sampling Periods",
        subtitle = "Number above boxes = mean sampling effort") +
-  scale_y_continuous(breaks = seq(0, max(presence_data$samp_effort), by = 100)) +
-  geom_text(aes(label = round(mean_samp_effort, 2), y = mean_samp_effort),
+  scale_y_continuous(breaks = seq(0, max(presence_data$effort), by = 100)) +
+  geom_text(aes(label = round(mean_effort, 2), y = mean_effort),
             vjust = -15, size = 2, position = position_dodge(width = 0.75))  # Adjust position to dodge labels
 
-ggsave(plot = last_plot(), filename = paste0(out_path, "Figs/SamplingEffort.pdf"))
+ggsave(plot = last_plot(), filename = paste0(out_path, "Figs/SamplingEffort_boxplot.pdf"))
 
 ```
 
@@ -272,14 +541,46 @@ Note: this varies among sampling periods!
 # For each scale separately:
 grid_list2 <- list()
 for (i in 1:length(layers)){
+  
   current_layer <- layers[i]
   current_grid <- grid_list[[i]]
   print(current_layer)
+  
+  
+  #### Start Trial ########
+  
+  unsampled_1 <-current_grid %>% filter(area1 == 0) # 50 cells
+  unsampled_1c <-current_grid %>% filter(area1c == 0)
+  setdiff(unsampled_1$cell_label, unsampled_1c$cell_label) #0
+  
+  unsampled_2 <-current_grid %>% filter(area2 == 0) # 50 cells
+  unsampled_2c <-current_grid %>% filter(area2c == 0)
+  setdiff(unsampled_2$cell_label, unsampled_2c$cell_label) #0
+  
+  unsampled_3 <-current_grid %>% filter(area3 == 0) # 7 cells
+  unsampled_3c <-current_grid %>% filter(area3c == 0)
+  setdiff(unsampled_3$cell_label, unsampled_3c$cell_label) #0
+  
+  
+cells_df <- current_grid %>% 
+    select(cell_grouping, cell_label, area1, area2, area3) %>% 
+    mutate(unsampled1 = ifelse(cell_label %in% unsampled_1, '1', '0')) %>%     
+    as.data.frame()
+  
+  
+  
+  
+  
+  
+  
+  
+  #### Ende trial #########
+  
+  
   ## Sampling period 1
   cell_labels1 <- presence_data %>% 
     filter(start_year == "1987", cell_grouping == current_layer) %>% 
     pull(cell_label) %>% unique()
-  
   # differences in label names between grid and presence data
   unsampled_cells_time1 <- setdiff(current_grid$cell_label, cell_labels1)
   print(paste0("N cells not sampled in time 1 = ", length(unsampled_cells_time1)))
@@ -288,26 +589,45 @@ for (i in 1:length(layers)){
   cell_labels2 <- presence_data %>% 
     filter(start_year == "2000", cell_grouping == current_layer) %>% 
     pull(cell_label) %>% unique()
-  
   # differences in label names between grid and presence data
   unsampled_cells_time2 <- setdiff(current_grid$cell_label, cell_labels2)
   print(paste0("N cells not sampled in time 2 = ", length(unsampled_cells_time2)))
   
-  # add column with dummy variable for each time slot
-
-current_grid <- current_grid %>%
-  mutate(sampled_1 = if_else(cell_label %in% unsampled_cells_time1, '0', '1'),
-         sampled_2 = if_else(cell_label %in% unsampled_cells_time2, '0', '1')) %>%
-  mutate(sampled_1 = as.factor(sampled_1),
-         sampled_2 = as.factor(sampled_2)) %>%
-  group_by(sampled_1) %>%
-  mutate(n_1 = n(), 
-         Total_Area_per_scale_time1 = sum(cell_area_km2)) %>% ungroup() %>%
-  group_by(sampled_2) %>%
-  mutate(n_2 = n(), 
-         Total_Area_per_scale_time2 = sum(cell_area_km2))
+    ## Sampling period 3
+  cell_labels3 <- presence_data %>% 
+    filter(start_year == "2014", cell_grouping == current_layer) %>% 
+    pull(cell_label) %>% unique()
+  # differences in label names between grid and presence data
+  unsampled_cells_time3 <- setdiff(current_grid$cell_label, cell_labels3)
+  print(paste0("N cells not sampled in time 3= ", length(unsampled_cells_time3)))
   
 
+  
+  
+  ## add column with dummy variable for each time slot
+  
+  current_grid <- current_grid %>%
+    mutate(sampled_1 = if_else(cell_label %in% unsampled_cells_time1, '0', '1'),
+         sampled_2 = if_else(cell_label %in% unsampled_cells_time2, '0', '1'),
+         sampled_3 = ifelse(cell_label %in% unsampled_cells_time3, '0', '1')) %>%
+    
+    mutate(sampled_1 = as.factor(sampled_1),
+         sampled_2 = as.factor(sampled_2),
+         sampled_3 = as.factor(sampled_3)) %>%
+    
+    group_by(sampled_1) %>%
+    mutate(n_1 = n(), 
+          Total_Area_per_scale_time1 = sum(area1)) %>% 
+    ungroup() %>%
+    
+    group_by(sampled_2) %>%
+    mutate(n_2 = n(), 
+          Total_Area_per_scale_time2 = sum(area2)) %>%
+    
+    group_by(sampled_3) %>%
+    mutate(n_3 = n(), 
+          Total_Area_per_scale_time3 = sum(area3))
+  
 grid_list2[[i]] <- current_grid 
   
 }
@@ -315,26 +635,39 @@ grid_list2[[i]] <- current_grid
 # exclude cells that were not sampled from the analysis:
 grid_list_reduced1 <- list()
 grid_list_reduced2 <- list()
+grid_list_reduced3 <- list()
 p_list <- list()
 for (i in 1:length(grid_list2)){
+  
   grid_list_reduced1[[i]] <- grid_list2[[i]] %>% filter(!(cell_label %in% unsampled_cells_time1))
   grid_list_reduced2[[i]] <- grid_list2[[i]] %>% filter(!(cell_label %in% unsampled_cells_time2))
-if(unique(grid_list_reduced1[[i]]$cell_grouping) != "cell128grid") p1 <- grid_list_reduced1[[i]] %>%
+  grid_list_reduced3[[i]] <- grid_list2[[i]] %>% filter(!(cell_label %in% unsampled_cells_time3))
+  
+  # Plot time 1
+  if(unique(grid_list_reduced1[[i]]$cell_grouping) != "cellfullgrid") p1 <- grid_list_reduced1[[i]] %>%
   tm_shape() +
   tm_fill("sampled_1", palette=c("viridis")) +
   tm_borders()  
-if (unique(grid_list_reduced2[[i]]$cell_grouping) != "cell128grid") p2 <- grid_list_reduced2[[i]] %>%
+
+  # Plot time 2
+  if (unique(grid_list_reduced2[[i]]$cell_grouping) != "cellfullgrid") p2 <- grid_list_reduced2[[i]] %>%
   tm_shape() +
   tm_fill("sampled_2", palette=c("viridis")) +
   tm_borders() 
   
-p_list[[i]] <- tmap_arrange(p1, p2)
+    # Plot time 3
+  if (unique(grid_list_reduced3[[i]]$cell_grouping) != "cellfullgrid") p3 <- grid_list_reduced3[[i]] %>%
+  tm_shape() +
+  tm_fill("sampled_3", palette=c("viridis")) +
+  tm_borders() 
+  
+p_list[[i]] <- tmap_arrange(p1, p2, p3)
   
 }
 
 p_list
 
-rm(p_list, p1, p2)
+rm(p_list, p1, p2, p3)
 ```
 
 ## 1.5) Calculate Species' Occupancy
@@ -358,6 +691,62 @@ Notes:
     -   cell_grouping (as we want to calculate occupancy for each scale separately)
 
     -   start_year (as we want to calculate occupancy for each sampling period separately)
+
+```{r}
+#|label: AOO calculation number of boxes
+
+summary(presence_data)
+
+
+box_data <- presence_data %>% filter(effort != 0) %>% select(cell_grouping, start_year, verbatim_name,cell_label) %>%
+  group_by(cell_grouping, start_year, verbatim_name) %>% unique() %>%
+  summarize(n_cells_occupied = length(cell_label)) %>% 
+  ungroup()
+
+scales_df <- data.frame(cell_grouping = unique(box_data$cell_grouping), scale = c(1/2, 1/32, 1/16, 1/8, 1/4, 1 ) )
+box_data <- merge(box_data, scales_df, by="cell_grouping", all.x=T)
+
+total_boxes <- list()
+for (i in 1:length(grid_list)){
+  
+  # subset the grid_list and work on a single scale:
+  map_atlas <- grid_list[[i]] 
+  
+  # what is the total number of boxes that were sampled for each time?
+  
+  #time1:
+  map_atlas_2 <- map_atlas %>% filter(area1 != 0) %>% mutate(n_boxes = n()) #628 features
+  nMax_1 <- unique(map_atlas_2$n_boxes)
+  
+  #time2:
+  map_atlas_3 <- map_atlas_2 %>% filter(area2 != 0) %>% mutate(n_boxes = n()) #628 features
+  nMax_2 <-unique(map_atlas_3$n_boxes)
+  
+  #time3:
+  map_atlas_4 <- map_atlas_3 %>% filter(area3 != 0) %>% mutate(n_boxes = n()) #628 features
+  nMax_3 <-unique(map_atlas_4$n_boxes)
+  
+
+  total_boxes[[i]] <- data.frame(nMax_1, nMax_2, nMax_3, cell_grouping = unique(map_atlas$cell_grouping) )
+  
+}
+
+total_boxes <- do.call(rbind, total_boxes)
+
+box_data <- merge(box_data, total_boxes, by="cell_grouping", all.x = T)
+box_data <- box_data %>% 
+  group_by(cell_grouping, start_year, verbatim_name) %>% 
+  mutate(occupancy1 = n_cells_occupied / nMax_1,
+         occupancy2 = n_cells_occupied / nMax_2,
+         occupancy3 = n_cells_occupied / nMax_3) %>%
+  mutate(occupancy1 = round(occupancy1,2),
+         occupancy2 = round(occupancy2,2),
+         occupancy3 = round(occupancy3,2)) %>%
+  select(!c(nMax_1, nMax_2, nMax_3)) %>% unique()
+
+```
+
+
 
 ```{r}
 #| label: AOO calculation across scales and species
@@ -522,8 +911,6 @@ layers[[i]] <- c(lay[[i]]$name) # grid resolutions
 
 ```
 
-
-
 ## 2.2) Atlas data
 
 ```{r}
@@ -619,7 +1006,6 @@ for (i in 1:length(times)){
 presence_data %>%  filter_all(any_vars(is.na(.))) # only NAs in sampling effort for Catalonia Birds
 
 ```
-
 
 ## 2.3) Geopackage loop to list
 

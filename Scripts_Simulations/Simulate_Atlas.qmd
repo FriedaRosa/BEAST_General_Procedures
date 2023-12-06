@@ -1,0 +1,411 @@
+---
+title: "SimulatedAtlasData"
+author: "Friederike Wölke"
+format: html
+editor: visual
+---
+
+# Simulating Atlas data
+
+The purpose of this script is to simulate simple Atlas data to test some of the hypotheses in a known environment and determine which techniques best recover the parameters that were used to simulate the data.
+
+Steps:
+
+1.  Read in Libraries
+
+2.  Get the standard grid of Czechia & its' borders
+
+3.  Simulate presence data for Czechia
+
+### 1. Libraries
+
+```{r}
+rm(list=ls())
+pacman::p_load(sparta, rnaturalearth, sf, raster, tidyverse, fractaldim)
+```
+
+### 2. Variables
+
+```{r}
+#| label: Variables 1 dataset
+#| warning: false
+#| echo: false
+#| message: false
+
+# folder path to Atlas data
+source_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_Czechia/"
+
+# folder path to output folder
+out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Scripts_Simulations/"
+
+# create path to read in data and grids from variables
+grid_path <-  paste0(source_path,"Birds_Atlas_Czechia_grid.gpkg") 
+
+# save names of layers from file (needed to read them in):
+layers <- st_layers(grid_path)$name
+
+```
+
+2.1 simulate gridded map
+
+```{r}
+library(sf)
+
+# Define the extent of your grid
+x_min <- 0
+x_max <- 10
+y_min <- 0
+y_max <- 10
+cell_size <- 1  # Size of each grid cell
+
+# Create a grid of x and y coordinates
+x_coords <- seq(from = x_min, to = x_max, by = cell_size)
+y_coords <- seq(from = y_min, to = y_max, by = cell_size)
+
+# Create a mesh grid of coordinates
+grid <- expand.grid(x = x_coords, y = y_coords)
+
+# Convert the grid to an sf object
+grid_sf <- st_as_sf(grid, coords = c("x", "y"), crs = 4326)  # Change crs according to your data
+
+# Plot the grid
+plot(grid_sf)
+str(grid_sf)
+
+```
+
+```{r}
+library(sf)
+
+# Define the desired area for each grid cell in square kilometers
+cell_area_km2 <- 100
+
+# Calculate the number of cells needed along x and y to achieve the desired area
+x_extent_km <- 100  # Adjust according to your study area
+y_extent_km <- 100  # Adjust according to your study area
+
+# Calculate the number of cells needed along x and y axes
+num_cells_x <- sqrt(x_extent_km * y_extent_km / cell_area_km2)
+num_cells_y <- num_cells_x  # Assuming square grid cells, adjust if needed
+
+# Calculate cell size based on the number of cells and extent
+cell_size <- x_extent_km / num_cells_x
+
+# Create a grid of x and y coordinates
+x_coords <- seq(from = 0, by = cell_size, length.out = num_cells_x)
+y_coords <- seq(from = 0, by = cell_size, length.out = num_cells_y)
+
+# Create a mesh grid of coordinates
+grid <- expand.grid(x = x_coords, y = y_coords)
+
+# Convert the grid to an sf object
+grid_sf <- st_as_sf(grid, coords = c("x", "y"), crs = 4326)  # Change crs according to your data
+
+# Plot the grid
+plot(grid_sf)
+
+```
+
+```{r}
+library(sf)
+
+# Define the study area extent using longitude and latitude
+study_extent <- st_bbox(c(xmin = -10, xmax = 10, ymin = 40, ymax = 60), crs = 4326)
+
+# Calculate the cell size based on the desired area
+cell_area_km2 <- 100
+cell_size <- sqrt(cell_area_km2) * 1000  # Convert from km to meters
+
+# Create the grid of square cells
+grid_sf <- st_make_grid(study_extent, cellsize = cell_size, what = "polygons")
+
+# Reshape the grid into a 10x10 matrix of cells
+grid_matrix <- matrix(grid_sf, nrow = 10, byrow = TRUE)
+
+# Plot the grid
+plot(grid_sf)
+str(grid_sf)
+
+qtm(grid_sf)
+
+```
+
+### 2. Create a grid layer of the Czech Republic (`POLYGONS`)
+
+\-\-- Use data prepared by Gabriel
+
+```{r}
+
+#cells_corr <- readRDS(paste0(source_path, "Birds_Atlas_Czechia_cells_corr.rds"))
+
+grid_list <- sapply(layers, function(i) {
+  st_read(grid_path, paste(i), quiet = TRUE)
+}, simplify = FALSE)
+
+grid_cells_list <- list()
+for (i in 1:length(grid_list)){
+  Grid_cells <- grid_list[[i]] %>% 
+  select(cell_label, cell_area_km2, cell_long, cell_lat)
+  grid_cells_list[[i]] <- Grid_cells
+}
+
+total_area <- grid_cells_list[[1]] %>% mutate(total_area = sum(cell_area_km2)) %>% pull(total_area) %>% st_drop_geometry() %>% unique()
+
+library(tmap)
+qtm(grid_list[[1]], fill = "cell_grouping")
+str(grid_list[[1]])
+```
+
+\-\-\-- Use standard data (skip for now)
+
+```{r}
+# # Borders of Czech Republic
+# CZ_borders <- st_read('../data/CZE_adm0.gpkg')
+# CZ_borders <- CZ_borders %>% select(WBINCOME, WBDEBT, Shape_Leng, Shape_Area)
+# 
+# # 100km2 grids of Czech Republic
+ CZ_grids <- st_read('../data/KvadratyCR_JTSK.gpkg')
+ CZ_grids_samp <- CZ_grids[c(1:3,5),]
+ 
+ qtm(CZ_grids[c(1:3,5),])
+ qtm(CZ_grids_samp)
+# 
+# ## Do they have the same CRS? 
+# st_crs(CZ_borders) == st_crs(CZ_grids) # no
+# 
+# # Transform the borders to have the same CRS so we can cut by the borders:
+# CZ_borders <- st_transform(CZ_borders, crs = st_crs(CZ_grids)) # the same CRS as the CZ_grids layer
+# 
+# # Plot transformed:
+# ggplot() + 
+#   geom_sf(data=CZ_borders, fill='white') + 
+#   geom_sf(data=CZ_grids, fill=NA) 
+# 
+# # Crop cells to borders:
+# CZ_cropped <- st_intersection(CZ_grids, CZ_borders)
+# 
+# # Plot cropped map:
+# ggplot() + 
+#   geom_sf(data=CZ_cropped, fill='white')
+# 
+# # extract dataframe from grid to extract the details of the grid cells:
+# ## We need this to simulate presence data based on the cells (OBJECTID)
+# grid_cells_list[[1]] <- CZ_grids %>% select(OBJECTID, AREA, X, Y)
+# 
+# 
+# # Remove columns that produce clutter:
+# CZ_sf <- CZ_cropped %>%
+#   select(OBJECTID, ENTITY, AREA, PERIMETE, X, Y, WBINCOME, WBDEBT)
+```
+
+### 3. Simulating presence data (`POINTS`)
+
+```{r}
+# extract parameters from Czechia map:
+
+CZ_nSites <- length(unique(grid_list[[1]]$cell_label))
+CZ_cell_label <- unique(grid_list[[1]]$cell_label)
+
+
+
+# Create data 
+
+## (this part was copied & modified from: https://biologicalrecordscentre.github.io/sparta/articles/sparta_vignette.html#modelling-methods)
+
+
+n <- 300 # size of dataset
+nyr <- 20 # number of years in data
+nSamples <- 1000 # set number of dates
+nSites <- CZ_nSites # set number of sites
+set.seed(125) # set a random seed
+
+# Create somes dates
+first <- as.Date(strptime("1990/01/01", "%Y/%m/%d")) 
+last <- as.Date(strptime(paste(1990+(nyr-1),"/12/31", sep=''), "%Y/%m/%d")) 
+dt <- last-first 
+rDates <- first + (runif(nSamples)*dt)
+
+# taxa are set semi-randomly
+#taxa_probabilities <- seq(from = 0.1, to = 0.7, length.out = 3) 
+taxa_probabilities <- c(0.1, 0.5, 0.7)
+verbatim_name <-  sample(letters[1:3], size = n, TRUE, prob = taxa_probabilities) # 3 taxa
+table(verbatim_name)
+
+# sites are visited semi-randomly
+site_probabilities <- seq(from = 0.1, to = 0.7, length.out = nSites)
+cell_label <- sample(CZ_cell_label, size = n, TRUE, prob = site_probabilities)
+
+# the date of visit is selected semi-randomly from those created earlier
+time_probabilities <- seq(from = 0.1, to = 0.7, length.out = nSamples)
+time_period <- sample(rDates, size = n, TRUE, prob = time_probabilities)
+
+myData <- data.frame(verbatim_name, cell_label, time_period)
+
+# Let's have a look at the my example data
+head(myData)
+
+## Create a new column for the time period
+# First define my time periods
+time_periods <- data.frame(start = c(1990, 2000),
+                           end = c(1999, 2009))
+
+# Now use these to assign my dates to time periods
+myData$tp <- sparta::date2timeperiod(myData$time_period, time_periods)
+myData$tp <- as.factor(myData$tp)
+```
+
+#### Merge Presence data with CZ grid
+
+```{r}
+my_Data <- merge(myData,grid_cells_list[[1]])
+myData_sf <- my_Data %>% 
+  filter(!is.na(cell_long) & !is.na(cell_lat)) %>% # filter records without coordinates
+  st_as_sf(coords=c('cell_long', 'cell_lat'),
+           crs=st_crs(grid_cells_list[[1]]))
+
+myData_sf_sub <- myData_sf %>% select(verbatim_name, tp)
+```
+
+#### Aggregate fine-grain data to bigger grains
+
+```{r}
+pres_dat_scaled <- list()
+
+for (i in 1:length(grid_cells_list)){
+  temp_group <- st_join(grid_cells_list[[i]], myData_sf_sub)
+  pres_dat_scaled[[i]] <- temp_group
+  }
+
+```
+
+#### Use SPARTA package to assess the quality of the data
+
+```{r}
+# head(pres_dat_scaled[[1]])
+# table(pres_dat_scaled[[1]]$verbatim_name)
+# length(is.na(pres_dat_scaled[[1]]$verbatim_name))
+# 
+# ## Now let's use the SPARTA package to assess the quality of our data:
+# results <- dataDiagnostics(taxa = myData_sf_sub$verbatim_name,
+#                            site = rownames(myData_sf_sub),
+#                            time_period = myData_sf_sub$tp,
+#                            progress_bar = FALSE)
+# 
+# 
+# # Calculate relative change with Telfer index:
+# telfer_results <- telfer(taxa = myData_sf_sub$verbatim_name,
+#                          site = rownames(myData_sf_sub),
+#                          time_period = myData_sf_sub$tp,
+#                          minSite = 1)
+# 
+# head(telfer_results)
+```
+
+#### Exploring the simulated data
+
+```{r}
+
+# 2. Plot occurrences per species:
+
+p_list <- list()
+occ_list <- list()
+occ_list_scaled <- list()
+
+for (j in 1:length(pres_dat_scaled)){
+  curr_grain <- pres_dat_scaled[[j]] %>% arrange(verbatim_name) %>% unique()
+  rownames(curr_grain) <- NULL
+  curr_grain$total_area <- total_area
+  
+  
+  ## Calculate Species Richness:
+  Presence_data_SR1 <- curr_grain %>% filter(tp == 1) %>%
+  group_by(cell_label) %>% unique() %>%
+  summarise(N=sum(!is.na(verbatim_name)), 
+            SR=n_distinct(verbatim_name, na.rm = TRUE))
+  
+  
+  Presence_data_SR2 <- curr_grain %>% filter(tp == 2) %>%
+  group_by(cell_label)  %>% unique() %>% 
+  summarise(N=sum(!is.na(verbatim_name)), 
+            SR=n_distinct(verbatim_name, na.rm = TRUE))
+
+  # 1. Plot Species Richness:
+  # p <- ggplot() + 
+  #   geom_sf(data=Presence_data_SR, aes(fill=SR)) +
+  #   scale_fill_fermenter(palette ='YlOrBr', n.breaks=3, direction = 1) 
+  # p_list[[j]] <- p
+  
+  qtm(Presence_data_SR1, fill = "SR")
+  qtm(Presence_data_SR2, fill = "SR")
+  
+  
+  for (i in 1:length(unique(curr_grain$verbatim_name))){
+  
+    taxon <- unique(curr_grain$verbatim_name)[i]
+    temp <- curr_grain %>% filter(verbatim_name == taxon)
+    
+    # Now calculate fine-grain occupancy:
+    occ_data <- temp %>% st_drop_geometry() %>%
+      group_by(tp) %>% unique() %>%
+      mutate(occupancy_area = sum(cell_area_km2)) %>%  
+      mutate(relative_occupancy = occupancy_area/total_area) %>%
+      mutate(relative_occupancy = round(relative_occupancy,2)) %>% 
+      filter(!is.na(verbatim_name)) %>%  
+      ungroup() %>%
+      select(verbatim_name, tp, occupancy_area, relative_occupancy, cell_area_km2, total_area) %>%
+      unique() 
+    
+  
+  
+  occ_list[[i]] <- occ_data
+  
+  }
+  occ_df <- do.call(rbind, occ_list)
+  occ_df$cell_grouping <- j
+  occ_list_scaled[[j]] <- occ_df 
+  
+}
+
+# get an overview by plotting the first 10 results (includes NA)
+p_list
+
+occ_df_scaled <- do.call(rbind,occ_list_scaled)
+```
+
+```{r}
+temp_df <- occ_df_scaled %>% filter(tp == 1, verbatim_name == "a") %>% unique()
+
+D_a1 <- summary(lm(log10(relative_occupancy)~log10(cell_area_km2 ), data=temp_df))$coef[2,1]
+
+
+temp_df <- occ_df_scaled %>% filter(tp == 1, verbatim_name == "b") %>% unique()
+
+D_b1 <- summary(lm(log10(relative_occupancy)~log10(cell_area_km2 ), data=temp_df))$coef[2,1]
+
+
+temp_df <- occ_df_scaled %>% filter(tp == 1, verbatim_name == "c") %>% unique()
+
+D_c1 <- summary(lm(log10(relative_occupancy)~log10(cell_area_km2 ), data=temp_df))$coef[2,1]
+
+
+
+temp_df <- occ_df_scaled %>% filter(tp == 2, verbatim_name == "a") %>% unique()
+
+D_a2 <- summary(lm(log10(relative_occupancy)~log10(cell_area_km2 ), data=temp_df))$coef[2,1]
+
+
+temp_df <- occ_df_scaled %>% filter(tp == 2, verbatim_name == "b") %>% unique()
+
+D_b2 <- summary(lm(log10(relative_occupancy)~log10(cell_area_km2 ), data=temp_df))$coef[2,1]
+
+
+temp_df <- occ_df_scaled %>% filter(tp == 2, verbatim_name == "c") %>% unique()
+
+D_c2 <- summary(lm(log10(relative_occupancy)~log10(cell_area_km2 ), data=temp_df))$coef[2,1]
+
+D1 <- c(D_a1, D_b1, D_c1)
+D2 <- c(D_a2, D_b2, D_c2)
+D1D2 <- cbind(D1,D2)
+rownames(D1D2) <- c("a", "b", "c")
+D1D2
+```
