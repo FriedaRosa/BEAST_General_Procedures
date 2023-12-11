@@ -1,0 +1,265 @@
+---
+title: "Merging mutliple Atlases"
+author: "Friederike Wölke"
+format: html
+editor: visual
+---
+
+# 2) Handling multiple datasets
+
+```{r}
+#| warning: false
+#| message: false
+rm(list=ls())
+library(sf)
+library(dplyr)
+library(tibble)
+sf::sf_use_s2(FALSE)
+```
+
+## 2.1) Variables
+
+```{r}
+# folder path to grid data
+source_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Atlas best practices/Frescalo_test_data/" # We don't have the data here yet
+grid_path <-  paste0(source_path, list.files(source_path, pattern="*.gpkg", all.files =  T, recursive = T))
+
+# Folder where to save the output (if needed)
+out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Frescalo/Frescalo_out/" # change to your output folder
+
+# Add third Atlas name to vector when it's ready:
+datasets <- c("Bird_Atlas_Czechia", "Bird_Atlas_NY")
+```
+
+## 2.2) Geopackage
+
+```{r}
+#| warning: false
+#| message: false
+#| label: geopackage  
+
+grid_list <- sapply(grid_path, st_read, simplify = F, USE.NAMES = T)
+names(grid_list) <- datasets
+grid_list$Bird_Atlas_NY$dataset <- "Birds_Atlas_NY"
+```
+
+**some Checks & Notes:**
+
+-   some columns missing
+
+-   NY and CZ grids have different CRS
+
+```{r}
+# in CZ atlas but not in NY
+setdiff(names(grid_list$Bird_Atlas_Czechia), names(grid_list$Bird_Atlas_NY)) 
+
+# in NY atlas but not in CZ
+setdiff(names(grid_list$Bird_Atlas_NY), names(grid_list$Bird_Atlas_Czechia)) 
+
+st_crs(grid_list[[1]]) == st_crs(grid_list[[2]])
+# They have different CRS
+```
+
+### Add time period column (with 1,2 or 3 indicating the time period)
+
+```{r}
+## add column for time period (tp)
+for (i in 1:length(grid_list)){
+  x <- grid_list[[i]]
+  start_times <- sort(unique(x$start_year))
+  end_times <- sort(unique(x$end_year))
+  time_periods <- data.frame(start_year = start_times,
+                           end_year = end_times, 
+                           tp = 1:length(end_times))
+  grid_list[[i]] <- merge(x, time_periods, by=c("start_year", "end_year"), all.x=T)
+}
+
+```
+
+## Example code to run Frescalo over multiple datasets at once:
+
+(based on requirements for: https://github.com/FrsLry/frescalo/blob/main/scripts/all_cz_atlas.R)
+
+I modified the code from the link above a bit so that it works without the specific information from each datasets (e.g. start years)
+
+**Workflow:**
+
+-   Enclose everything into a loop that loops through grid_list
+
+-   start with reducing grid_list to the "geopackage" object specific for each dataset.
+
+-   Start a second loop nested within the first to loop through the different time periods
+
+-   Then run frescalo over each dataset and time period separatly.
+
+```{r}
+library(lubridate)
+library(sparta)
+
+# Enclose everything into a loop that loops through grid_list and start with reducing grid_list to the "geopackage" object specific for each dataset. Then run frescalo over each dataset separatly.
+
+# Vector of CRS for each dataset (modify CRS in vector for each dataset !!)
+CRS_v <- c(5514, 5514) # change CRS for second atlas (NY) and add CRS for third atlas (NZ) here
+
+# testing loop:
+i <- 1
+y <- 1
+##
+
+for (i in 1:length(grid_list)) {
+  
+  # Grid file
+  geopackage <- grid_list[[i]] %>%
+    st_transform(., CRS_v[i]) %>%
+    mutate(time_period = years(start_year))
+
+
+  for (y in 1:length(unique(geopackage$tp))) {
+    # ecological data
+    myData <- geopackage %>%
+      select(cellID, verbatim_name, tp, start_year, time_period) %>%
+      filter(tp == y) %>%
+      rename(site = cellID, taxa = verbatim_name, year = start_year) %>%
+      st_drop_geometry()
+
+    ## Get the euclidean distance between the grid cells
+    # First extract the coordinates
+coords <-
+geopackage %>%
+  filter(tp == y) %>%
+  distinct(cellID, .keep_all = T) %>%
+  st_coordinates() %>%
+  cbind(
+    geopackage %>%
+      st_drop_geometry() %>%
+      filter(tp == y) %>%
+      distinct(cellID)
+  )
+
+## Create the distance matrix
+dist <- as.matrix(dist(coords))
+# dist[upper.tri(dist)] <- NA
+
+## Transform into a df and names rows and cols 
+
+### This throws an error for me because of duplicate row names....[FW, 11.12.2023]
+dist <-
+  as.matrix(dist) %>%
+  as.data.frame() %>%
+  mutate(cellID = coords$cellID) %>%
+  remove_rownames() %>%
+  column_to_rownames("cellID")
+
+colnames(dist) <- coords$cellID
+
+## Transform into a long format
+myDistances <-
+  dist %>%
+  rownames_to_column(var = "x") %>%
+  pivot_longer(cols = -x,
+               names_to = "y",
+               values_to = "dist") %>%
+  as.data.frame()
+
+
+
+    ## Null habitat data
+    myHabitatData <-
+      data.frame(site = coords$cellID, x = 1)
+
+    ## Compute the weights
+    myWeights <- createWeights(
+      distances = myDistances,
+      attributes = myHabitatData,
+      dist_sub = 200,
+      sim_sub = 100
+    )
+
+
+    ## Run Frescalo
+    frescalo_results <- frescalo(
+      Data = myData,
+      frespath = paste0(getwd(), "/Frescalo_3a_windows.exe"),
+      time_periods = myTimePeriods,
+      site_col = "site",
+      sp_col = "taxa",
+      year = "year",
+      Fres_weights = myWeights,
+      sinkdir = out_path,
+      phi = NULL
+    )
+  }
+
+
+  ## Get sampling effort
+  effort_atlas <- geopackage %>%
+    filter(tp == y) %>%
+    select(cellID, effort) %>%
+    filter(effort != 0) %>%
+    rename(atlasCards = effort) %>%
+    distinct()
+
+  ## Compute effort from frescalo output
+  frescalo_results$stat$effortFresc <- 1 / frescalo_results$stat$Alpha
+
+  ## Plot effort atlas vs frescalo
+  pdf(paste0(out_path, "Figs/fresc_vs_cards_", unique(grid_list[[i]]$dataset),"_", y,".pdf"),
+    height = 4.13, width = 5.83
+  )
+
+  frescalo_results$stat %>%
+    select(Location, effortFresc) %>%
+    rename(cellID = Location) %>%
+    right_join(effort_atlas, by = "cellID") %>%
+    ggplot(aes(effortFresc, atlasCards)) +
+    geom_point() +
+    geom_smooth() +
+    theme_bw()
+
+  dev.off()
+
+  ## Maps
+  
+ 
+  
+  pdf(paste0(out_path, "Figs/map_fresc_", unique(grid_list[[i]]$dataset),"_", y,".pdf"),
+    width = 6.09, height = 3.46
+  )
+
+  frescalo_results$stat %>%
+    select(Location, effortFresc) %>%
+    rename(cellID = Location) %>%
+    right_join(effort_atlas, by = "cellID") %>%
+    # pivot_longer(cols = c("effortFresc", "atlasCards"),
+    #              names_to = "effort_type",
+    #              values_to = "effort") %>%
+    ggplot() +
+    geom_sf(aes(color = effortFresc, geometry = geom), size = 4) +
+    scale_color_viridis_c() +
+    # facet_wrap(~effort_type)+
+    theme_bw()
+
+  dev.off()
+
+
+  pdf(paste0(out_path, "Figs/map_cardNumber_", unique(grid_list[[i]]$dataset),"_", y,".pdf"),
+    width = 6.09, height = 3.46
+  )
+
+  frescalo_results$stat %>%
+    select(Location, effortFresc) %>%
+    rename(cellID = Location) %>%
+    right_join(effort_atlas, by = "cellID") %>%
+    # pivot_longer(cols = c("effortFresc", "atlasCards"),
+    #              names_to = "effort_type",
+    #              values_to = "effort") %>%
+    ggplot() +
+    geom_sf(aes(color = atlasCards, geometry = geom), size = 4) +
+    scale_color_viridis_c() +
+    # facet_wrap(~effort_type)+
+    theme_bw()
+
+  dev.off()
+}
+
+```
