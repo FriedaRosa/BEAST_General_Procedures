@@ -4,11 +4,14 @@ author: "Friederike Wölke"
 format: html
 editor: visual
 ---
+
 # BEAST: Scale-Area Curves
 
-This script does some basic assessment of the atlas data (species richness, effort) across temporal and spatial scales
+This script calculates different kinds of occupancy, scale-area relationships, fractal dimensions, telfer-index of change, log-Ratio plots.
 
-```{r}
+This script also does some basic assessment of the atlas data (species richness, effort) across temporal and spatial scales
+
+```{r, sparta package install & load}
 #| warning: false
 #| echo: false
 #| message: false
@@ -32,19 +35,17 @@ This script does some basic assessment of the atlas data (species richness, effo
 
 # Load sparta
 library(sparta)
-```
 
+```
 
 ### 1. Reading the necessary libraries
 
-```{r}
+```{r, other libraries}
 #| warning: false
-#| echo: false
 #| message: false
 #| label: Libraries
 
 rm(list=ls())
-gc()
 
 # Spatial packages
 library(sf)         # spatial functions
@@ -63,17 +64,18 @@ library(gridExtra)  # plotting
 library(viridis)    # color palette
 # library(ggpubr)     # plotting stats
 library(scales)     # to adjust graph axis
-library(sjPlot)
+# library(sjPlot)
+library(AICcmodavg) # AICc model selection
 
 # Other packages
 # library(tictoc)     # to measure the time it takes to run a code chunk
+
 ```
 
 ### 2. Setting path variables
 
-```{r}
+```{r, path variables}
 #| warning: false
-#| echo: false
 #| message: false
 #| label: Variables
 
@@ -81,7 +83,7 @@ library(sjPlot)
 source_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_Czechia/"
 
 # folder path to output folder
-out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST-Project/R/Updated_Analysis/output/"
+out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/out/"
 
 # create path to read in data and grids from variables
 data_path <- paste0(source_path,"Birds_Atlas_Czechia_beast_data.rds")
@@ -93,36 +95,44 @@ layers <- st_layers(grid_path)$name
 # Define the desired order of factor levels
 desired_levels <- factor(layers, 
                          ordered = T, 
-                         levels = c("cell1grid", "cell2grid", "cell4grid", "cell8grid", "cell16grid", "cellfullgrid")) 
+                         levels = c("cell1grid", "cell2grid", 
+                                    "cell4grid", "cell8grid", 
+                                    "cell16grid", "cellfullgrid")) 
+
 ```
 
 ### 3. Reading the data
 
-```{r}
+```{r, reading }
 # Species data
 presence_data <- readRDS(data_path)
 
 ## sort the cell groupings ascending
 presence_data <- presence_data %>%
-  mutate(cell_grouping = factor(cell_grouping, levels = desired_levels))
+  mutate(cell_grouping = factor(cell_grouping, 
+                                levels = desired_levels))
 
 ## add column for time period (tp)
 start_times <- sort(unique(presence_data$start_year))
 end_times <- sort(unique(presence_data$end_year))
+
 time_periods <- data.frame(start_year = start_times,
                            end_year = end_times, 
-                           tp = 1:length(end_times))
-presence_data <- merge(presence_data, time_periods, by=c("start_year", "end_year"), all.x=T)
+                           tp = seq_along(end_times))
+
+presence_data <- merge(presence_data, time_periods, 
+                       by=c("start_year", "end_year"), 
+                       all.x=T)
 
 # grid data
 grid_list <- sapply(layers, function(i) {
   st_read(grid_path, paste(i), quiet = TRUE)
 }, simplify = FALSE)
 
-names(grid_list[[1]])
-
 ```
-### Binary matrix:
+
+#### Binary matrix:
+
 ```{r}
 # sites x species matrix for all 3 time periods and all 6 scales.
 
@@ -151,39 +161,43 @@ binary_matrix <-binary_data %>%
   as.matrix()
 
 ```
+
 ### 4.1 Exploring the data: Sampling effort & Species Richness
 
-- Sampling effort
-- Species richness
-- SR ~ effort
+-   Sampling effort
+-   Species richness
+-   SR \~ effort
 
 ```{r}
 # Convert presence data (original resolution) into spatial object
 presence_data_sf <- presence_data %>% 
   filter(cell_grouping == "cell1grid") %>% 
-  filter(!is.na(cell_long) & !is.na(cell_lat)) %>% # filter records without coordinates
+  
+  # filter records without coordinates:
+  filter(!is.na(cell_long) & !is.na(cell_lat)) %>% 
   st_as_sf(coords=c('cell_long', 'cell_lat'),
            crs=st_crs(grid_list[[1]]))
 
 presence_data_sf_allgrains <- presence_data %>% 
-  filter(!is.na(cell_long) & !is.na(cell_lat)) %>% # filter records without coordinates
+  # filter records without coordinates
+  filter(!is.na(cell_long) & !is.na(cell_lat)) %>% 
   st_as_sf(coords=c('cell_long', 'cell_lat'),
            crs=st_crs(grid_list[[1]]))
 
 # Add effort and species richness to grid object
 grid_data_original <- merge(grid_list[[1]], presence_data) %>% 
-  group_by(cell_label, tp, effort) %>% # the name of the column that has the index
-  mutate(SR=n_distinct(verbatim_name, na.rm = TRUE)) %>%  # calculates the number of different 'species' in the polygon
+  group_by(cell_label, tp, effort) %>% 
+  mutate(SR=n_distinct(verbatim_name, na.rm = TRUE)) %>%  
   unique()
 
 # Calculate species richness per cell, scale and sampling period:
 temp_df <- presence_data %>% filter_all(any_vars(!is.na(.))) %>%
-  group_by(dataset, cell_grouping, cell_label, start_year) %>% 
+  group_by(dataset, cell_grouping, cell_label, tp) %>% 
   summarise(
     SR_cell = n()) %>% 
-  # Calculate range, mean (+ sd) of SR and mean Difference (+ sd) in SR between years:
+  # Calculate range, mean(+ sd) of SR and mean diff (+ sd) in SR between years:
   ungroup() %>%
-  group_by(dataset, cell_grouping, start_year) %>%  
+  group_by(dataset, cell_grouping, tp) %>%  
   mutate (minSR_cell = min(SR_cell),
           maxSR_cell = max(SR_cell),
           meanSR_cell = mean(SR_cell),
@@ -193,7 +207,7 @@ temp_df <- presence_data %>% filter_all(any_vars(!is.na(.))) %>%
           sdSR_cell = round(sdSR_cell, 2)) %>% 
    ungroup() 
 
-# How does species richness scale across sampling periods? ====================================== #
+# How does species richness scale across sampling periods? ================== #
 
 min <- min(temp_df$meanSR_cell)
 max <- max(temp_df$meanSR_cell)+10
@@ -202,23 +216,23 @@ temp_df %>%
    ggplot(aes(
      y = meanSR_cell, 
      x = cell_grouping, 
-     col = as.factor(start_year))) +
+     col = as.factor(tp))) +
    geom_point(alpha = 0.6) +
-   geom_line(aes(group = start_year))+
+   geom_line(aes(group = tp))+
    ylab("mean Species Richness") +
    xlab("Scale") +
-   theme_light() +
+   theme_classic() +
    labs(color = "Start Year of Sampling Period", 
        title = "Mean Species Richness across Scales",
        subtitle = "Number above boxes = mean species richness") +
    scale_y_continuous(breaks = seq(0, max, by = 50), limits = c(0, max)) +
    geom_text(aes(label = round(meanSR_cell, 2), y = meanSR_cell),
-            vjust = -3, size = 2, position = position_dodge(width = 1)) + # Adjust position to dodge labels
+            vjust = -3, size = 2, position = position_dodge(width = 1)) + 
    scale_color_viridis(discrete = TRUE, alpha = 0.9)
-# ggsave(plot = last_plot(), filename = paste0(out_path, "Figs/SpeciesRichness_PointLine.pdf"))
+ggsave(plot = last_plot(), filename = paste0(out_path, "Figs/SpeciesRichness_PointLine.pdf"))
 
 
-# ================================= Some Plots ========================================= #
+# ================================= Some Plots ============================== #
 
 
 #  Species Richness map:
@@ -227,12 +241,12 @@ srm <- ggplot(data = grid_data_original)+
   theme_void()+
   facet_grid(factor(tp)~.)+
   scale_fill_viridis() 
-# ggsave(filename = "SR_map.pdf", 
-#        path = paste0(out_path, "Figs/"), 
-#        device = cairo_pdf, 
-#        width = 210, 
-#        height = 297, 
-#        units = "mm")
+ggsave(filename = "SR_map.pdf",
+       path = paste0(out_path, "Figs/"),
+       device = cairo_pdf,
+       width = 210,
+       height = 297,
+       units = "mm")
 
 # Effort map:
 em <- ggplot(data = grid_data_original)+
@@ -240,49 +254,51 @@ em <- ggplot(data = grid_data_original)+
   theme_void()+
   facet_grid(factor(tp)~.)+
   scale_fill_viridis() 
-# ggsave(filename = "Effort_map.pdf", 
-#        path = paste0(out_path, "Figs/"),
-#        device = cairo_pdf, 
-#        width = 210, 
-#        height = 297, 
-#        units = "mm")
+ggsave(filename = "Effort_map.pdf",
+       path = paste0(out_path, "Figs/"),
+       device = cairo_pdf,
+       width = 210,
+       height = 297,
+       units = "mm")
 
 # Panel plot of both: 
 sr_em <- grid.arrange(srm, em, ncol=2) 
-# ggsave(plot = sr_em, 
-#        filename = "SR_Effort_maps_panel.pdf", 
-#        path = paste0(out_path, "Figs/"), 
-#        device = cairo_pdf, 
-#        width = 297, 
-#        height = 210, 
-#        units = "mm") # save as A4 landscape pdf
+ggsave(plot = sr_em,
+       filename = "SR_Effort_maps_panel.pdf",
+       path = paste0(out_path, "Figs/"),
+       device = cairo_pdf,
+       width = 297,
+       height = 210,
+       units = "mm") # save as A4 landscape pdf
 
 # Sampling effort ~ time boxplots
 means <- aggregate(effort ~  tp, grid_data_original, mean)
 grid_data_original %>%
   ggplot(aes(y = effort, x= factor(tp)))+
   geom_boxplot(fill = "lightgrey", outlier.color = "red")+
-  theme_light()+  
+  theme_classic()+  
   # Add mean
-  stat_summary(fun=mean, colour="darkred", geom="point", shape=18, size=3, show.legend=FALSE) + 
+  stat_summary(fun=mean, colour="darkred", 
+               geom="point", shape=18, 
+               size=3, show.legend=FALSE) + 
   geom_text(data = means, aes(label = round(effort,2), y = 0))+
   xlab("Time Periods") +
   ylab("Sampling effort (N cards)")
-# ggsave(filename = "Effort_time_boxplot.pdf", 
-#        path = paste0(out_path, "Figs/"),       
-#        width = 8, 
-#        height = 6)
+ggsave(filename = "Effort_time_boxplot.pdf",
+       path = paste0(out_path, "Figs/"),
+       width = 8,
+       height = 6)
 
 # Species Richness ~ Effort scatter plot
 ggplot(data = grid_data_original, aes(x = effort, y = SR, col = factor(tp)))+
   geom_point()+
   geom_smooth(method='lm')+
-  theme_light()+
+  theme_classic()+
   scale_color_viridis(discrete = T, alpha = 0.65)
-# ggsave(filename = "SR_effort_plot.pdf", 
-#        path = paste0(out_path, "Figs/"),
-#        width = 8, 
-#        height = 6)
+ggsave(filename = "SR_effort_plot.pdf",
+       path = paste0(out_path, "Figs/"),
+       width = 8,
+       height = 6)
 
 
 # ////////////// Outlier removal //////////////// #
@@ -296,51 +312,85 @@ em2 <- grid_data_original %>%
   theme_void()+
   facet_grid(factor(tp)~.)+
   scale_fill_viridis() 
-  # ggsave(filename = "Effort_map_outliers_removed.pdf", 
-  #        path = paste0(out_path, "Figs/"),
-  #        device = cairo_pdf, 
-  #        width = 210, 
-  #        height = 297, 
-  #        units = "mm")
+  ggsave(filename = "Effort_map_outliers_removed.pdf",
+         path = paste0(out_path, "Figs/"),
+         device = cairo_pdf,
+         width = 210,
+         height = 297,
+         units = "mm")
   
   # Panel plot of both: 
 sr_em2 <- grid.arrange(srm, em2, ncol=2) 
-# ggsave(plot = sr_em2, 
-#        filename = "SR_Effort_maps_panel_outliers_removed.pdf", 
-#        path = paste0(out_path, "Figs/"), 
-#        device = cairo_pdf, 
-#        width = 297, 
-#        height = 210, 
-#        units = "mm") # save as A4 landscape pdf
+ggsave(plot = sr_em2,
+       filename = "SR_Effort_maps_panel_outliers_removed.pdf",
+       path = paste0(out_path, "Figs/"),
+       device = cairo_pdf,
+       width = 297,
+       height = 210,
+       units = "mm") # save as A4 landscape pdf
+```
 
+#### Scaling sampling effort
 
-# Map: scale effort by time periods (between 0 and 1 for comparative reasons between groups)
-grid_data_original %>% group_by(tp) %>%
-  mutate(effort_scaled = scales::rescale(effort, c(0,1))) %>%
+```{r}
+# Map: scale effort by time periods 
+# (between 0 and 1 for comparative reasons between groups)
+tp1 <- grid_data_original %>% 
+  select(cell_grouping, SR, effort, tp, cell_label) %>% unique() %>%
+  filter(cell_grouping == "cell1grid") %>%
+  filter(effort > 0) %>% 
+  filter(tp == 1 | tp == 2)  %>%
+  filter_at(vars(effort), any_vars(!is.na(.))) 
+tp1$effort_scaled <- rescale(tp1$effort, to = c(0, 1))
+
+tp2 <- grid_data_original %>% 
+  select(cell_grouping, SR, effort, tp, cell_label) %>% unique() %>%
+  filter(cell_grouping == "cell1grid") %>%
+  filter(effort > 0) %>% 
+  filter(tp == 1 | tp == 2)  %>%
+  filter_at(vars(effort), any_vars(!is.na(.))) 
+tp2$effort_scaled <- rescale(tp2$effort, to = c(0, 1))
+
+tp3 <- grid_data_original %>%   
+  select(cell_grouping, SR, effort, tp, cell_label) %>% unique() %>%
+  filter(cell_grouping == "cell1grid") %>%
+  filter(effort > 0) %>% 
+  filter(tp == 3)  %>%
+  filter_at(vars(effort), any_vars(!is.na(.))) 
+tp3$effort_scaled <- rescale(tp3$effort, to = c(0, 1))
+effort_scaled_df <- rbind(tp1, tp2, tp3)
+
+effort_scaled_df %>%
+ggplot(aes(x=log(effort_scaled)))+
+  geom_density()+
+  facet_wrap(tp~.)
+
+## Map the scaled scampling effort:
+effort_scaled_df %>% group_by(tp) %>%
   ggplot()+
-  geom_sf(aes(fill = effort_scaled))+
+  geom_sf(aes(fill = log(effort_scaled)))+
   theme_void()+
   facet_grid(factor(tp)~.)+
   scale_fill_viridis() 
-  # ggsave(filename = "Effort_map_scaled.pdf", 
-  #        path = paste0(out_path, "Figs/"),
-  #        device = cairo_pdf, 
-  #        width = 210, 
-  #        height = 297, 
-  #        units = "mm")
+  ggsave(filename = "Effort_map_scaled.pdf",
+         path = paste0(out_path, "Figs/"),
+         device = cairo_pdf,
+         width = 210,
+         height = 297,
+         units = "mm")
   
 
-# How does sampling effort scale? ============================================================= #
+# How does sampling effort scale? =========================================== #
 presence_data %>% ungroup() %>% 
-  group_by(start_year, cell_grouping) %>% 
+  group_by(tp, cell_grouping) %>% 
   select(effort) %>% 
   get_summary_stats(type = "mean_sd")
 
 presence_data %>% 
   ungroup() %>% 
-  select(start_year, cell_grouping, effort) %>% 
+  select(tp, cell_grouping, effort) %>% 
   unique() %>% 
-  group_by(start_year, cell_grouping) %>% 
+  group_by(tp, cell_grouping) %>% 
   summarise(n= n(),
             min_effort = min(effort),
             mean_effort = mean(effort),
@@ -349,31 +399,54 @@ presence_data %>%
 
 presence_data %>%
   ungroup() %>%
-  select(start_year, cell_grouping, effort) %>%
+  select(tp, cell_grouping, effort) %>%
   filter(cell_grouping != "cellfullgrid") %>%
   unique() %>%
-  group_by(start_year, cell_grouping) %>%
+  group_by(tp, cell_grouping) %>%
   mutate(mean_effort = mean(effort)) %>% 
   
-  ggplot(aes(y = effort, x = cell_grouping, fill = as.factor(start_year))) +
+  ggplot(aes(y = effort, x = cell_grouping, fill = as.factor(tp))) +
   geom_boxplot(alpha = 0.6) +
   ylab("Sampling Effort (N Collectors)") +
   xlab("Scale") +
-  theme_light() +
+  theme_classic() +
   scale_fill_viridis(discrete = TRUE, alpha = 0.7) +
   labs(fill = "Start Year of Sampling Period", 
        title = "Scaling of Sampling Effort across Sampling Periods",
        subtitle = "Number above boxes = mean sampling effort") +
   scale_y_continuous(breaks = seq(0, max(presence_data$effort), by = 100)) +
   geom_text(aes(label = round(mean_effort, 2), y = mean_effort),
-            vjust = -15, size = 2, position = position_dodge(width = 0.75))  # Adjust position to dodge labels
-
-# ggsave(plot = last_plot(), filename = paste0(out_path, "Figs/SamplingEffort_boxplot.pdf"), width = 8, height = 6)
+            vjust = -15, size = 2, position = position_dodge(width = 0.75))  
 
 
+effort_scaled_df %>%
+  ungroup() %>%
+  select(tp, effort_scaled) %>%
+  unique() %>%
+  group_by(tp) %>%
+  mutate(mean_effort_scaled = mean(effort_scaled)) %>% 
+  
+  ggplot(aes(y = log(effort_scaled), x = factor(tp), fill = factor(tp))) +
+  geom_boxplot(alpha = 0.6) +
+  ylab("Sampling effort scaled") +
+  xlab("Sampling period") +
+  theme_classic() +
+  scale_fill_viridis(discrete = TRUE, alpha = 0.7) +
+  labs(fill = "Sampling Period", 
+       title = "Scaling of Sampling Effort across Sampling Periods",
+       subtitle = "Number above boxes = mean sampling effort scaled") +
+  geom_text(aes(label = round(mean_effort_scaled, 2), y = mean_effort_scaled),
+            vjust = 1.15, size = 5, position = position_dodge(width = 0.75))
+
+ggsave(plot = last_plot(), filename = paste0(out_path, "Figs/SamplingEffort_boxplot.pdf"), width = 8, height = 6)
 
 ```
+
 ### 4.2 Quality checks
+
+Telfer : (quote from Sparta Vignette: https://github.com/BiologicalRecordsCentre/sparta/blob/master/vignettes/sparta_vignette.Rmd)
+
+Telfer's change index is designed to assess the relative change in range size of species between two time periods ([Telfer et al, 2002](http://www.sciencedirect.com/science/article/pii/S0006320702000502#)). This is a simple method that is robust but has low power to detect trends where they exist. While this method is designed to compare two time periods, sparta can take many time periods and will complete all pairwise comparisons.
 
 ```{r}
 # both unbiased
@@ -389,62 +462,89 @@ telfer_results <- sparta::telfer(taxa = presence_data$verbatim_name,
                          time_period = presence_data$tp,
                          minSite = 2)
 
-telfer_results2 <- telfer_results %>% select(taxa, Telfer_1_2, Telfer_2_3, Telfer_1_3) %>% rename(verbatim_name = taxa)
+telfer_results2 <- telfer_results %>% 
+  select(taxa, Telfer_1_2, Telfer_2_3, Telfer_1_3) %>% 
+  rename(verbatim_name = taxa)
 
 head(telfer_results)
 
 ggp1 <- ggplot(data = telfer_results) +
-  geom_histogram(aes(x = Telfer_1_2), bins = 20, bg = "lightgrey", col = "darkgrey")+
-  theme_light() +
+  geom_histogram(aes(x = Telfer_1_2), bins = 20, 
+                 bg = "lightgrey", col = "darkgrey")+
+  theme_classic() +
   xlim(-4, 4)+
-  ylim(0, 85)+
-  geom_vline(xintercept = mean(telfer_results$Telfer_1_2, na.rm=T),        # Add line for mean
+  ylim(0, 85)+ 
+  # Add line for mean:
+  geom_vline(xintercept = mean(telfer_results$Telfer_1_2, na.rm=T),
              col = "red",
              lwd = 1) +
-   annotate("text",                        # Add text for mean
+  # Add text for mean:
+   annotate("text",                        
            x = mean(telfer_results$Telfer_1_2, na.rm=T) -2.5,
            y = mean(telfer_results$Telfer_1_2, na.rm=T) +80,
-           label = paste("Mean =", round(mean(telfer_results$Telfer_1_2, na.rm=T),3)),
+           label = paste("Mean =", 
+                         round(mean(telfer_results$Telfer_1_2, na.rm=T),
+                               3)
+                         ),
            col = "red",
            size = 6)+
-    geom_vline(xintercept = median(telfer_results$Telfer_1_2, na.rm=T),        # Add line for mean
+  # Add line for mean:
+    geom_vline(xintercept = median(telfer_results$Telfer_1_2, na.rm=T), 
              col = "orange",
              lwd = 1) +
-     annotate("text",                        # Add text for mean
+  # Add text for mean:
+     annotate("text",                        
            x = mean(telfer_results$Telfer_1_2, na.rm=T) -2.5,
            y = mean(telfer_results$Telfer_1_2, na.rm=T) +70,
-           label = paste("Median =", round(median(telfer_results$Telfer_1_2, na.rm=T),3)),
+           label = paste("Median =", 
+                         round(median(telfer_results$Telfer_1_2, na.rm=T),
+                               3)
+                         ),
            col = "orange",
            size = 6)
 
 ggp2 <- ggplot(data = telfer_results) +
-  geom_histogram(aes(x = Telfer_2_3), bins = 20, bg = "lightgrey", col = "darkgrey")+
-  theme_light() +
-  geom_vline(xintercept = mean(telfer_results$Telfer_2_3, na.rm=T),        # Add line for mean
+  geom_histogram(aes(x = Telfer_2_3), bins = 20, 
+                 bg = "lightgrey", col = "darkgrey")+
+  theme_classic() +
+   # Add line for mean
+  geom_vline(xintercept = mean(telfer_results$Telfer_2_3, na.rm=T),     
              col = "red",
              lwd = 1) +
   xlim(-4, 4)+
   ylim(0, 85)+
-   annotate("text",                        # Add text for mean
+  # Add text for mean
+   annotate("text",                        
            x = mean(telfer_results$Telfer_2_3, na.rm=T) -2.5,
            y = mean(telfer_results$Telfer_2_3, na.rm=T) +80,
-           label = paste("Mean =", round(mean(telfer_results$Telfer_2_3, na.rm=T),3)),
+           label = paste("Mean =", 
+                         round(
+                           mean(telfer_results$Telfer_2_3, na.rm=T),
+                           3)
+                         ),
            col = "red",
            size = 6)+
-    geom_vline(xintercept = median(telfer_results$Telfer_1_2, na.rm=T),        # Add line for mean
+  # Add line for mean:
+    geom_vline(xintercept = median(telfer_results$Telfer_1_2, na.rm=T),       
              col = "orange",
              lwd = 1) +
-     annotate("text",                        # Add text for mean
+  # Add text for mean:
+     annotate("text",                        
            x = mean(telfer_results$Telfer_2_3, na.rm=T) -2.5,
            y = mean(telfer_results$Telfer_2_3, na.rm=T) +70,
-           label = paste("Median =", round(median(telfer_results$Telfer_2_3, na.rm=T),3)),
+           label = paste("Median =", 
+                         round(median(telfer_results$Telfer_2_3, na.rm=T),
+                               3)
+                         ),
            col = "orange",
            size = 6)
 
 ggp3 <- ggplot(data = telfer_results) +
-  geom_histogram(aes(x = Telfer_1_3), bins = 20, bg = "lightgrey", col = "darkgrey")+
-  theme_light() +
-  geom_vline(xintercept = mean(telfer_results$Telfer_1_3, na.rm=T),        # Add line for mean
+  geom_histogram(aes(x = Telfer_1_3), bins = 20, 
+                 bg = "lightgrey", col = "darkgrey")+
+  theme_classic() +
+  # Add line for mean:
+  geom_vline(xintercept = mean(telfer_results$Telfer_1_3, na.rm=T),        
              col = "red",
              lwd = 1) +
   xlim(-4, 4)+
@@ -452,22 +552,30 @@ ggp3 <- ggplot(data = telfer_results) +
    annotate("text",                        # Add text for mean
            x = mean(telfer_results$Telfer_1_3, na.rm=T) -2.5,
            y = mean(telfer_results$Telfer_1_3, na.rm=T) +80,
-           label = paste("Mean =", round(mean(telfer_results$Telfer_1_3, na.rm=T),3)),
+           label = paste("Mean =", 
+                         round(mean(telfer_results$Telfer_1_3, na.rm=T),
+                               3)
+                         ),
            col = "red",
            size = 6)+
-    geom_vline(xintercept = median(telfer_results$Telfer_1_3, na.rm=T),        # Add line for mean
+  # Add line for mean:
+    geom_vline(xintercept = median(telfer_results$Telfer_1_3, na.rm=T),        
              col = "orange",
              lwd = 1) +
+ # Add text for mean:
      annotate("text",                        # Add text for mean
            x = mean(telfer_results$Telfer_1_3, na.rm=T) -2.5,
            y = mean(telfer_results$Telfer_1_3, na.rm=T) +70,
-           label = paste("Median =", round(median(telfer_results$Telfer_1_3, na.rm=T),3)),
+           label = paste("Median =", 
+                         round(median(telfer_results$Telfer_1_3, na.rm=T),
+                               3)
+                         ),
            col = "orange",
            size = 6)
 
 ggp_telfer <- grid.arrange(ggp1, ggp2, ggp3)
-plot(ggp_telfer)
-# ggsave(ggp_telfer, filename = paste0(out_path, "Figs/Telfer_hist.pdf"), width = 8, height = 6)
+#plot(ggp_telfer)
+ ggsave(ggp_telfer, filename = paste0(out_path, "Figs/Telfer_hist.pdf"), width = 8, height = 8)
 ```
 
 ### 5. Occupancy calculation
@@ -482,10 +590,9 @@ plot(ggp_telfer)
 
     4.  Modeling occupancy using occupancy-detection models
 
--   Question: Do both of these yield the same measure for fractal dimension?
+-   Question: Do all of these yield the same measure for fractal dimension?
 
-Anyway, here we calculate both (1), (2) and (3). 
-(4) Will be done at a later stage of my PhD
+Anyway, here we calculate both (1), (2) and (3). (4) Will be done at a later stage of my PhD
 
 ```{r}
 #| label: AOO calculation across scales and species
@@ -493,7 +600,7 @@ Anyway, here we calculate both (1), (2) and (3).
 occ_data_list <- list()
 
 # We run the loop for each spatial grain (N = 8)
-for (i in 1:length(grid_list)){
+for (i in seq_along(grid_list)){
   
   # subset the grid_list and work on a single spatial grain:
   map_atlas <- grid_list[[i]] 
@@ -519,15 +626,19 @@ for (i in 1:length(grid_list)){
   
   map_atlas <- merge(map_atlas, Total_Ncells)
   
-  map_atlas %>% pivot_longer(cols=c('Total_Ncells1', 'Total_Ncells2', 'Total_Ncells3'),
-                    names_to='year',
-                    values_to='Total_N_cells')
+  map_atlas %>% 
+    pivot_longer(cols=c('Total_Ncells1', 'Total_Ncells2', 'Total_Ncells3'),
+                 names_to='year',
+                 values_to='Total_N_cells')
 
   # subset the presence/absence data to the current spatial grain:
-  pres_data <- presence_data %>% filter(cell_grouping == unique(map_atlas$cell_grouping))
+  pres_data <- presence_data %>% 
+    filter(cell_grouping == unique(map_atlas$cell_grouping))
 
   # Merge sampled and unsampled cells for calculations:
-  pres_data_full <- merge(pres_data, map_atlas, by = intersect(names(pres_data), names(map_atlas)), all = T)
+  pres_data_full <- merge(pres_data, map_atlas, 
+                          by = intersect(names(pres_data), names(map_atlas)), 
+                          all = T)
   pres_data_full <- unique(pres_data_full)
 
   # Reduce columns needed for analysis:
@@ -554,9 +665,9 @@ for (i in 1:length(grid_list)){
            area_sampled, area_c, Total_area, Total_Ncells) %>%
     filter_all(any_vars(!is.na(.)))
   
-## ============================================================================================= ##
-##  ================================== Calculate Occupancy ===================================== ##
-## ============================================================================================= ##
+## ========================================================================= ##
+##  ========================== Calculate Occupancy ========================= ##
+## ========================================================================= ##
 
 occ_data <- pres_data_full_reduced %>%
   ungroup() %>%   
@@ -579,8 +690,8 @@ occ_data <- pres_data_full_reduced %>%
   mutate(relative_occupancy_Ncells = occupancy_Ncells/Total_Ncells) %>%
   
 # Round values to 2 digits after the comma:
-  mutate(relative_occupancy_area = round(relative_occupancy_area, 2)) %>% 
-  mutate(relative_occupancy_Ncells = round(relative_occupancy_Ncells, 2)) %>% 
+  mutate(relative_occupancy_area = round(relative_occupancy_area, 3)) %>% 
+  mutate(relative_occupancy_Ncells = round(relative_occupancy_Ncells, 3)) %>% 
 
 # Remove duplicated rows:
   unique() 
@@ -592,7 +703,7 @@ occ_data_list[[i]] <- occ_data
 
 # Bind to one dataframe:
 occ_data_full_df <- plyr::rbind.fill(occ_data_list, fill=T)
-occ_data_full_df %>%  filter_all(any_vars(is.na(.)))
+# occ_data_full_df %>%  filter_all(any_vars(is.na(.)))
 
 # create scale column as a fraction of the full country:
 occ_data_full_df <- occ_data_full_df %>% mutate(
@@ -604,187 +715,627 @@ occ_data_full_df <- occ_data_full_df %>% mutate(
         cell_grouping == "cell16grid" ~ 1/2 ,
         cell_grouping == "cellfullgrid" ~ 1)) %>% unique()
 gc()
-save.image()
+save.image(paste0(out_path, "Scale_Area_Curves_Occu_calc.RData"))
 ```
-# D ~ log Ratio of AOO
+
 ```{r}
-
-occ_data_full_df %>% 
-  select(cell_grouping, verbatim_name, tp, D, b, AOO, Total_Ncells, occupancy_area, occupancy_Ncells, relative_occupancy_Ncells, relative_occupancy_area) %>% 
-  distinct() %>%
-  pivot_wider(names_from = cell_grouping, 
-              values_from = c(AOO, Total_Ncells, occupancy_area, occupancy_Ncells, relative_occupancy_Ncells, relative_occupancy_area), 
-              names_sep="_") # Replace with your actual column names
-
-
-
-
-occ_data_full_df %>% 
-  pivot_wider(names_from = tp, values_from = c(tp, AOO, area_sampled, area_c, Total_Ncells, occupancy_area, occupancy_Ncells, relative_occupancy_area, relative_occupancy_Ncells), names_sep="_") %>%
-  
-  group_by(cell_grouping, verbatim_name)%>%
-  mutate(log_R = log(AOO_2 / AOO_1) )
-ggplot()+
-  geom_point(aes(y = D, x = ))
-
+occ_data_full_df %>% filter(cell_grouping == "cell1grid") %>%
+  ggplot(aes(y = AOO, x = factor(tp), col = factor(verbatim_name)), 
+         show.legend = F)+
+  geom_point( show.legend = F)+
+  geom_line(aes(group = verbatim_name), show.legend = F, lwd = 1.2)+
+  theme(legend.position = "none")+
+  theme_classic()+
+  scale_color_viridis(discrete = T)
 ```
 
+```{r, fig.height = 3, fig.width = 4, fig.show='hold'}
+## Some checks: ========================================================================================== ####
 
-### 5.2 Modeling Occupancy
+par(mfrow = c(2,2))
+occ_data_full_df %>% 
+  filter(cell_grouping == "cell1grid") %>%
+  ggplot()+
+  geom_point(aes(y = occupancy_area, x = occupancy_Ncells, 
+                 col = factor(tp)))+
+  theme_classic()+
+  scale_color_viridis(discrete = T)
 
-```{r, eval = FALSE, echo = FALSE}
+occ_data_full_df %>% 
+  filter(cell_grouping == "cell1grid") %>%
+  ggplot()+
+  geom_point(aes(y = relative_occupancy_area, x = relative_occupancy_Ncells, 
+                 col = factor(tp)))+
+  theme_classic()+
+  scale_color_viridis(discrete = T)
 
-myData <- presence_data %>% 
-  filter(cell_grouping == "cell1grid") %>% 
-  select(start_year, end_year, cell_label, verbatim_name, cell_grouping, tp, time_periods, effort, years) %>% unique()
+occ_data_full_df %>% 
+  filter(cell_grouping == "cell1grid") %>%
+  ggplot()+
+  geom_point(aes(y = occupancy_Ncells, x = relative_occupancy_Ncells, 
+                 col = factor(tp)))+
+  theme_classic()+
+  scale_color_viridis(discrete = T)
+
+occ_data_full_df %>% 
+  select(area_sampled, scale, tp) %>% 
+  distinct() %>%
+  ggplot()+
+  geom_point(aes(y = log(area_sampled) , x = log(scale), 
+                 col = factor(tp)))+
+  theme_classic()+
+  scale_color_viridis(discrete = T)
+```
+
+#### 5.2 Modeling Occupancy
+
+```{r, eval = FALSE, echo = T}
+myData <- presence_data %>%
+  filter(cell_grouping == "cell1grid") %>%
+  select(
+    tp, end_year, cell_label,
+    verbatim_name, cell_grouping, tp, time_periods,
+    effort, years
+  ) %>%
+  unique()
 
 
 # in sparta ==================================================================================
-#myData2 <- myData %>% filter(verbatim_name %in% sp_list_new)
-#myData <- myData2
-myData <- myDataSubset2
+# myData <- myDataSubset2
 taxa <- unique(myData$verbatim_name)
 
 occ_data <- formatOccData(
   myData$verbatim_name,
   myData$cell_label,
-  myData$start_year,
+  myData$tp,
   replicate = NULL,
-  closure_period = (myData$start_year),
+  closure_period = (myData$tp),
   includeJDay = FALSE
 )
 
-occ_out <- occDetFunc(taxa_name = taxa[1],
-                      n_iterations = 50,
-                      burnin = 15, 
-                      occDetdata = occ_data$occDetdata,
-                      spp_vis = occ_data$spp_vis,
-                      write_results = FALSE)
+occ_out <- occDetFunc(
+  taxa_name = taxa[1],
+  n_iterations = 50,
+  burnin = 15,
+  occDetdata = occ_data$occDetdata,
+  spp_vis = occ_data$spp_vis,
+  write_results = FALSE
+)
 
 
-occ_out <- occDetFunc(taxa_name = taxa[1],
-                            occDetdata = occ_data$occDetdata,
-                            spp_vis = occ_data$spp_vis,
-                            n_iterations = 50000,
-                            burnin = 5000,
-                            n_chains = 2)
-
-
-
-# did not converge: Error in x$Version : $ operator is invalid for atomic vectors
+occ_out <- occDetFunc(
+  taxa_name = taxa[1],
+  occDetdata = occ_data$occDetdata,
+  spp_vis = occ_data$spp_vis,
+  n_iterations = 50000,
+  burnin = 5000,
+  n_chains = 2
+)
+# did not converge:
+## Error in x$Version : $ operator is invalid for atomic vectors
 
 
 # Other options for the model:
-occ_out<-NULL
+occ_out <- NULL
 
 
 
-  
- results <- occ_out <- occDetFunc(taxa_name = taxa[2],
-                            occDetdata = occ_data$occDetdata,
-                            spp_vis = occ_data$spp_vis,
-                            n_iterations = 200,
-                        write_results = F,
-                            burnin = 15,
-                            n_chains = 3,
-                            thinning = 3,
-                            seed = 123)
+
+results <- occ_out <- occDetFunc(
+  taxa_name = taxa[2],
+  occDetdata = occ_data$occDetdata,
+  spp_vis = occ_data$spp_vis,
+  n_iterations = 200,
+  write_results = F,
+  burnin = 15,
+  n_chains = 3,
+  thinning = 3,
+  seed = 123
+)
 
 
 
-  
-  occDetFunc(taxa_name = taxa[1],
-                      n_iterations = 50,
-                      burnin = 15, 
-                      occDetdata = occ_data$occDetdata,
-                      spp_vis = occ_data$spp_vis,
-                      write_results = FALSE)
+
+occDetFunc(
+  taxa_name = taxa[1],
+  n_iterations = 50,
+  burnin = 15,
+  occDetdata = occ_data$occDetdata,
+  spp_vis = occ_data$spp_vis,
+  write_results = FALSE
+)
+
 ```
 
-### 6. Exploring occupancies
+### 6.1 Scale-Area-Curves
 
-1.1) Which species are very common (> 0.9 relative occupancy at smallest grain)
+$$n = n0 L^-FD$$
+
+(-FD is exponent, Hausdorff dimension)
+
+n0 is constant
+
+number of occupied quadrates n and L (side length of quadrat)
+
+FD=−ln(L)/ln(n0​n​)​\
+**FD = - (ln(n/n_0))/(- ln(L))**
+
+n_0 = intercept (b) ?????
+
+n = AOO ??????
+
+L = scale ?????
+
+***Hausdorff dimension:*** --\> decoupled from topological dimension !!
+
+D = lim r-\> 0 (-log N(r)/log r)
+
+N(r) is the smallest number of open balls needed to cover the set X
+
+r -\> 0 smallest radius of a ball needed to cover set X
+
+Box-counting dimension:
+
+$$
+N(s) = cs^-.^ D
+$$
+
+D = (Log(N~1~) -- Log (N~2~))/ (log (1/s~1~) --  log (1/s~2~))
+
+-   D = - (log(N(s))/(log (s) + log (c) )
+
+-   reformulate to: log(N(s)) = - D log (s) + log(c)
+
+-   which is similar to linear equation: y = mx + b
+
+s = scale where s = 1 is scale at which whole object is covered
+
+We need at least 2 different scales
+
+### How fractal is the data?
+
+The straighter the line, the more fractal it is.
+
+The following analyses all depend on the assumption that species distributions are fractal, therefore we test it first by fitting a linear and a non-linear model and comparing AICc scores to determine which model better fits the data
+
 ```{r}
-# Which species have high occupancy at the smallest grid size?
-high_occu <- occ_data_full_df %>% filter(cell_grouping == "cell1grid") %>%
-  select(verbatim_name, relative_occupancy_area, tp) %>%
-  filter(relative_occupancy_area >= 0.99) %>% 
-  unique() %>% pivot_wider(names_from = tp, names_prefix = "rel_occu", values_from = relative_occupancy_area)
+#| label: Poly vs Linear Scale-Area-Relationships
+
+dd <- occ_data_full_df %>%
+  select(
+    verbatim_name, tp, cell_grouping, scale,
+    Total_area, Total_Ncells,
+    AOO, occupancy_area, occupancy_Ncells,
+    relative_occupancy_area, relative_occupancy_Ncells
+  ) %>%
+  filter(relative_occupancy_area < 1) %>% # exclude saturated scales
+  unique() %>%
+  filter_at(vars(c(cell_grouping, AOO, scale)), any_vars(!is.na(.)))
 
 
+## Loop through years and species ###
 
-# Plot the map of some example species:
-presence_data_sf %>% filter(verbatim_name %in% unique(high_occu$verbatim_name)[1:9], cell_grouping == "cell1grid") %>%
+AIC_list <- list()
+m_df_all <- list()
+m_df_all_years <- list()
+
+
+for (y in seq_along(unique(dd$tp))) { # //// filter by year //// #
+
+  dd_temp <- dd %>% filter(tp == y)
+
+
+  for (i in seq_along(unique(dd$verbatim_name))) { # //// filter by taxa //// #
+    sp <- unique(dd$verbatim_name)[i]
+
+    model_dd <- dd %>%
+      filter(verbatim_name == sp)
+
+    m1 <- lm(log(AOO) ~ log(scale), data = model_dd)
+    m1$verbatim_name <- sp
+
+    # Calculate R-squared value
+    r_squared <- summary(m1)$r.squared
+
+    m_df1 <- data.frame(
+      verbatim_name = m1$verbatim_name,
+      m = m1$coefficients[2],
+      b = m1$coefficients[1],
+      tp = y,
+      r2 = summary(m1)$r.squared,
+      row.names = c("linear")
+    )
+
+    m_df1$D <- -m_df1$m
+
+    ## Poly:
+    m2 <- lm(log(AOO) ~ poly(scale, 2), data = model_dd)
+
+    m2$verbatim_name <- sp
+
+    # Calculate R-squared value
+    r_squared <- summary(m2)$r.squared
+
+
+    m_df2 <- data.frame(
+      verbatim_name = m2$verbatim_name,
+      m = m2$coefficients[2],
+      b = m2$coefficients[1],
+      tp = y,
+      r2 = summary(m2)$r.squared,
+      row.names = c("poly")
+    )
+
+    m_df2$D <- -m_df2$m
+
+
+    #  Model selection based on AICc ===================================== ####
+    models_list <- list(m1, m2)
+    AIC <- aictab(models_list, modnames = c("linear", "poly"))
+    AIC_tab <- as.data.frame(AIC, row.names = AIC$Modnames)
+
+    m_df3 <- rbind(m_df1, m_df2)
+    m_df3$Modnames <- rownames(m_df3)
+    m_df4 <- merge(m_df3, AIC_tab, all.x = T, by = "Modnames")
+    m_df_all[[i]] <- m_df4
+
+    # ### Work in Progress #####
+    # # Quick visual check of models:
+    # model_dd %>%
+    #   select(verbatim_name, tp, AOO, scale) %>%
+    #   distinct() %>%
+    #   # Plotting the data points and fitted models
+    #   ggplot(aes(x = log(scale), y = log(AOO), col = factor("Modnames"))) +
+    #     geom_point() +  # Add data points#
+    #     geom_point(aes(x = log(scale), y = poly(AOO,2)),
+    #                     col = "red") +  # Add data points
+    #     geom_smooth(method = "lm", se = FALSE,
+    #                 method.args = list(formula = y ~ log(x)),
+    #                 col = "blue") +  # Linear model (m1)
+    #     geom_smooth( aes(y = predict(m2),
+    #                      col = "red")) +  # Quadratic model (m2)
+    #     scale_color_viridis(discrete = T)
+    #     labs(title = "Comparison of Linear and Quadratic Models",
+    #          x = "log(Scale)", y = "log(AOO)")
+    # #
+  }
+
+
+  m_df_all2 <- plyr::rbind.fill(m_df_all, fill = T)
+  m_df_all_years[[y]] <- m_df_all2
+  
+}
+
+## Bind list elements to dataframe:
+m_df_all_years2 <- plyr::rbind.fill(m_df_all_years, fill = T)
+
+```
+
+```{r}
+#| label: Compare linear vs poly AICc
+## Compare linear vs. poly AICc selection
+# round to 3 digits:
+m_df_all2 <- m_df_all2 %>%
+  mutate(across(where(is.numeric), ~ round(., 3)))
+
+
+# Model selection based on AICc and weight:
+m_df_all2 %>% 
+  group_by(factor(Modnames), tp) %>% 
+  filter(Delta_AICc == 0) %>% 
+  filter(AICcWt > 0.6) %>% 
+  summarize(n=n(),
+            meanAICcWt = mean(AICcWt))
+
+
+m_df_all2 %>% 
+  filter(Delta_AICc == 0) %>%
+  filter(factor(Modnames) == "poly")
+
+
+m_df_all2 %>% ggplot()+
+  geom_point(aes(x = Modnames, y = Delta_AICc, col = AICcWt))+
+  theme_classic()+
+  scale_color_viridis()
+
+
+m_df_all2 %>% ggplot()+
+  geom_point(aes(x = AICcWt, y = Delta_AICc, col = AICcWt, pch = Modnames))+
+  theme_classic()+
+  scale_color_viridis()+
+  labs(title = "AICc-based model selectio: Linear vs. Poly", 
+       subtitle = "to determine deviation from linear relationship \ni.e. deviation from fractal assumption")
+
+# Which are the species that have a poly-relationship? =================== ####
+poly_species <- m_df_all2 %>% 
+  group_by( tp) %>% 
+  filter(Delta_AICc == 0) %>% 
+  filter(AICcWt > 0.6) %>%
+  filter(Modnames == "poly") %>% pull(verbatim_name) %>% unique()
+
+
+presence_data_sf %>% 
+  filter(verbatim_name %in% poly_species) %>% 
+  filter(cell_grouping == "cell1grid") %>%
   ggplot()+
   geom_sf()+
   geom_sf(data = grid_list[[1]], fill = "NA")+
   facet_wrap(verbatim_name+tp~.)+
   theme_void()
 
-# ggsave(filename = "high_occu.pdf", 
-#          path = paste0(out_path, "Figs/"),
-#          device = cairo_pdf, 
-#          height = 210, 
-#          width = 297,
-#          units = "mm")
+# occ_data_full_df %>% 
+#   filter(verbatim_name %in% poly_species) %>% 
+#   select(-c(cell_label, cell_grouping, area_sampled, area_c, Total_area, Total_Ncells)) %>%
+#   ggplot()+
+#   geom_point(aes(y = relative_occupancy_Ncells, x = Modnames))
+
+
+# occ_data_full_df %>% filter(verbatim_name %in% poly_species) %>%
+#   ggplot(aes(x = log(scale), y = poly(AOO,2), col = verbatim_name, group=verbatim_name))+
+#   geom_point()+
+#   geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = T, alpha = 0.5)+
+#   scale_color_viridis(discrete = T)+
+#   facet_wrap(verbatim_name~.)+
+#   theme_classic()+
+#   labs(title = "lm(log(AOO) ~ poly(scale, 2), data = model_dd)")
+# 
+# 
+# occ_data_full_df %>% filter(verbatim_name %in% poly_species) %>%
+#   ggplot(aes(x = log(scale), y = log(AOO), col = verbatim_name))+
+#   geom_point()+
+#   geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = T, alpha = 0.5)+
+#   scale_color_viridis(discrete = T)+
+#   facet_wrap(verbatim_name~.)+
+#   theme_classic()+
+#   labs(title = "lm(log(AOO) ~ poly(scale, 2), data = model_dd)")
 
 ```
 
-1.2) Which species are very rare (< 0.15 relative occupancy at smallest grain)
+```{r, fig.width = 4, fig.height = 3, fig.show='hold'}
+#load("~/GitHub/BEAST_General_Procedures/output/RData/Scale_Area_Curves.RData")
+#| label: Extract slopes loop
+
+
+taxa <- unique(dd$verbatim_name)
+
+# create some empty lists:
+p_list <- list()
+m_list <- list()
+m_df_all <- list()
+m_df_all_years <- list()
+
+
+## Loop for fractal calculations ============================================ #
+
+for(y in seq_along(unique(dd$tp))){               # //// filter by year //// #
+  
+  dd_temp <- dd %>% filter(tp == y) 
+  dd_temp <- dd_temp %>% 
+    filter_at(vars(c(cell_grouping, AOO)), any_vars(!is.na(.))) 
+  
+  for(i in seq_along(unique(dd_temp$verbatim_name))){ # //// filter by taxa //// #
+    
+    dd_temp2 <- dd_temp %>% 
+      filter(verbatim_name == unique(dd_temp$verbatim_name)[i])
+  
+    m <- lm(log(AOO)~log(scale), data = dd_temp2)
+    m$verbatim_name <- taxa[i]
+    
+    # Calculate R-squared value
+    r_squared <- summary(m)$r.squared
+
+    
+    m_df <- data.frame(verbatim_name = m$verbatim_name, 
+                       m = m$coefficients[2],
+                       b = m$coefficients[1],
+                       tp = y,
+                       r2 = summary(m)$r.squared) 
+    
+    m_df$D <- -m_df$m
+    
+    # Collects all D and b values for all species from one time period
+    m_df_all[[i]]<- m_df
+    
+    # Plot all species for one time period 
+    p_list[[i]] <- dd_temp2 %>% 
+      ggplot(aes(y=log(AOO), x = log(scale), col = factor(tp))) +
+      geom_point()+
+      geom_line(aes(group = tp))+
+      theme_classic() +
+      labs(title = paste0(taxa[i], "; time period:", dd$tp[y]), 
+           subtitle = paste0("D=", round(m_df$D, 1)))
+    
+  }
+  
+
+  m_df_all2 <- plyr::rbind.fill(m_df_all, fill=T)
+  m_df_all_years[[y]] <- m_df_all2
+
+
+  
+}
+
+## Assess model results: 
+m_df_all_years2 <- plyr::rbind.fill(m_df_all_years, fill=T)
+
+# Add fractal dimensions to the occu data: 
+occ_data_full_df <- merge(occ_data_full_df, m_df_all_years2, 
+                          by=c("tp", "verbatim_name"), all = T) %>% 
+  unique()
+occ_data_full_df <- merge(occ_data_full_df, telfer_results2, 
+                          by=c("verbatim_name"), all = T) %>% 
+  distinct()
+
+
+dd %>% 
+  ggplot(aes(y = log(AOO), x = log(scale)), col = factor(tp))+
+  geom_jitter(aes(col = factor(tp)))+
+  geom_smooth(aes(group = tp), method = lm, formula = y ~ x )
+
+ggplot(dd, aes(y = log(AOO), x = log(scale), col = factor(tp))) +
+  geom_jitter() +
+  geom_smooth(method = "lm", formula = y ~ x, aes(group = tp))+
+  scale_color_viridis(discrete=T)
+
+
+
+dd %>% 
+  ggplot(aes(y = log(AOO), x = log(scale)), col = factor(tp))+
+  geom_jitter(aes(col = factor(tp)))+
+  geom_smooth(aes(col = factor(tp)), method = "lm", formula = y ~ x )+
+  scale_color_viridis(discrete=T)
+
+# occ_data_full_df %>% group_by(verbatim_name, tp) %>% select(verbatim_name, tp, AOO, b, scale) %>% distinct() %>%
+#   summarize(FD = - (log(AOO/b))/(log(scale)))
+
+
+```
+
+### 6.2 Example species: Exploring occupancies
+
 ```{r}
 # Which species have low occupancy at the smallest grid size?
+low_occu_sp <- occ_data_full_df %>% filter(cell_grouping == "cell1grid") %>%
+  select(verbatim_name, relative_occupancy_area, tp) %>%
+  filter(relative_occupancy_area <= 0.15) %>% 
+  pull(unique(verbatim_name)) %>% 
+  unique()
+
 low_occu <- occ_data_full_df %>% 
   filter(cell_grouping == "cell1grid") %>% 
-  select(verbatim_name, relative_occupancy_area, tp) %>%  
-  filter(relative_occupancy_area < 0.15) %>% 
-  unique() %>% unique() %>% pivot_wider(names_from = tp, names_prefix = "rel_occu", values_from = relative_occupancy_area)
+  filter(verbatim_name %in% low_occu_sp) %>%
+  select(verbatim_name, relative_occupancy_area, tp) %>%
+  distinct() %>% 
+  pivot_wider(names_from = tp, 
+              names_prefix = "rel_occu", 
+              values_from = relative_occupancy_area)
+
+low_occu_sp_sample <- occ_data_full_df %>% 
+   filter(verbatim_name %in% c(sample(low_occu_sp, 9))) %>% 
+   pull(verbatim_name) %>% 
+   unique()
+
+low_occu_reduced <- occ_data_full_df %>% 
+  filter(cell_grouping == "cell1grid") %>% 
+  filter(verbatim_name %in% low_occu_sp) %>%
+  select(verbatim_name, relative_occupancy_area, tp) %>%
+  distinct() %>% 
+  pivot_wider(names_from = tp, 
+              names_prefix = "rel_occu", 
+              values_from = relative_occupancy_area) %>% 
+  na.omit() # remove NAs
+
+
+# Which species have high occupancy at the smallest grid size?
+high_occu_sp <- occ_data_full_df %>% 
+  filter(cell_grouping == "cell1grid") %>%
+  select(verbatim_name, relative_occupancy_area, tp) %>%
+  filter(relative_occupancy_area >= 0.99) %>% 
+  pull(unique(verbatim_name)) %>% 
+  unique()
+  
+high_occu <- occ_data_full_df %>% 
+  filter(cell_grouping == "cell1grid") %>% 
+  filter(verbatim_name %in% high_occu_sp) %>%
+  select(verbatim_name, relative_occupancy_area, tp) %>%
+  distinct() %>% 
+  pivot_wider(names_from = tp,
+              names_prefix = "rel_occu", 
+              values_from = relative_occupancy_area)
+
+high_occu_sp_sample <- occ_data_full_df %>% 
+    filter(verbatim_name %in% c(sample(high_occu_sp, 9))) %>% 
+    pull(verbatim_name) %>% 
+    unique()
+spec <- c(low_occu_sp_sample, high_occu_sp_sample)
+
+```
+
+1.1) Which species are very common (\> 0.9 relative occupancy at smallest grain)
+
+```{r}
 
 # Plot the map of some example species:
-presence_data_sf %>% filter(verbatim_name %in% unique(low_occu$verbatim_name)[1:9], cell_grouping == "cell1grid") %>%
+presence_data_sf %>% 
+  filter(verbatim_name %in% high_occu_sp_sample) %>% 
+  filter(cell_grouping == "cell1grid") %>%
+  ggplot()+
+  geom_sf()+
+  geom_sf(data = grid_list[[1]], fill = "NA")+
+  facet_wrap(verbatim_name+tp~.)+
+  theme_void()
+
+ggsave(filename = "high_occu.pdf",
+         path = paste0(out_path, "Figs"),
+         device = cairo_pdf,
+         height = 210,
+         width = 297,
+         units = "mm")
+
+```
+
+1.2) Which species are very rare (\< 0.15 relative occupancy at smallest grain)
+
+```{r}
+
+# Plot the map of some example species  ================================== ####
+presence_data_sf %>% 
+  filter(verbatim_name %in% low_occu_sp_sample) %>%
+  filter(cell_grouping == "cell1grid") %>%
   ggplot()+
   geom_sf()+
   geom_sf(data = grid_list[[1]], fill = "NA")+
   facet_wrap(verbatim_name+tp~., ncol = 6)+
   theme_void()
 
-# ggsave(filename = "low_occu.pdf", 
-#          path = paste0(out_path, "Figs/"),
-#          device = cairo_pdf, 
-#          height = 210, 
-#          width = 297, 
-#          units = "mm")
+ggsave(filename = "low_occu.pdf",
+         path = paste0(out_path, "Figs"),
+         device = cairo_pdf,
+         height = 210,
+         width = 297,
+         units = "mm")
 
 
 ### Other scales:
-presence_data_sf_allgrains %>% filter(verbatim_name %in% unique(low_occu$verbatim_name)[1:9]) %>% filter(cell_grouping == "cell2grid") %>%
+presence_data_sf_allgrains %>% 
+  filter(verbatim_name %in%low_occu_sp_sample) %>% 
+  filter(cell_grouping == "cell2grid") %>%
   ggplot()+
   geom_sf()+
   geom_sf(data = grid_list[[2]], fill = "NA")+
   facet_wrap(verbatim_name+tp~.)+
   theme_void()
 
-presence_data_sf_allgrains %>% filter(verbatim_name %in% unique(low_occu$verbatim_name)[1:9]) %>% filter(cell_grouping == "cell4grid") %>%
+presence_data_sf_allgrains %>% 
+  filter(verbatim_name %in%low_occu_sp_sample) %>%  
+  filter(cell_grouping == "cell4grid") %>%
   ggplot()+
   geom_sf()+
   geom_sf(data = grid_list[[3]], fill = "NA")+
   facet_wrap(verbatim_name+tp~.)+
   theme_void()
 
-presence_data_sf_allgrains %>% filter(verbatim_name %in% unique(low_occu$verbatim_name)[1:9]) %>% filter(cell_grouping == "cell8grid") %>%
+presence_data_sf_allgrains %>%   
+  filter(verbatim_name %in%low_occu_sp_sample) %>% 
+  filter(cell_grouping == "cell8grid") %>%
   ggplot()+
   geom_sf()+
   geom_sf(data = grid_list[[4]], fill = "NA")+
   facet_wrap(verbatim_name+tp~.)+
   theme_void()
 
-presence_data_sf_allgrains %>% filter(verbatim_name %in% unique(low_occu$verbatim_name)[1:9]) %>% filter(cell_grouping == "cell16grid") %>%
+presence_data_sf_allgrains %>%     
+  filter(verbatim_name %in%low_occu_sp_sample) %>% 
+  filter(cell_grouping == "cell16grid") %>%
   ggplot()+
   geom_sf()+
   geom_sf(data = grid_list[[5]], fill = "NA")+
   facet_wrap(verbatim_name+tp~.)+
   theme_void()
 
-presence_data_sf_allgrains %>% filter(verbatim_name %in% unique(low_occu$verbatim_name)[1:9]) %>% filter(cell_grouping == "cellfullgrid") %>%
+presence_data_sf_allgrains %>% 
+  filter(verbatim_name %in%low_occu_sp_sample) %>% 
+  filter(cell_grouping == "cellfullgrid") %>%
   ggplot()+
   geom_sf()+
   geom_sf(data = grid_list[[6]], fill = "NA")+
@@ -793,12 +1344,15 @@ presence_data_sf_allgrains %>% filter(verbatim_name %in% unique(low_occu$verbati
 
 
 ###
-presence_data_sf %>% filter(verbatim_name %in% unique(low_occu$verbatim_name)[1:9]) %>% filter(cell_grouping == "cell1grid") %>% filter(tp == 3) %>%
+presence_data_sf %>% 
+  filter(verbatim_name %in%low_occu_sp_sample) %>% 
+  filter(cell_grouping == "cell1grid") %>% filter(tp == 3) %>%
   ggplot()+
   geom_sf()+
   geom_sf(data = grid_list[[1]], fill = "NA")+
   facet_wrap(verbatim_name~., ncol = 3)+
-  theme_void()
+  theme_void()+
+  labs(title = "Low occurrence species (tp = 3)")
 ggsave(paste0(out_path, "Figs/low_occu_year3.png"))
 
 ```
@@ -807,37 +1361,37 @@ ggsave(paste0(out_path, "Figs/low_occu_year3.png"))
 
 insights from the scale area curves:
 
-
-
 ```{r}
-spec <- c(unique(low_occu$verbatim_name)[1:9], unique(high_occu$verbatim_name)[1:9])
+
 
 occ_data_full_df %>% 
   filter(verbatim_name %in% spec) %>% 
   ggplot(aes(y = log(AOO), x = log(scale), col = factor(tp)))+
   geom_point()+
   geom_line()+
-  theme_light()+
+  theme_classic()+
   scale_color_viridis(discrete = T)+
   facet_wrap(verbatim_name~.)+
   annotate("text", label = paste(), size = 4, x = 15, y = 5)+
   labs(title = "Low and High occurrence species")
 
-occ_data_full_df %>% filter(verbatim_name %in% unique(low_occu$verbatim_name)[1:9])  %>% 
+occ_data_full_df %>% 
+  filter(verbatim_name %in% low_occu_sp_sample)  %>% 
   ggplot(aes(y = log(AOO), x = log(scale), col = factor(tp)))+
   geom_point()+
   geom_line()+
-  theme_light()+
+  theme_classic()+
   facet_wrap(verbatim_name~.)+
   scale_color_viridis(discrete = T)+
   annotate("text", label = paste(), size = 4, x = 15, y = 5)+
   labs(title = "Low occurrence species")
 
-occ_data_full_df %>% filter(verbatim_name %in% unique(high_occu$verbatim_name)[1:9]) %>% 
+occ_data_full_df %>% 
+  filter(verbatim_name %in% unique(high_occu$verbatim_name)[1:9]) %>% 
   ggplot(aes(y = log(AOO), x = log(scale), col = factor(tp)))+
   geom_point()+
   geom_line()+
-  theme_light()+
+  theme_classic()+
   scale_color_viridis(discrete = T)+
   facet_wrap(verbatim_name~.)+
   annotate("text", label = paste(), size = 4, x = 15, y = 5)+
@@ -846,8 +1400,6 @@ occ_data_full_df %>% filter(verbatim_name %in% unique(high_occu$verbatim_name)[1
 
 
 ```
-
-
 
 2.1) How does it scale over time?
 
@@ -863,51 +1415,60 @@ occ_data_full_df %>%
 
 Let's look at two example species that have low occupancy and see if we can translate what's going on from the static patterns. Let's compare with telfer index of change.
 
-Species 1 : Grus grus (AOO between years differs quite a lot, but AOO increases over the years)
-Species 2 : Falco vespertinus (occurs only in 2 grid cells in tp1 and tp3 and those grid cells differ a lot)
+Species 1 : Grus grus (AOO between years differs quite a lot, but AOO increases over the years) Species 2 : Falco vespertinus (occurs only in 2 grid cells in tp1 and tp3 and those grid cells differ a lot)
+
+\
+***Results:***
+
+-   Grus grus (temporally increasing species) decreases in D (slope) over time and then increases again in D..
+
+-   Falco vespertinus (temporally decreasing species) increases in D (slope) over time.
 
 ```{r}
 # Example species: 
-# =================================================================================================================== #
+# =========================================================================== #
 ## one that differs quite a lot in AOO between years:
-# this one scales nicely between cell_groupings: 1-4 for both time periods. Looks like it is comparable.
+# this one scales nicely between cell_groupings: 1-4 for both time periods. 
+# Looks like it is comparable.
 # let's see:
 
 s_linear <- c("cell1grid", "cell2grid", "cell4grid", "cell8grid")
 
-occ_data_full_df %>% filter(verbatim_name == "Grus grus") %>% unique() %>%   filter(cell_grouping %in% s_linear) %>% 
+occ_data_full_df %>% 
+  filter(verbatim_name == "Grus grus") %>% 
+  unique() %>%   
+  #filter(cell_grouping %in% s_linear) %>% 
   ggplot(aes(x = log(scale), y = log(AOO), color = factor(tp)))+
   geom_point()+
-  theme_light()+
+  theme_classic()+
   geom_line()+
   labs(title = "Grus grus")+
   scale_color_viridis(discrete=T)
 
-
-
-
 model_df1<- occ_data_full_df %>% 
   select(verbatim_name, tp, AOO, scale, cell_grouping) %>%
   filter(verbatim_name == "Grus grus") %>% 
-  filter(cell_grouping %in% s_linear) %>%
+  #filter(cell_grouping %in% s_linear) %>%
   filter(tp == 1) %>% 
   unique() 
 model_df2<- occ_data_full_df %>% 
   select(verbatim_name, tp, AOO, scale, cell_grouping) %>%
   filter(verbatim_name == "Grus grus") %>% 
-  filter(cell_grouping %in% s_linear) %>%
+  #filter(cell_grouping %in% s_linear) %>%
   filter(tp == 2) %>% 
   unique() 
 model_df3<- occ_data_full_df %>% 
   select(verbatim_name, tp, AOO, scale, cell_grouping) %>%
   filter(verbatim_name == "Grus grus") %>% 
-  filter(cell_grouping %in% s_linear) %>%
+  #filter(cell_grouping %in% s_linear) %>%
   filter(tp == 3) %>% 
   unique() 
 
-summary(lm(log(AOO)~log(scale), na.action = na.omit,data = model_df1))$coef # D =  1.36
-summary(lm(log(AOO)~log(scale), na.action = na.omit,data = model_df2))$coef # D =  1.27
-summary(lm(log(AOO)~log(scale), na.action = na.omit,data = model_df3))$coef # D =  0.71
+D_Grusgrus <- c(summary(lm(log(AOO)~log(scale), na.action = na.omit,data = model_df1))$coef[2],
+summary(lm(log(AOO)~log(scale), na.action = na.omit,data = model_df2))$coef[2],
+summary(lm(log(AOO)~log(scale), na.action = na.omit,data = model_df3))$coef[2])
+D_df <- data.frame(D = D_Grusgrus, tp = c(1,2,3))
+plot(D~tp, D_df)
 
 
 td<- presence_data_sf %>% filter(verbatim_name == "Grus grus")
@@ -922,25 +1483,29 @@ telfer_results %>% filter(taxa == "Grus grus")
 # Telfer_1_2 = 2.317015	; 
 # Telfer_1_3 = 2.629844	; 
 # Telfer_2_3 = 2.323466
+
 ```
 
-
 ```{r}
-# =================================================================================================================== #
+# =========================================================================== #
 telfer_results %>% filter(taxa == "Falco vespertinus") 
 # Telfer_1_3 = -0.6534855	
 
 
 ## Another species that has a nice linear relationship until one point
-occ_data_full_df %>% filter(verbatim_name == "Falco vespertinus") %>% unique() %>%
+occ_data_full_df %>% 
+  filter(verbatim_name == "Falco vespertinus") %>% 
+  unique() %>%
   ggplot(aes(x = log(scale), y = log(AOO), color = factor(tp)))+
   geom_point()+
-  theme_light()+
+  theme_classic()+
   geom_line()+
   labs(title = "Falco vespertinus")+
   scale_color_viridis(discrete=T)
 
-td<- presence_data_sf %>% filter(verbatim_name == "Falco vespertinus")
+td<- presence_data_sf %>% 
+  filter(verbatim_name == "Falco vespertinus")
+
 ggplot()+
   geom_sf(data = td)+  
   geom_sf(data = grid_list[[1]], fill = 'NA') +
@@ -948,7 +1513,8 @@ ggplot()+
   facet_wrap(tp~.)+
   labs(title = "Falco vespertinus")
 
-# this one scales nicely between cell_groupings: 1-4 for both time periods. Looks like it is comparable.
+# this one scales nicely between cell_groupings: 
+# 1-4 for both time periods. Looks like it is comparable.
 # let's see:
 
 s_linear <- c("cell1grid", "cell2grid", "cell4grid", "cell8grid")
@@ -969,208 +1535,210 @@ model_df3<- occ_data_full_df %>%
 summary(lm(log(AOO)~log(scale), na.action = na.omit,data = model_df1))$coef # D =  1.76
 summary(lm(log(AOO)~log(scale), na.action = na.omit,data = model_df3))$coef # D =  1.87 # a bit more a plane than in first time period.. 
 
+D_Falco <- c(summary(lm(log(AOO)~log(scale), na.action = na.omit,data = model_df1))$coef[2],
+summary(lm(log(AOO)~log(scale), na.action = na.omit,data = model_df3))$coef[2])
+D_df <- data.frame(D = D_Falco, tp = c(1,3))
 
+plot(D~tp, D_df)
 
-
-
-# =================================================================================================================== #
+telfer_results %>% filter(taxa == "Falco vespertinus") %>% select(taxa, Nsite_1.y, Nsite_3.x, Telfer_1_3)
+# =========================================================================== #
 ```
-
 
 ```{r}
 occ_data_full_df %>%  filter(cell_grouping == "cell1grid") %>%
 ggplot() +
-  geom_boxplot(aes(y = relative_occupancy_area, fill = factor(tp)))
+  geom_boxplot(aes(y = relative_occupancy_area, fill = factor(tp))) + scale_color_viridis(discrete = T)
 
                                   
 cols_n <- intersect(names(presence_data), names(occ_data_full_df))
-occ_data_full <- unique(merge(presence_data, occ_data_full_df, by = cols_n, all.y = T))
-gc()
+occ_data_full <- unique(merge(presence_data, occ_data_full_df, 
+                              by = cols_n, 
+                              all.y = T))
 
-
+# gc()
 # save.image("~/GitHub/BEAST_General_Procedures/output/RData/Scale_Area_Curves.RData")
 
 ```
 
-### 6.1 Scale-Area-Curves
+#### D \~ Telfer Plot
 
 ```{r, fig.width = 3, fig.height = 3, fig.show='hold'}
-#load("~/GitHub/BEAST_General_Procedures/output/RData/Scale_Area_Curves.RData")
-
-dd <- occ_data_full_df %>% 
-  select(verbatim_name, tp, cell_grouping, scale,
-         Total_area, Total_Ncells, 
-         AOO, occupancy_area, occupancy_Ncells, 
-         relative_occupancy_area, relative_occupancy_Ncells) %>% 
-  unique()
-
-taxa <- unique(dd$verbatim_name)
-
-# create some empty lists:
-p_list <- list()
-m_list <- list()
-m_df_all <- list()
-m_df_all_years <- list()
-
-
-## Loop for fractal calculations ============================================
-
-for(y in 1:max(dd$tp)){           # //// filter by year //// #
-  
-  dd_temp <- dd %>% filter(tp == y) 
-  
-  for(i in 1:length(unique(dd_temp$verbatim_name))){       # //// filter by taxa //// #
-    
-    dd_temp2 <- dd_temp %>% 
-      filter(verbatim_name == unique(dd_temp$verbatim_name)[i])
-  
-    m <- lm(log(AOO)~log(scale), data = dd_temp2)
-    m$verbatim_name <- taxa[i]
-    
-    # Calculate R-squared value
-    r_squared <- summary(m)$r.squared
-
-    
-    m_df <- data.frame(verbatim_name = m$verbatim_name, 
-                       D = m$coefficients[2], 
-                       b = m$coefficients[1],
-                       tp = y,
-                       r2 = summary(m)$r.squared,
-                       straightness_score = straightness_score) 
-    
-    # Collects all D and b values for all species from one time period
-    m_df_all[[i]]<- m_df
-    
-    # Plot all species for one time period 
-    p_list[[i]] <- dd_temp2 %>% 
-      ggplot(aes(y=log(AOO), x = log(scale), col = factor(tp))) +
-      geom_point()+
-      geom_line(aes(group = tp))+
-      theme_classic() +
-      labs(title = paste0(taxa[i], "; time period:", dd$tp[y]), subtitle = paste0("D=", round(m_df$D, 1)))
-    
-  }
-  
-
-  m_df_all2 <- plyr::rbind.fill(m_df_all, fill=T)
-  m_df_all_years[[y]] <- m_df_all2
-
-
-  
-}
-
-## Assess model results: 
-m_df_all_years2 <- plyr::rbind.fill(m_df_all_years, fill=T)
-
-# Add fractal dimensions to the occu data: 
-occ_data_full_df <- merge(occ_data_full_df, m_df_all_years2, by=c("tp", "verbatim_name"), all = T) %>% unique()
-
-occ_data_full_df <- merge(occ_data_full_df, mydata <- mydata %>%
-  mutate(across(names, as.factor))
-  results2, by=c("verbatim_name"), all = T) %>% unique()
-
-
-
 # D ~ Telfer Plot ==================================== ####
 
 occ_data_full_df %>% filter(tp == 1) %>%
 ggplot() +
   geom_point(aes(x = Telfer_1_2, y = D ))+
-  theme_light()
+  theme_classic()
 
 occ_data_full_df %>% filter(tp == 2) %>%
 ggplot() +
   geom_point(aes(x = Telfer_2_3, y = D ))+
-  theme_light()
+  theme_classic()
 
 occ_data_full_df %>% filter(tp == 3) %>%
 ggplot() +
   geom_point(aes(x = Telfer_1_3, y = D ))+
-  theme_light()
+  theme_classic()
 ```
 
-### Correlograms 
-```{r, fig.width = 3, fig.height = 3, fig.show='hold'}
+#### D \~ log Ratio of AOO
+
+```{r}
+# Re-formating the data.. there is probably a smoother way to do it..
+occ_data_wide1 <- occ_data_full_df %>% 
+  select(verbatim_name, tp, cell_grouping, 
+         D, b, AOO, Total_Ncells, 
+         occupancy_area, occupancy_Ncells, 
+         relative_occupancy_Ncells, relative_occupancy_area) %>% 
+  group_by(verbatim_name, tp) %>% 
+  distinct() %>% 
+  filter(tp == 1) %>% 
+  setNames(paste0('tp1_', names(.))) %>% 
+  ungroup() %>%
+  select(-c(tp1_tp)) %>%
+  rename(verbatim_name = tp1_verbatim_name,
+         cell_grouping = tp1_cell_grouping)
+
+occ_data_wide2 <- occ_data_full_df %>% 
+  select(verbatim_name, tp, cell_grouping, 
+         D, b, AOO, Total_Ncells, 
+         occupancy_area, occupancy_Ncells, 
+         relative_occupancy_Ncells, relative_occupancy_area) %>% 
+  group_by(verbatim_name, tp) %>% 
+  distinct() %>% 
+  filter(tp == 2) %>% 
+  setNames(paste0('tp2_', names(.))) %>% 
+  ungroup() %>%
+  select(-c(tp2_tp)) %>%
+  rename(verbatim_name = tp2_verbatim_name,
+         cell_grouping = tp2_cell_grouping)
+
+occ_data_wide3 <- occ_data_full_df %>% 
+  select(verbatim_name, tp, cell_grouping, 
+         D, b, AOO, Total_Ncells, 
+         occupancy_area, occupancy_Ncells, 
+         relative_occupancy_Ncells, relative_occupancy_area) %>% 
+  group_by(verbatim_name, tp) %>% 
+  distinct() %>% 
+  filter(tp == 3) %>% 
+  setNames(paste0('tp3_', names(.))) %>% 
+  ungroup() %>%
+  select(-c(tp3_tp)) %>%
+  rename(verbatim_name = tp3_verbatim_name,
+         cell_grouping = tp3_cell_grouping)
+
+# merge back together:
+temp <- merge(occ_data_wide1, occ_data_wide2, 
+              by=intersect(names(occ_data_wide1), names(occ_data_wide2)))
+temp2 <- merge(temp, occ_data_wide3,
+               by=intersect(names(temp), names(occ_data_wide3)))
+names_v <- names(temp2[-(1:2)])
+
+# Transform to wide format by cell_grouping
+occ_data_wide <- temp2 %>% 
+  pivot_wider(names_from = cell_grouping,
+              values_from = all_of(names_v))
+
+occ_data_wide <- occ_data_wide %>% 
+  mutate(log_R1 = log(tp2_AOO_cell1grid/tp1_AOO_cell1grid),
+         log_R2 = tp2_AOO_cell1grid-tp1_AOO_cell1grid, 
+         log_R1_3 = log(tp3_AOO_cell1grid/tp1_AOO_cell1grid),
+         log_R2_3 = tp3_AOO_cell1grid-tp1_AOO_cell1grid, 
+         .before = 1) # sort columns to the beginning of the table
+
+
+# Plots =================================================================== #
+occ_data_wide %>% 
+  ggplot(aes(y = log_R1, x =-tp1_D_cell1grid))+
+  geom_point()+
+  ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
+  xlab("tp1_D")+
+ geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  theme_classic()
+
+occ_data_wide %>% 
+  ggplot(aes(y = log_R2, x =-tp1_D_cell1grid))+
+  geom_point()+
+  xlab("tp1_D")+
+  ylab("log(tp2_AOO_cell1grid - tp1_AOO_cell1grid)")+
+  geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  theme_classic()
+
+
+occ_data_wide %>% 
+  ggplot(aes(y = log_R1_3, x =-tp1_D_cell1grid))+
+  geom_point()+
+  ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
+  xlab("tp1_D")+
+ geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  theme_classic()
+
+occ_data_wide %>% 
+  ggplot(aes(y = log_R2_3, x =-tp1_D_cell1grid))+
+  geom_point()+
+  xlab("tp1_D")+
+  ylab("log(tp2_AOO_cell1grid - tp1_AOO_cell1grid)")+
+  geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  theme_classic()
+```
+
+### Correlograms
+
+```{r, fig.width = 12, fig.height = 14, fig.show='hold', message = F, warning = F}
 # Correlation plots =================================== ##
 
-library("PerformanceAnalytics")
-my_data <- occ_data_full_df %>% 
-  select(tp, scale, area_sampled, area_c, occupancy_area, occupancy_Ncells, AOO, relative_occupancy_area, relative_occupancy_Ncells, D, b, r2, Telfer_1_2, Telfer_2_3, Telfer_1_3) %>% 
+# library("PerformanceAnalytics")
+my_data <- occ_data_full_df %>%
+  select(tp, scale, area_sampled,
+         occupancy_area, occupancy_Ncells, 
+         AOO, relative_occupancy_area, relative_occupancy_Ncells, 
+         D, m, b, r2, 
+         Telfer_1_2, Telfer_2_3, Telfer_1_3) %>%
   distinct(D, .keep_all = T)
 
 # with GGally ========
 library(GGally)
-pdf(paste0(out_path, "Figs/Corrplot_D_Telfer.pdf"), width = "117", height = "165")
+
+#pdf(paste0(out_path, "Figs/Corrplot_D_Telfer.pdf"), width = "117", height = "165")
 my_data$tp <- as.factor(my_data$tp)
-ggpairs(my_data, mapping = aes(color = tp, fill = scale))
-dev.off()
+my_data %>% filter(scale == 0.03125 ) %>%
+ggpairs(mapping = aes(color = tp, alpha = 0.25), 
+        columns = c("occupancy_area", "occupancy_Ncells",
+                    "AOO", "relative_occupancy_area",
+                    "m", "b", 
+                    "Telfer_1_2", "Telfer_2_3", "Telfer_1_3"),
+        upper = list(continuous = wrap("density", alpha = 0.5), 
+                     combo = "box_no_facet"),
+  lower = list(continuous = wrap("points", alpha = 0.3), 
+               combo = wrap("dot_no_facet", alpha = 0.4)),)+
+  scale_color_viridis(discrete = T)+
+  scale_fill_viridis(discrete = T)
+#dev.off()
 
 
+```
 
-
-
-pdf("figures/corplot.pdf" ,
-    width = 11.69, height = 8.27)
-corD %>% select(sr, atlasCards, effortFresc, observers) %>%  GGally::ggpairs() + theme_bw()
-dev.off()
-
-# Plots =============================================== ####
+```{r}
 #par(mfrow=c(4,4))
 p_list[1:16]
-
+# Plots =============================================== ####
 # 
-occ_data_full_df %>% filter(verbatim_name %in% high_occu$verbatim_name) %>% 
-  ggplot(aes(y=(AOO), x = (scale), color = verbatim_name)) +
+occ_data_full_df %>% 
+  filter(verbatim_name %in% high_occu$verbatim_name) %>% 
+  ggplot(aes(y=log(AOO), x = log(scale), color = verbatim_name)) +
   geom_point(show.legend = F)+
   geom_line(aes(group = verbatim_name), show.legend = F)+
   facet_wrap(tp~.)+
   theme(legend.position = "none") +
-  theme_light()
+  theme_classic()
 
 # dd %>% filter(cell_grouping == "cell1grid") %>%
 # ggplot(aes(x = occupancy_Ncells)) +
 #   geom_histogram(bins = 20, bg = "lightgrey", col = "darkgrey")+
 #   facet_wrap(tp~.)+
-#   theme_light()
+#   theme_classic()
 
-# save.image("~/GitHub/BEAST_General_Procedures/output/RData/Scale_Area_Curves.RData")
+ save.image("~/GitHub/BEAST_General_Procedures/output/RData/Scale_Area_Curves_full.RData")
 
-```
-
-
-
-
-
-### How fractal is the data?
-
-The straighter the line, the more fractal it is.
-
-The following analyses all depend on the assumption that species distributions are fractal.
-
-Background:
-
-The following method (function) measures the deviation of the line from a perfectly straight line (i.e., perfectly fractal).\
-One common approach is to calculate the R-squared value for a linear regression of the points on the line. A perfectly straight line will have an R-squared value of 1, while a more curved line will have a lower R-squared value.
-
-```{r, eval = FALSE, echo = FALSE}
-#| label: function to calculate "degree of fractralness"
-  # Perform linear regression on log-transformed variables
-  lm_model <- lm(log_y ~ log_x)
-  
-  # Calculate R-squared value
-  r_squared <- summary(lm_model)$r.squared
-  
-  # Assign a straightness score between 0 and 1
-  straightness_score <- 1 - (1 / (1 + r_squared))
-  
-  return(straightness_score)
-}
-
-```
-
-```{r,eval = FALSE, echo = FALSE}
-log_x <- log(plot_data$relative_occupancy)
-log_y <- log(plot_data$Scale_km2)
-
-calculate_log_transformed_line_straightness(log_x, log_y)
 ```
