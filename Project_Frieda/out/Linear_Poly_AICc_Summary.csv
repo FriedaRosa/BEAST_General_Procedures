@@ -1,0 +1,11 @@
+"","Modnames","model","n","mean_cumWT","Delta_AICc"
+"1","linear","AOO",690,0.943,0.006
+"2","linear","occArea",690,0.943,0.006
+"3","linear","occNcells",627,0.946,0.001
+"4","linear","occRelArea",690,0.938,0.004
+"5","linear","occRelNcells",651,0.912,0.034
+"6","poly","AOO",45,0.97,0.53
+"7","poly","occArea",45,0.97,0.53
+"8","poly","occNcells",84,0.964,0.388
+"9","poly","occRelArea",48,0.877,0.431
+"10","poly","occRelNcells",132,0.919,0.457
