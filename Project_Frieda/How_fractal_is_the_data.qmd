@@ -1,14 +1,29 @@
 ---
 title: "How fractal is the data?"
 author: "Friederike Wölke"
-format: html
-editor: visual
+date: "2023-12-18"
+output:
+  html_document:
+    code_folding: hide
+format:
+  html:
+    toc: true
+    number-sections: true
+    colorlinks: true
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(dpi=200, echo = TRUE, message = FALSE, warning = FALSE)
+```
 
 ## Libraries
 
-```{r}
-gc()
+```{r class.source = 'fold-hide', collapse = T}
+#| warning: false
+#| message: false
+#| label: Libraries
+
+
 rm(list=ls())
 
 library(dplyr)
@@ -246,7 +261,7 @@ species_data <- occ_data_full_df %>% select(-c(cell_label, area_sampled, area_c)
 -   At cell2grid, less species saturate compared to time period 1. All other spatial grains suggest temporal increases (i.e., more species saturating at a given scale in tp2 compared to tp1)
 
 | *cell_grouping* | *tp* | *n_sp* | *Comment*                                               |
-|:--------------|--------------:|--------------:|---------------------------|
+|:----------------|----------------:|----------------:|-----------------------|
 | cell1grid       |    1 |      4 |                                                         |
 | cell1grid       |    2 |      5 | indicates population growth over time                   |
 | cell2grid       |    1 |     22 |                                                         |
@@ -427,6 +442,7 @@ models_est_df_all <- models_est_df_all[order(models_est_df_all$verbatim_name), ]
 ## Big table
 
 ```{r}
+
 species_data_new <- merge(species_data, 
                           models_est_df_all, 
                           by=c(intersect(names(species_data), names(models_est_df_all))))
@@ -540,12 +556,20 @@ species_data_wide <- temp2 %>%
               values_from = all_of(names_v))
 
 species_data_wide <- species_data_wide %>% 
-  mutate(log_R1 = log(tp2_AOO_cell1grid/tp1_AOO_cell1grid),
-         log_R2 = tp2_AOO_cell1grid-tp1_AOO_cell1grid, 
-         log_R1_3 = log(tp3_AOO_cell1grid/tp1_AOO_cell1grid),
-         log_R2_3 = tp3_AOO_cell1grid-tp1_AOO_cell1grid, 
+  mutate(log_R1 = log(tp2_AOO_cell1grid/tp1_AOO_cell1grid), # for tp 1-2 comparison
+         log_R2 = tp2_AOO_cell1grid-tp1_AOO_cell1grid,      # for tp 1-2 comparison
+         log_R1_3 = log(tp3_AOO_cell1grid/tp1_AOO_cell1grid), # for tp 1-3 comparison
+         log_R2_3 = tp3_AOO_cell1grid-tp1_AOO_cell1grid,      # for tp 1-3 comparison
+         log_R1_2 =log(tp3_AOO_cell1grid/tp2_AOO_cell1grid),  # for tp 2-3 comparison
+         log_R2_2 = tp3_AOO_cell1grid-tp2_AOO_cell1grid,      # for tp 2-3 comparison
          .before = 1) # sort columns to the beginning of the table
 ```
+
+### How well does D predict temporal change?
+
+-   Future change = How well does D from tp1 predict change between tp1 and 2
+
+-   Past change = How well does D from tp2 predict change between tp1 and 2
 
 ```{r, fig.width = 6, fig.height = 6, fig.show='hold'}
 # Plots =================================================================== #
@@ -554,7 +578,8 @@ p1 <- species_data_wide %>%
   geom_point()+
   ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
   xlab("tp1_D")+
- geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+ #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  geom_smooth(alpha = 0.5)+
   theme_classic()+
   labs(title = "Prediction of future change")
 
@@ -562,8 +587,9 @@ p2 <- species_data_wide %>%
   ggplot(aes(y = log_R2, x =tp1_D_cell1grid))+
   geom_point()+
   xlab("tp1_D")+
-  ylab("log(tp2_AOO_cell1grid - tp1_AOO_cell1grid)")+
-  geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  ylab("tp2_AOO_cell1grid - tp1_AOO_cell1grid")+
+ #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  geom_smooth(alpha = 0.5)+
   theme_classic()+
   labs(title = "Prediction of future change")
 
@@ -573,7 +599,8 @@ p3 <- species_data_wide %>%
   geom_point()+
   ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp1_AOO_cell1grid")))+
   xlab("tp1_D")+
- geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+ #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  geom_smooth(alpha = 0.5)+
   theme_classic()+
   labs(title = "Prediction of future change")
 
@@ -581,8 +608,9 @@ p4 <- species_data_wide %>%
   ggplot(aes(y = log_R2_3, x =tp1_D_cell1grid))+
   geom_point()+
   xlab("tp1_D")+
-  ylab("log(tp3_AOO_cell1grid - tp1_AOO_cell1grid)")+
-  geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  ylab("tp3_AOO_cell1grid - tp1_AOO_cell1grid")+
+ #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  geom_smooth(alpha = 0.5)+
   theme_classic()+
   labs(title = "Prediction of future change")
 
@@ -604,8 +632,9 @@ p2_2 <- species_data_wide %>%
   ggplot(aes(y = log_R2, x =tp2_D_cell1grid))+
   geom_point()+
   xlab("tp2_D")+
-  ylab("log(tp2_AOO_cell1grid - tp1_AOO_cell1grid)")+
-  geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  ylab("tp2_AOO_cell1grid - tp1_AOO_cell1grid")+
+ #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  geom_smooth(alpha = 0.5)+
   theme_classic()+
   labs(title = "Prediction of past change")
 
@@ -615,7 +644,8 @@ p3_2 <- species_data_wide %>%
   geom_point()+
   ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp1_AOO_cell1grid")))+
   xlab("tp2_D")+
- geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+ #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  geom_smooth(alpha = 0.5)+
   theme_classic()+
   labs(title = "Prediction of past change")
 
@@ -623,10 +653,36 @@ p4_2 <- species_data_wide %>%
   ggplot(aes(y = log_R2_3, x =tp2_D_cell1grid))+
   geom_point()+
   xlab("tp2_D")+
-  ylab("log(tp3_AOO_cell1grid - tp1_AOO_cell1grid)")+
-  geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  ylab("tp3_AOO_cell1grid - tp1_AOO_cell1grid")+
+ #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  geom_smooth(alpha = 0.5)+
   theme_classic()+
   labs(title = "Prediction of past change")
 
 gridExtra::grid.arrange(p1_2,p2_2,p3_2,p4_2)
+```
+
+For tp2 change:
+
+```{r}
+species_data_wide %>% 
+  ggplot(aes(y = log_R1_2, x =tp3_D_cell1grid))+
+  geom_point()+
+  ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+  xlab("tp3_D")+
+ #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  geom_smooth(alpha = 0.5)+
+  theme_classic()+
+  labs(title = "Prediction of past change")
+
+
+species_data_wide %>% 
+  ggplot(aes(y = log_R1_2, x =tp2_D_cell1grid))+
+  geom_point()+
+  ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+  xlab("tp2_D")+
+ #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  geom_smooth(alpha = 0.5)+
+  theme_classic()+
+  labs(title = "Prediction of future change")
 ```
