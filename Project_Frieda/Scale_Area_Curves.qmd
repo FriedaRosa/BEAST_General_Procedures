@@ -1,8 +1,10 @@
 ---
 title: "Scale_Area_Curves"
 author: "Friederike Wölke"
-format: html
-editor: visual
+format:
+  html:
+    toc: true
+editor: visual        
 output:
   html_document:
     code_folding: hide
@@ -764,8 +766,8 @@ gc()
 
 # save reduced version of this to file:
 
-occ_data_red <- occ_data_full_df2 %>% select(-c(cell_label, area_sampled, area_c)) %>% distinct() 
-# occ_data_red %>% write.csv(paste0(out_path, "Occupancy_table.csv"))
+species_data <- occ_data_full_df2 %>% select(-c(cell_label, area_sampled, area_c)) %>% distinct() 
+# species_data %>% write.csv(paste0(out_path, "Occupancy_table.csv"))
 ```
 
 ```{r}
@@ -785,7 +787,7 @@ occ_data_red <- occ_data_full_df2 %>% select(-c(cell_label, area_sampled, area_c
 ## Some checks: ============================================================================= ####
 
 par(mfrow = c(2,2))
-occ_data_red %>% 
+species_data %>% 
   filter(cell_grouping == "cell1grid") %>%
   ggplot()+
   geom_point(aes(y = occupancy_area, x = occupancy_Ncells, 
@@ -793,7 +795,7 @@ occ_data_red %>%
   theme_classic()+
   scale_color_viridis(discrete = T)
 
-occ_data_red %>% 
+species_data %>% 
   filter(cell_grouping == "cell1grid") %>%
   ggplot()+
   geom_point(aes(y = relative_occupancy_area, x = relative_occupancy_Ncells, 
@@ -801,7 +803,7 @@ occ_data_red %>%
   theme_classic()+
   scale_color_viridis(discrete = T)
 
-occ_data_red %>% 
+species_data %>% 
   filter(cell_grouping == "cell1grid") %>%
   ggplot()+
   geom_point(aes(y = occupancy_Ncells, x = relative_occupancy_Ncells, 
@@ -956,13 +958,24 @@ The following analyses all depend on the assumption that species distributions a
 # exclude saturated species for all calculations 
 # (that require a linear relationship between scale and occupancy.)
 
-dd <- occ_data_red %>%
+dd <- species_data %>%
   filter(relative_occupancy_area != 1 & relative_occupancy_Ncells != 1) %>% # exclude saturated scales
   unique() %>%
   filter_at(vars(c(cell_grouping, scale, 
                    AOO, occupancy_area, occupancy_Ncells, 
                    relative_occupancy_area, relative_occupancy_Ncells)), 
             any_vars(!is.na(.)))
+
+
+
+
+
+#### Subset the data by at last 3 scales (minimum n needed to calculate 2nd degree poly relationship)
+sp_3scales <- dd %>% select(verbatim_name, tp, cell_grouping) %>% distinct() %>% group_by(verbatim_name, tp) %>% summarize(n = n_distinct(cell_grouping)) %>% filter(n >= 3) %>% distinct(verbatim_name) %>% as.vector()
+
+#### Subset the data by at least 2 time points
+dd %>% filter(verbatim_name %in% sp_3scales$verbatim_name) %>% select(verbatim_name, tp) %>%distinct() %>% group_by(verbatim_name) %>% summarize(time_points = n())%>% filter(time_points == 2)
+
 
 ## Looks linear for communities !!
 dd %>% 
@@ -1202,16 +1215,16 @@ m_df_wide_AOO <- m_df_wide %>% filter(model == "AOO")
 # ======================================================================================= # 
 
 # Add fractal dimensions to the occu data: 
-occ_data_red2 <- merge(occ_data_red, m_df_wide_AOO, 
+species_data2 <- merge(species_data, m_df_wide_AOO, 
                           by=c("tp", "verbatim_name"), all = T) %>% distinct()
-occ_data_red3 <- merge(occ_data_red2, telfer_results2, 
+species_data3 <- merge(species_data2, telfer_results2, 
                           by=c("verbatim_name"), all = T) %>% distinct() %>% 
   mutate(across(where(is.numeric), ~ round(., 3))) 
 
 ```
 
 ```{r}
-D_df <- occ_data_red3 %>% 
+D_df <- species_data3 %>% 
   filter(Modnames == "linear" & model == "AOO") %>% 
   select(verbatim_name, tp, m) %>% 
   distinct() %>%
@@ -1432,13 +1445,13 @@ summary_df %>% select(-c(verbatim_name, Modnames)) %>%  mutate(across(where(is.n
 
 ```{r}
 # Which species have low occupancy at the smallest grid size?
-low_occu_sp <- occ_data_red3 %>% filter(cell_grouping == "cell1grid") %>%
+low_occu_sp <- species_data3 %>% filter(cell_grouping == "cell1grid") %>%
   select(verbatim_name, relative_occupancy_area, tp) %>%
   filter(relative_occupancy_area <= 0.15) %>% 
   pull(unique(verbatim_name)) %>% 
   unique()
 
-low_occu <- occ_data_red3 %>% 
+low_occu <- species_data3 %>% 
   filter(cell_grouping == "cell1grid") %>% 
   filter(verbatim_name %in% low_occu_sp) %>%
   select(verbatim_name, relative_occupancy_area, tp) %>%
@@ -1447,12 +1460,12 @@ low_occu <- occ_data_red3 %>%
               names_prefix = "rel_occu", 
               values_from = relative_occupancy_area)
 
-low_occu_sp_sample <- occ_data_red3 %>% 
+low_occu_sp_sample <- species_data3 %>% 
    filter(verbatim_name %in% c(sample(low_occu_sp, 9))) %>% 
    pull(verbatim_name) %>% 
    unique()
 
-low_occu_reduced <- occ_data_red3 %>% 
+low_occu_reduced <- species_data3 %>% 
   filter(cell_grouping == "cell1grid") %>% 
   filter(verbatim_name %in% low_occu_sp) %>%
   select(verbatim_name, relative_occupancy_area, tp) %>%
@@ -1464,14 +1477,14 @@ low_occu_reduced <- occ_data_red3 %>%
 
 
 # Which species have high occupancy at the smallest grid size?
-high_occu_sp <- occ_data_red3 %>% 
+high_occu_sp <- species_data3 %>% 
   filter(cell_grouping == "cell1grid") %>%
   select(verbatim_name, relative_occupancy_area, tp) %>%
   filter(relative_occupancy_area >= 0.99) %>% 
   pull(unique(verbatim_name)) %>% 
   unique()
   
-high_occu <- occ_data_red3 %>% 
+high_occu <- species_data3 %>% 
   filter(cell_grouping == "cell1grid") %>% 
   filter(verbatim_name %in% high_occu_sp) %>%
   select(verbatim_name, relative_occupancy_area, tp) %>%
@@ -1480,7 +1493,7 @@ high_occu <- occ_data_red3 %>%
               names_prefix = "rel_occu", 
               values_from = relative_occupancy_area)
 
-high_occu_sp_sample <- occ_data_red3 %>% 
+high_occu_sp_sample <- species_data3 %>% 
     filter(verbatim_name %in% c(sample(high_occu_sp, 9))) %>% 
     pull(verbatim_name) %>% 
     unique()
@@ -1598,7 +1611,7 @@ insights from the scale area curves:
 ```{r}
 
 
-occ_data_red3 %>% 
+species_data3 %>% 
   filter(verbatim_name %in% spec) %>% 
   ggplot(aes(y = log(AOO), x = log(scale), col = factor(tp)))+
   geom_point()+
@@ -1609,7 +1622,7 @@ occ_data_red3 %>%
   annotate("text", label = paste(), size = 4, x = 15, y = 5)+
   labs(title = "Low and High occurrence species")
 
-occ_data_red3 %>% 
+species_data3 %>% 
   filter(verbatim_name %in% low_occu_sp_sample)  %>% 
   ggplot(aes(y = log(AOO), x = log(scale), col = factor(tp)))+
   geom_point()+
@@ -1620,7 +1633,7 @@ occ_data_red3 %>%
   annotate("text", label = paste(), size = 4, x = 15, y = 5)+
   labs(title = "Low occurrence species")
 
-occ_data_red3 %>% 
+species_data3 %>% 
   filter(verbatim_name %in% unique(high_occu$verbatim_name)[1:9]) %>% 
   ggplot(aes(y = log(AOO), x = log(scale), col = factor(tp)))+
   geom_point()+
@@ -1639,7 +1652,7 @@ occ_data_red3 %>%
 
 ```{r}
 # Some summary stats:
-occ_data_red3 %>% 
+species_data3 %>% 
   group_by(cell_grouping, tp, scale) %>% 
   get_summary_stats(c(relative_occupancy_area, relative_occupancy_Ncells, 
                       occupancy_Ncells, occupancy_area, AOO,
@@ -1668,7 +1681,7 @@ Species 1 : Grus grus (AOO between years differs quite a lot, but AOO increases 
 
 s_linear <- c("cell1grid", "cell2grid", "cell4grid", "cell8grid")
 
-occ_data_red3 %>% 
+species_data3 %>% 
   filter(verbatim_name == "Grus grus") %>% 
   unique() %>%   
   #filter(cell_grouping %in% s_linear) %>% 
@@ -1679,19 +1692,19 @@ occ_data_red3 %>%
   labs(title = "Grus grus")+
   scale_color_viridis(discrete=T)
 
-model_df1<- occ_data_red3 %>% 
+model_df1<- species_data3 %>% 
   select(verbatim_name, tp, AOO, scale, cell_grouping) %>%
   filter(verbatim_name == "Grus grus") %>% 
   #filter(cell_grouping %in% s_linear) %>%
   filter(tp == 1) %>% 
   unique() 
-model_df2<- occ_data_red3 %>% 
+model_df2<- species_data3 %>% 
   select(verbatim_name, tp, AOO, scale, cell_grouping) %>%
   filter(verbatim_name == "Grus grus") %>% 
   #filter(cell_grouping %in% s_linear) %>%
   filter(tp == 2) %>% 
   unique() 
-model_df3<- occ_data_red3 %>% 
+model_df3<- species_data3 %>% 
   select(verbatim_name, tp, AOO, scale, cell_grouping) %>%
   filter(verbatim_name == "Grus grus") %>% 
   #filter(cell_grouping %in% s_linear) %>%
@@ -1737,7 +1750,7 @@ telfer_results %>% filter(taxa == "Falco vespertinus")
 
 
 ## Another species that has a nice linear relationship until one point
-occ_data_red3 %>% 
+species_data3 %>% 
   filter(verbatim_name == "Falco vespertinus") %>% 
   unique() %>%
   ggplot(aes(x = log(scale), y = log(AOO), color = factor(tp)))+
@@ -1763,13 +1776,13 @@ ggplot()+
 
 s_linear <- c("cell1grid", "cell2grid", "cell4grid", "cell8grid")
 
-model_df1<- occ_data_red3 %>% 
+model_df1<- species_data3 %>% 
   select(verbatim_name, tp, AOO, scale, cell_grouping) %>%
   filter(verbatim_name == "Falco vespertinus") %>% 
   filter(cell_grouping %in% s_linear) %>%
   filter(tp == 1) %>% 
   unique() 
-model_df3<- occ_data_red3 %>% 
+model_df3<- species_data3 %>% 
   select(verbatim_name, tp, AOO, scale, cell_grouping) %>%
   filter(verbatim_name == "Falco vespertinus") %>% 
   filter(cell_grouping %in% s_linear) %>%
@@ -1792,13 +1805,13 @@ telfer_results %>% filter(taxa == "Falco vespertinus") %>% select(taxa, Nsite_1.
 ```
 
 ```{r}
-occ_data_red3 %>%  filter(cell_grouping == "cell1grid") %>%
+species_data3 %>%  filter(cell_grouping == "cell1grid") %>%
 ggplot() +
   geom_boxplot(aes(y = relative_occupancy_area, fill = factor(tp))) + scale_color_viridis(discrete = T)
 
                                   
-cols_n <- intersect(names(presence_data), names(occ_data_red3))
-occ_data_full <- unique(merge(presence_data, occ_data_red3, 
+cols_n <- intersect(names(presence_data), names(species_data3))
+occ_data_full <- unique(merge(presence_data, species_data3, 
                               by = cols_n, 
                               all.y = T))
 
@@ -1811,19 +1824,19 @@ occ_data_full <- unique(merge(presence_data, occ_data_red3,
 
 ```{r, fig.width = 3, fig.height = 3, fig.show='hold'}
 # D ~ Telfer Plot ==================================== ####
-occ_data_red4 <- occ_data_red3
-occ_data_red4$D <- c(-occ_data_red4$m)
-occ_data_red4 %>% filter(tp == 1) %>%
+species_data4 <- species_data3
+species_data4$D <- c(-species_data4$m)
+species_data4 %>% filter(tp == 1) %>%
 ggplot() +
   geom_point(aes(x = Telfer_1_2, y = D ))+
   theme_classic()
 
-occ_data_red4 %>% filter(tp == 2) %>%
+species_data4 %>% filter(tp == 2) %>%
 ggplot() +
   geom_point(aes(x = Telfer_2_3, y = D ))+
   theme_classic()
 
-occ_data_red4 %>% filter(tp == 3) %>%
+species_data4 %>% filter(tp == 3) %>%
 ggplot() +
   geom_point(aes(x = Telfer_1_3, y = D ))+
   theme_classic()
@@ -1833,7 +1846,7 @@ ggplot() +
 
 ```{r}
 # Re-formating the data.. there is probably a smoother way to do it..
-occ_data_red_wide1 <- occ_data_red4 %>% 
+species_data_wide1 <- species_data4 %>% 
   select(verbatim_name, tp, cell_grouping, 
          D, b, AOO, Total_Ncells, 
          occupancy_area, occupancy_Ncells, 
@@ -1847,7 +1860,7 @@ occ_data_red_wide1 <- occ_data_red4 %>%
   rename(verbatim_name = tp1_verbatim_name,
          cell_grouping = tp1_cell_grouping)
 
-occ_data_red_wide2 <- occ_data_red4 %>% 
+species_data_wide2 <- species_data4 %>% 
   select(verbatim_name, tp, cell_grouping, 
          D, b, AOO, Total_Ncells, 
          occupancy_area, occupancy_Ncells, 
@@ -1861,7 +1874,7 @@ occ_data_red_wide2 <- occ_data_red4 %>%
   rename(verbatim_name = tp2_verbatim_name,
          cell_grouping = tp2_cell_grouping)
 
-occ_data_red_wide3 <- occ_data_red4 %>% 
+species_data_wide3 <- species_data4 %>% 
   select(verbatim_name, tp, cell_grouping, 
          D, b, AOO, Total_Ncells, 
          occupancy_area, occupancy_Ncells, 
@@ -1876,18 +1889,18 @@ occ_data_red_wide3 <- occ_data_red4 %>%
          cell_grouping = tp3_cell_grouping)
 
 # merge back together:
-temp <- merge(occ_data_red_wide1, occ_data_red_wide2, 
-              by=intersect(names(occ_data_red_wide1), names(occ_data_red_wide2)))
-temp2 <- merge(temp, occ_data_red_wide3,
-               by=intersect(names(temp), names(occ_data_red_wide3)))
+temp <- merge(species_data_wide1, species_data_wide2, 
+              by=intersect(names(species_data_wide1), names(species_data_wide2)))
+temp2 <- merge(temp, species_data_wide3,
+               by=intersect(names(temp), names(species_data_wide3)))
 names_v <- names(temp2[-(1:2)])
 
 # Transform to wide format by cell_grouping
-occ_data_red_wide <- temp2 %>% 
+species_data_wide <- temp2 %>% 
   pivot_wider(names_from = cell_grouping,
               values_from = all_of(names_v))
 
-occ_data_red_wide <- occ_data_red_wide %>% 
+species_data_wide <- species_data_wide %>% 
   mutate(log_R1 = log(tp2_AOO_cell1grid/tp1_AOO_cell1grid),
          log_R2 = tp2_AOO_cell1grid-tp1_AOO_cell1grid, 
          log_R1_3 = log(tp3_AOO_cell1grid/tp1_AOO_cell1grid),
@@ -1896,7 +1909,7 @@ occ_data_red_wide <- occ_data_red_wide %>%
 
 
 # Plots =================================================================== #
-occ_data_red_wide %>% 
+species_data_wide %>% 
   ggplot(aes(y = log_R1, x =-tp1_D_cell1grid))+
   geom_point()+
   ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
@@ -1904,7 +1917,7 @@ occ_data_red_wide %>%
  geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
   theme_classic()
 
-occ_data_red_wide %>% 
+species_data_wide %>% 
   ggplot(aes(y = log_R2, x =-tp1_D_cell1grid))+
   geom_point()+
   xlab("tp1_D")+
@@ -1913,7 +1926,7 @@ occ_data_red_wide %>%
   theme_classic()
 
 
-occ_data_red_wide %>% 
+species_data_wide %>% 
   ggplot(aes(y = log_R1_3, x =-tp1_D_cell1grid))+
   geom_point()+
   ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
@@ -1921,7 +1934,7 @@ occ_data_red_wide %>%
  geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
   theme_classic()
 
-occ_data_red_wide %>% 
+species_data_wide %>% 
   ggplot(aes(y = log_R2_3, x =-tp1_D_cell1grid))+
   geom_point()+
   xlab("tp1_D")+
@@ -1936,7 +1949,7 @@ occ_data_red_wide %>%
 # Correlation plots =================================== ##
 
 # library("PerformanceAnalytics")
-my_data <- occ_data_red4 %>%
+my_data <- species_data4 %>%
   select(tp, scale,
          occupancy_area, occupancy_Ncells, 
          AOO, relative_occupancy_area, relative_occupancy_Ncells, 
@@ -1967,7 +1980,7 @@ ggpairs(my_data_1cell, mapping = aes(color = tp, alpha = 0.25),
 # p_list[1:16]
 # Plots =============================================== ####
 # 
-occ_data_red %>% 
+species_data %>% 
   filter(verbatim_name %in% high_occu$verbatim_name) %>% 
   ggplot(aes(y=log(AOO), x = log(scale), color = verbatim_name)) +
   geom_point(show.legend = F)+

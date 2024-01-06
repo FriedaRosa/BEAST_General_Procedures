@@ -261,7 +261,7 @@ species_data <- occ_data_full_df %>% select(-c(cell_label, area_sampled, area_c)
 -   At cell2grid, less species saturate compared to time period 1. All other spatial grains suggest temporal increases (i.e., more species saturating at a given scale in tp2 compared to tp1)
 
 | *cell_grouping* | *tp* | *n_sp* | *Comment*                                               |
-|:----------------|----------------:|----------------:|-----------------------|
+|:----------------|----------------:|----------------:|---------------------|
 | cell1grid       |    1 |      4 |                                                         |
 | cell1grid       |    2 |      5 | indicates population growth over time                   |
 | cell2grid       |    1 |     22 |                                                         |
@@ -556,13 +556,11 @@ species_data_wide <- temp2 %>%
               values_from = all_of(names_v))
 
 species_data_wide <- species_data_wide %>% 
-  mutate(log_R1 = log(tp2_AOO_cell1grid/tp1_AOO_cell1grid), # for tp 1-2 comparison
-         log_R2 = tp2_AOO_cell1grid-tp1_AOO_cell1grid,      # for tp 1-2 comparison
-         log_R1_3 = log(tp3_AOO_cell1grid/tp1_AOO_cell1grid), # for tp 1-3 comparison
-         log_R2_3 = tp3_AOO_cell1grid-tp1_AOO_cell1grid,      # for tp 1-3 comparison
-         log_R1_2 =log(tp3_AOO_cell1grid/tp2_AOO_cell1grid),  # for tp 2-3 comparison
-         log_R2_2 = tp3_AOO_cell1grid-tp2_AOO_cell1grid,      # for tp 2-3 comparison
+  mutate(log_R2_1 = log(tp2_AOO_cell1grid/tp1_AOO_cell1grid), # for tp 1-2 comparison
+         log_R3_2 = log(tp3_AOO_cell1grid/tp2_AOO_cell1grid), # for tp 2-3 comparison
+         log_R3_1 = log(tp3_AOO_cell1grid/tp1_AOO_cell1grid), # for tp 1-3 comparison
          .before = 1) # sort columns to the beginning of the table
+
 ```
 
 ### How well does D predict temporal change?
@@ -571,118 +569,198 @@ species_data_wide <- species_data_wide %>%
 
 -   Past change = How well does D from tp2 predict change between tp1 and 2
 
-```{r, fig.width = 6, fig.height = 6, fig.show='hold'}
+```{r, fig.width = 12, fig.height = 3, fig.show='hold'}
 # Plots =================================================================== #
+## 1. Change between tp1 and 2 ~ D from tp1
 p1 <- species_data_wide %>% 
-  ggplot(aes(y = log_R1, x =tp1_D_cell1grid))+
+  ggplot(aes(y = log_R2_1, x = tp1_D_cell1grid))+
   geom_point()+
   ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
   xlab("tp1_D")+
  #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
   geom_smooth(alpha = 0.5)+
   theme_classic()+
-  labs(title = "Prediction of future change")
+  labs(title = "Prediction of future change",
+       subtitle = "Log Ratio between AOO from time period 1 and 2 ~ D from time period 1 ")+
+    geom_hline(yintercept = 0, col = "red")#
 
+## 3. Change between tp2 and 3 ~ D from tp2
 p2 <- species_data_wide %>% 
-  ggplot(aes(y = log_R2, x =tp1_D_cell1grid))+
+  ggplot(aes(y = log_R3_2, x = tp2_D_cell1grid))+
   geom_point()+
-  xlab("tp1_D")+
-  ylab("tp2_AOO_cell1grid - tp1_AOO_cell1grid")+
+  ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+  xlab("tp2_D")+
  #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
   geom_smooth(alpha = 0.5)+
   theme_classic()+
-  labs(title = "Prediction of future change")
+  labs(title = "Prediction of future change",
+       subtitle = "Log Ratio between AOO from time period 2 and 3 ~ D from time period 2 ")+
+    geom_hline(yintercept = 0, col = "red")#
 
 
+## 3. Change between tp1 and 3 ~ D from tp1
 p3 <- species_data_wide %>% 
-  ggplot(aes(y = log_R1_3, x =tp1_D_cell1grid))+
+  ggplot(aes(y = log_R3_1, x = tp1_D_cell1grid))+
   geom_point()+
   ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp1_AOO_cell1grid")))+
   xlab("tp1_D")+
  #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
   geom_smooth(alpha = 0.5)+
   theme_classic()+
-  labs(title = "Prediction of future change")
+  labs(title = "Prediction of future change",
+       subtitle = "Log Ratio between AOO from time period 1 and 3 ~ D from time period 1 ")+
+    geom_hline(yintercept = 0, col = "red")#
 
-p4 <- species_data_wide %>% 
-  ggplot(aes(y = log_R2_3, x =tp1_D_cell1grid))+
-  geom_point()+
-  xlab("tp1_D")+
-  ylab("tp3_AOO_cell1grid - tp1_AOO_cell1grid")+
- #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
-  geom_smooth(alpha = 0.5)+
-  theme_classic()+
-  labs(title = "Prediction of future change")
 
-gridExtra::grid.arrange(p1,p2,p3,p4)
+
+future_change <- gridExtra::grid.arrange(p1,p2,p3, ncol = 3)
 
 ```
 
-```{r}
+```{r, fig.width = 12, fig.height = 3, fig.show='hold'}
 p1_2 <- species_data_wide %>% 
-  ggplot(aes(y = log_R1, x =tp2_D_cell1grid))+
+  ggplot(aes(y = log_R2_1, x = tp2_D_cell1grid))+
   geom_point()+
   ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
   xlab("tp2_D")+
  geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
   theme_classic()+
-  labs(title = "Prediction of past change")
+  labs(title = "Prediction of past change",
+       subtitle = "Log Ratio between AOO from time period 1 and 2 ~ D from time period 2 ")+
+    geom_hline(yintercept = 0, col = "red")#
+
 
 p2_2 <- species_data_wide %>% 
-  ggplot(aes(y = log_R2, x =tp2_D_cell1grid))+
-  geom_point()+
-  xlab("tp2_D")+
-  ylab("tp2_AOO_cell1grid - tp1_AOO_cell1grid")+
- #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
-  geom_smooth(alpha = 0.5)+
-  theme_classic()+
-  labs(title = "Prediction of past change")
-
-
-p3_2 <- species_data_wide %>% 
-  ggplot(aes(y = log_R1_3, x =tp2_D_cell1grid))+
+  ggplot(aes(y = log_R3_2, x =tp3_D_cell1grid))+
   geom_point()+
   ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp1_AOO_cell1grid")))+
-  xlab("tp2_D")+
- #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
-  geom_smooth(alpha = 0.5)+
-  theme_classic()+
-  labs(title = "Prediction of past change")
-
-p4_2 <- species_data_wide %>% 
-  ggplot(aes(y = log_R2_3, x =tp2_D_cell1grid))+
-  geom_point()+
-  xlab("tp2_D")+
-  ylab("tp3_AOO_cell1grid - tp1_AOO_cell1grid")+
- #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
-  geom_smooth(alpha = 0.5)+
-  theme_classic()+
-  labs(title = "Prediction of past change")
-
-gridExtra::grid.arrange(p1_2,p2_2,p3_2,p4_2)
-```
-
-For tp2 change:
-
-```{r}
-species_data_wide %>% 
-  ggplot(aes(y = log_R1_2, x =tp3_D_cell1grid))+
-  geom_point()+
-  ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp2_AOO_cell1grid")))+
   xlab("tp3_D")+
  #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
   geom_smooth(alpha = 0.5)+
   theme_classic()+
-  labs(title = "Prediction of past change")
+  labs(title = "Prediction of past change",
+       subtitle = "Log Ratio between AOO from time period 2 and 3 ~ D from time period 3 ")+
+    geom_hline(yintercept = 0, col = "red")#
 
 
-species_data_wide %>% 
-  ggplot(aes(y = log_R1_2, x =tp2_D_cell1grid))+
+p3_2 <- species_data_wide %>% 
+  ggplot(aes(y = log_R3_1, x =tp3_D_cell1grid))+
   geom_point()+
-  ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp2_AOO_cell1grid")))+
-  xlab("tp2_D")+
+  ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp1_AOO_cell1grid")))+
+  xlab("tp3_D")+
  #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
   geom_smooth(alpha = 0.5)+
   theme_classic()+
-  labs(title = "Prediction of future change")
+  labs(title = "Prediction of past change",
+       subtitle = "Log Ratio between AOO from time period 1 and 3 ~ D from time period 3 ")+
+    geom_hline(yintercept = 0, col = "red")#
+
+
+
+
+past_change <- gridExtra::grid.arrange(p1_2,p2_2,p3_2, ncol = 3)
+```
+
+
+
+```{r, fig.width = 12, fig.height = 6, fig.show='hold'}
+ gridExtra::grid.arrange(future_change, past_change, nrow = 2)
+
+```
+
+#### Regression towards the mean?
+
+```{r, fig.width = 8, fig.height = 12, fig.show='hold'}
+
+## TP 3-2
+p1_3 <- species_data_wide %>% 
+     ggplot(aes(y = log_R3_2, x =tp2_AOO_cell1grid))+ # ratio vbetween tp 2 and 3, AOO from tp 2
+     geom_point()+
+     #ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+     #xlab("tp1_D")+
+     #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+     geom_smooth(alpha = 0.5)+
+     theme_classic()+
+     labs(title = "Prediction of future change",
+          subtitle = "Temp. change between 2 and 3 ~ AOO tp 2")+
+    ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+     scale_x_log10()+
+  geom_hline(yintercept = 0, col = "red")#
+
+p2_3 <- species_data_wide %>% 
+     ggplot(aes(y = log_R3_2, x =tp3_AOO_cell1grid))+ # ratio vbetween tp 2 and 3, AOO from tp 3
+     geom_point()+
+     #ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+     #xlab("tp1_D")+
+     #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+     geom_smooth(alpha = 0.5)+
+     theme_classic()+
+     labs(title = "Prediction of past change",
+          subtitle = "Temp. change between 2 and 3 ~ AOO tp 3")+
+    ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+     scale_x_log10()+
+  geom_hline(yintercept = 0, col = "red")#
+
+
+### 3 - 1
+p3_3 <- species_data_wide %>% 
+     ggplot(aes(y = log_R3_1, x =tp1_AOO_cell1grid))+ # ratio vbetween tp 2 and 3, AOO from tp 2
+     geom_point()+
+     #ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+     #xlab("tp1_D")+
+     #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+     geom_smooth(alpha = 0.5)+
+     theme_classic()+
+     labs(title = "Prediction of future change",
+          subtitle = "Temp. change between 1 and 3 ~ AOO tp 1")+
+    ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp1_AOO_cell1grid")))+
+     scale_x_log10()+
+  geom_hline(yintercept = 0, col = "red")#
+
+p4_3 <- species_data_wide %>% 
+     ggplot(aes(y = log_R3_1, x =tp3_AOO_cell1grid))+ # ratio vbetween tp 2 and 3, AOO from tp 3
+     geom_point()+
+     #ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+     #xlab("tp1_D")+
+     #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+     geom_smooth(alpha = 0.5)+
+     theme_classic()+
+     labs(title = "Prediction of past change",
+          subtitle = "Temp. change between 1 and 3 ~ AOO tp 3")+
+    ylab(expression("log"~ frac("tp3_AOO_cell1grid", "tp1_AOO_cell1grid")))+
+     scale_x_log10()+
+  geom_hline(yintercept = 0, col = "red")#
+
+
+#### TP 2 -1
+p5_3 <- species_data_wide %>% 
+     ggplot(aes(y = log_R2_1, x =tp1_AOO_cell1grid))+ # ratio vbetween tp 2 and 3, AOO from tp 2
+     geom_point()+
+     #ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+     #xlab("tp1_D")+
+     #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+     geom_smooth(alpha = 0.5)+
+     theme_classic()+
+     labs(title = "Prediction of future change",
+          subtitle = "Temp. change between 1 and 2 ~ AOO tp 1")+
+    ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
+     scale_x_log10()+
+  geom_hline(yintercept = 0, col = "red")#
+
+p6_3 <- species_data_wide %>% 
+     ggplot(aes(y = log_R2_1, x =tp2_AOO_cell1grid))+ # ratio vbetween tp 2 and 3, AOO from tp 3
+     geom_point()+
+     #ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp2_AOO_cell1grid")))+
+     #xlab("tp1_D")+
+     #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+     geom_smooth(alpha = 0.5)+
+     theme_classic()+
+     labs(title = "Prediction of past change",
+          subtitle = "Temp. change between 1 and 2 ~ AOO tp 2")+
+    ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
+     scale_x_log10()+
+  geom_hline(yintercept = 0, col = "red")#
+
+
+gridExtra::grid.arrange(p1_3, p2_3, p3_3, p4_3, p5_3, p6_3, ncol = 2, nrow = 3)
 ```
