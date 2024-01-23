@@ -57,7 +57,9 @@ desired_levels <- factor(layers,
                          ordered = T, 
                          levels = c("cell1grid", "cell2grid", 
                                     "cell4grid", "cell8grid", 
-                                    "cell16grid", "cellfullgrid")) 
+                                    "cell16grid", "cell32grid",
+                                    "cell64grid")) 
+
 
 ```
 
@@ -66,11 +68,19 @@ desired_levels <- factor(layers,
 ```{r}
 # Species data
 presence_data <- readRDS(data_path)
+levels_data <- unique(presence_data$cell_grouping)
+desired_levels_data <- factor(levels_data, 
+                         ordered = T, 
+                         levels = c("1", "2", 
+                                    "4", "8", 
+                                    "16", "32", 
+                                    "64")) 
+
 
 ## sort the cell groupings ascending
 presence_data <- presence_data %>%
   mutate(cell_grouping = factor(cell_grouping, 
-                                levels = desired_levels))
+                                levels = desired_levels_data))
 
 ## add column for time period (tp)
 start_times <- sort(unique(presence_data$start_year))
@@ -230,17 +240,18 @@ occ_data_full_df <- plyr::rbind.fill(occ_data_list, fill=T)
 # create scale column as a fraction of the full country:
 occ_data_full_df <- occ_data_full_df %>% mutate(
       scale = case_when(
-        cell_grouping == "cell1grid" ~ 1/32,
-        cell_grouping == "cell2grid" ~ 1/16,
-        cell_grouping == "cell4grid" ~ 1/8,
-        cell_grouping == "cell8grid" ~ 1/4,
-        cell_grouping == "cell16grid" ~ 1/2 ,
-        cell_grouping == "cellfullgrid" ~ 1)) %>% unique()
+        cell_grouping == "1" ~ 1/64,
+        cell_grouping == "2" ~ 1/32,
+        cell_grouping == "4" ~ 1/16,
+        cell_grouping == "8" ~ 1/8,
+        cell_grouping == "16" ~ 1/4,
+        cell_grouping == "32" ~ 1/2 ,
+        cell_grouping == "64" ~ 1)) %>% unique()
 
 # save reduced version of this to file:
 
 species_data <- occ_data_full_df %>% select(-c(cell_label, area_sampled, area_c)) %>% distinct() 
-# species_data %>% write.csv(paste0(out_path, "Occupancy_table.csv"))
+species_data %>% write.csv(paste0(out_path, "Occupancy_table.csv"))
 ```
 
 ## How fractal is the data?
@@ -283,6 +294,8 @@ species_data <- occ_data_full_df %>% select(-c(cell_label, area_sampled, area_c)
 #   filter(relative_occupancy_Ncells == 1) %>% 
 #   group_by(cell_grouping, tp) %>% 
 #   summarize(n_sp = n_distinct(verbatim_name))
+
+species_data$cell_grouping <- as.numeric(as.character(species_data$cell_grouping))
 
 species_data %>% 
   filter(relative_occupancy_Ncells == 1) %>% 
@@ -355,9 +368,9 @@ sp_3scales_tp1 <- sp_3scales %>% filter(tp == 1) %>% pull(verbatim_name)
 sp_3scales_tp2 <- sp_3scales %>% filter(tp == 2) %>% pull(verbatim_name)
 sp_3scales_tp3 <- sp_3scales %>% filter(tp == 3) %>% pull(verbatim_name)
 
-length(unique(sp_3scales_tp1)) # 158 species
-length(unique(sp_3scales_tp2)) # 160 species
-length(unique(sp_3scales_tp3)) # 228 species
+length(unique(sp_3scales_tp1)) # 172 species
+length(unique(sp_3scales_tp2)) # 147 species
+length(unique(sp_3scales_tp3)) # 198 species
 length(unique(dd$verbatim_name)) # 237 species 
 ```
 
@@ -460,7 +473,7 @@ telfer_results2 <- telfer_results %>%
 
 
 species_data_new2 <- merge(species_data_new, telfer_results2, by="verbatim_name")
-#%>% write.csv(file=paste0(out_path, "Big_table.csv"))
+species_data_new2 %>% write.csv(file=paste0(out_path, "Big_table.csv"))
 
 ```
 
