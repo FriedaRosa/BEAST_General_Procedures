@@ -36,6 +36,8 @@ library(ape)
 library(readxl)
 library(phyloregion)
 library(randomForest)
+library(randomForestExplainer)
+library(vegan)
 ```
 
 ## Set up Variables:
@@ -61,8 +63,6 @@ rm(list=ls())
 # folder path to atlas data
 source_path_country <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_Czechia/"
 
-# source_path_continent <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_EBBA/"
-
 # folder path to output folder
 out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/StaticPredictors/StaticPredictors/StaticPredictors/out/"
 
@@ -70,18 +70,16 @@ out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/StaticPredic
 data_path_country <- paste0(source_path_country,"Birds_Atlas_Czechia_beast_data.rds")
 grid_path_country <-  paste0(source_path_country,"Birds_Atlas_Czechia_grid.gpkg")
 
-# data_path_continent <- paste0(source_path_continent,"Birds_Atlas_EBBA_beast_data.rds")
-# grid_path_continent <-  paste0(source_path_continent,"Birds_Atlas_EBBA_grid.gpkg")
-
 # create paths to read phylogenetic tree and traits for birds (BirdTree, AVONET)
 tree_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/R/Weeks_et_at_2022/singe_bird_phylo.tre"
 traits_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/R/AVONET/ELEData/TraitData/AVONET3_BirdTree.xlsx"
 fractal_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/out/Big_table.csv"
+
 ```
 
 ### Read in data
 
-# !!! FOR NOW - I will make a subset for 30 species because the data is too big 
+# !!! FOR NOW - I will make a subset for 30 species because the data is too big
 
 ```{r}
 
@@ -102,7 +100,7 @@ fractal_df_subset <- fractal_df %>% filter(verbatim_name %in% subset) %>% select
 
 
 # phylogenetic tree --------------------------------------------------------------------------- #
-tree <- read.tree(tree_path)
+tree <- ladderize(read.tree(tree_path))
 
 # bird traits --------------------------------------------------------------------------------- #
 avonet <- read_excel(traits_path, sheet = 2)
@@ -132,10 +130,7 @@ grid_list_country <- sapply(layers_country, function(i) {
 
 ```{r}
 
-
 # --------------------------------------------------------------------------------------------- #
-
-
 # adjust species names in data to match those in the tree
 species_data_subset$tip.label <- gsub(" ", "_", species_data_subset$verbatim_name)
 # species_data_continent$tip.label <- gsub(" ", "_", species_data_continent$verbatim_name)
@@ -250,6 +245,8 @@ for (i in seq_along(grid_list_country)) {
 }
 
 # --------------------------------------------------------------------------------------------- #
+
+communitymatrix(species_data_country)
 
 ```
 
@@ -376,7 +373,7 @@ for (i in seq_along(grid_list_country)) {
 ```
 
 ```{r}
-model_df <- species_data_subset_merged_short %>%na.omit()
+model_df <- species_data_subset_merged_short
 model_df <- model_df %>% rename("HWI" = "Hand-Wing.Index")
 
 str(model_df)
@@ -390,25 +387,34 @@ model_df$taxa <- as.factor(model_df$taxa)
 model_df$Family3 <- as.factor(model_df$Family3)
 model_df$Order3 <- as.factor(model_df$Order3)
 
+names(model_df)
+model_df_ss <- model_df %>% 
+  select(-cell_grouping, -start_year, -end_year, -tip.label, -dataset, -license, -taxa )
+
 
 # --------------------------------------------------------------------------------- #
+# install.packages("randomForestExplainer")
+library(randomForestExplainer)
 
+# Data partitioning =====
 set.seed(123)
 
-samp <- sample(nrow(model_df), 0.8 * nrow(model_df))
-train <- model_df[samp, ]
-test <- model_df[-samp, ]
+samp <- sample(nrow(model_df_ss), 0.8 * nrow(model_df_ss))
+train <- model_df_ss[samp, ]; dim(train)
+test <- model_df_ss[-samp, ]; dim(test)
 
+# Model ====
+sp.rf <- randomForest(r2_AOO ~ ., data=train, ntree=1000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit,localImp = TRUE) # explains 90% of variance!! WOW?!??!
 
-sp.rf <- randomForest(r2_AOO ~ ., data=train, ntree=1000, mtry=5, importance=TRUE,
-                        proximity=TRUE)
+sp.rf$coefs #? empty?
+round(sp.rf$importance,3)
 
-sp.rf$coefs
-
+# Variable importance =====
 round(importance(sp.rf),2)
-
-
-
+varImpPlot(sp.rf)
+impt_frame<-measure_importance(sp.rf)
+plot_multi_way_importance(impt_frame, no_of_labels = 6)
+plot_multi_way_importance(impt_frame, x_measure = "accuracy_decrease", y_measure = "gini_decrease", size_measure = "p_value", no_of_labels = 6)
 
 
 prediction <- predict(sp.rf, newdata = test)
@@ -416,4 +422,16 @@ prediction <- predict(sp.rf, newdata = test)
 table(prediction, test$r2_AOO)
 
 prediction
+
+min_depth_frame <- min_depth_distribution(sp.rf)
+plot_min_depth_distribution(min_depth_frame)
+# ----------------------------------- #
+install.packages("ranger")
+library(ranger)
+
+rf2 <- ranger(r2_AOO ~ ., data=train, importance = "permutation", tuneGrid = data.frame(mtry = ceiling((ncol(model_df_ss)-1)/3), splitrule = "variance", min.node.size = 5))
+pred <- predict(rf2, data = test)
+table(test$r2_AOO, pred$predictions)
+
+rf2$variable.importance
 ```
