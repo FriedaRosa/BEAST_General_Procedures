@@ -1,0 +1,419 @@
+---
+title: "0_Data_preparation"
+author: "Friederike Wölke"
+format: html
+editor: visual
+---
+
+# Predicting change from static patterns
+
+In this project I want to look at different static patterns that describe the distribution of a species and could potentially used to predict temporal change
+
+## Structure:
+
+-   Data:
+
+    -   Birds of CZ, Plants of CZ
+
+    -   Birds of Europe, Plants of Europe
+
+    -   IUCN global range maps for co-occurrence patterns, WCVP for Plant co-occurrences OR\
+        BirdLife International range maps?
+
+    -   AVONET trait data
+
+        -   e.g. Dispersal: Hand-Wing-Index (HWI) (ref: flight-efficiacy: Weeks et al 2022: https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/1365-2435.14056)
+
+    -   BirdTree (Jetz et al. 2012) Phylogeny to calculate a measure of phylogenetic distance/distinctiveness
+
+## Set up libraries:
+
+```{r}
+#| message = F
+library(sf)
+library(dplyr)
+library(ape)
+library(readxl)
+library(phyloregion)
+library(randomForest)
+```
+
+## Set up Variables:
+
+-   source_path = path to Atlas
+
+-   out_path = path to save output from R
+
+-   data_path = filename of the data
+
+-   grid_path = filename of the grid
+
+-   tree_path = filename of phylogenetic tree to calculate phylo metrics
+
+-   traits_path = filename of AVONET matched to BirdTree
+
+```{r}
+#| warning: false
+#| message: false
+#| label: Variables
+
+rm(list=ls())
+# folder path to atlas data
+source_path_country <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_Czechia/"
+
+# source_path_continent <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_EBBA/"
+
+# folder path to output folder
+out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/StaticPredictors/StaticPredictors/StaticPredictors/out/"
+
+# create path to read in data and grids from variables
+data_path_country <- paste0(source_path_country,"Birds_Atlas_Czechia_beast_data.rds")
+grid_path_country <-  paste0(source_path_country,"Birds_Atlas_Czechia_grid.gpkg")
+
+# data_path_continent <- paste0(source_path_continent,"Birds_Atlas_EBBA_beast_data.rds")
+# grid_path_continent <-  paste0(source_path_continent,"Birds_Atlas_EBBA_grid.gpkg")
+
+# create paths to read phylogenetic tree and traits for birds (BirdTree, AVONET)
+tree_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/R/Weeks_et_at_2022/singe_bird_phylo.tre"
+traits_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/R/AVONET/ELEData/TraitData/AVONET3_BirdTree.xlsx"
+fractal_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/out/Big_table.csv"
+```
+
+### Read in data
+
+# !!! FOR NOW - I will make a subset for 30 species because the data is too big 
+
+```{r}
+
+# Species distributions  ---------------------------------------------------------------------- #
+species_data_country <- readRDS(data_path_country)
+species_data_country$cell_grouping <- as.factor(species_data_country$cell_grouping)
+
+# Species Fractal Data ------------------------------------------------------------------------ #
+fractal_df <- read.csv(fractal_path)
+sp_list <- unique(fractal_df$verbatim_name)
+# ----------------------------------------------------------------- ===   CREATE SUBSET HERE    # 
+
+# Sample 30 species                                                          
+set.seed(123)
+subset <- sample(sp_list, 30)
+species_data_subset <- species_data_country %>% filter(verbatim_name %in% subset)
+fractal_df_subset <- fractal_df %>% filter(verbatim_name %in% subset) %>% select(-X)
+
+
+# phylogenetic tree --------------------------------------------------------------------------- #
+tree <- read.tree(tree_path)
+
+# bird traits --------------------------------------------------------------------------------- #
+avonet <- read_excel(traits_path, sheet = 2)
+avonet <- avonet %>% filter(Species3 %in% subset)
+
+# grid data------------------------------------------------------------------------------------ #
+layers_country <- st_layers(grid_path_country)$name
+
+grid_list_country <- sapply(layers_country, function(i) {
+  st_read(grid_path_country, paste(i), quiet = TRUE)
+}, simplify = FALSE)
+
+
+```
+
+#### Manipulate the data / Calculate Phylogenetic Distinctness for each species (as fair proportion)
+
+1.  create column in species data that matches the tip-label formating in the tree (here with "\_" between genus name and species epithet)
+2.  Calculate evolutionary distinctness (fair proportion metric) (FD)
+3.  extract Hand wing index (and range size?) from AVONET
+4.  Rename and sort grid-sizes to match grid and data (from small to large grid)
+5.  Create column for time periods (1-3 for CZ birds)
+6.  Rename the spatial scale to a relative scale, where 1 indicates the largest grid size that covers the whole study 'arena' (in grid and data)
+7.  Split the species data into time periods
+
+##### Country Data
+
+```{r}
+
+
+# --------------------------------------------------------------------------------------------- #
+
+
+# adjust species names in data to match those in the tree
+species_data_subset$tip.label <- gsub(" ", "_", species_data_subset$verbatim_name)
+# species_data_continent$tip.label <- gsub(" ", "_", species_data_continent$verbatim_name)
+
+FP <- evol_distinct(tree, "fair.proportion") # add column with phylogenetic distinctness
+FP <- data.frame(FP)
+
+species_data_subset <- merge(species_data_subset, FP, by.x = "tip.label", by.y="row.names", all.x=T)
+
+# --------------------------------------------------------------------------------------------- #
+
+avonet$tip.label <- gsub(" ", "_", avonet$Species3)
+avonet <- avonet %>% select(tip.label, Family3, Order3, "Hand-Wing.Index", "Range.Size")
+
+species_data_subset <- merge(species_data_subset, avonet, by = "tip.label", all.x=T)
+
+# --------------------------------------------------------------------------------------------- #
+
+# save names of layers in data (needed because now they don't match anymore between grid and data)
+layers_country <- unique(species_data_subset$cell_grouping)
+
+
+# Define the desired order of factor levels
+## Change cell_grouping here (!) after Gabriel has modified it                            [# !!!!!]
+desired_levels_data_country <- factor(layers_country, 
+                         ordered = T, 
+                         levels = c("1", "2", 
+                                    "4", "8", 
+                                    "16", "32", 
+                                    "64")) 
+
+# --------------------------------------------------------------------------------------------- #
+
+## sort the cell groupings ascending
+species_data_subset <- species_data_subset %>%
+  mutate(cell_grouping = factor(cell_grouping, 
+                                levels = desired_levels_data_country))
+
+# --------------------------------------------------------------------------------------------- #
+
+## add column for time period (tp) - Country
+start_times <- sort(unique(species_data_subset$start_year))
+end_times <- sort(unique(species_data_subset$end_year))
+
+time_periods <- data.frame(start_year = start_times,
+                           end_year = end_times, 
+                           tp = seq_along(end_times))
+
+species_data_subset <- merge(species_data_subset, time_periods, 
+                       by=c("start_year", "end_year"), 
+                       all.x=T)
+
+# --------------------------------------------------------------------------------------------- #
+
+# create scale column as a fraction of the full country:
+species_data_subset <- species_data_subset %>% mutate(
+      scale = case_when(
+        cell_grouping == as.character(desired_levels_data_country[1]) ~ 1/64,
+        cell_grouping == as.character(desired_levels_data_country[2]) ~ 1/32,
+        cell_grouping == as.character(desired_levels_data_country[3]) ~ 1/16,
+        cell_grouping == as.character(desired_levels_data_country[4]) ~ 1/8,
+        cell_grouping == as.character(desired_levels_data_country[5]) ~ 1/4 ,
+        cell_grouping == as.character(desired_levels_data_country[6]) ~ 1/2,
+        cell_grouping == as.character(desired_levels_data_country[7]) ~ 1)) %>% 
+  unique()
+
+# --------------------------------------------------------------------------------------------- #
+
+species_data_subset_merged <- merge(species_data_subset, fractal_df_subset, by = c("verbatim_name", "scale", "tp", "cell_grouping"))
+species_data_subset_merged <- unique(species_data_subset_merged)
+
+cell_columns <- c("area", "cell_label", "area_cropped", "cell_long", "cell_lat", "effort", "samp_effort_type")
+species_data_subset_merged_short <- species_data_subset_merged %>% select(!cell_columns) %>% distinct()
+
+
+# --------------------------------------------------------------------------------------------- #
+
+
+
+sp_dat1 <- species_data_subset_merged %>% filter(tp == 1 & cell_grouping == "1")
+sp_dat2 <- species_data_subset_merged %>% filter(tp == 2 & cell_grouping == "1")
+sp_dat3 <- species_data_subset_merged %>% filter(tp == 3 & cell_grouping == "1")
+
+# --------------------------------------------------------------------------------------------- #
+# geopackage grids:
+layers_country <- st_layers(grid_path_country)$name
+
+desired_levels_grid_country <- factor(layers_country, 
+                         ordered = T, 
+                         levels = c("cell1grid", "cell2grid", 
+                                    "cell4grid", "cell8grid", 
+                                    "cell16grid", "cell32grid", 
+                                    "cell64grid")) 
+
+# grid data
+grid_list_country <- sapply(layers_country, function(i) {
+  st_read(grid_path_country, paste(i), quiet = TRUE)
+}, simplify = FALSE)
+
+# add scale column to the grid
+for (i in seq_along(grid_list_country)) {
+  grid_list_country[[i]] <- grid_list_country[[i]] %>% mutate(
+      scale = case_when(
+        cell_grouping == as.character(desired_levels_grid_country[1]) ~ 1/64,
+        cell_grouping == as.character(desired_levels_grid_country[2]) ~ 1/32,
+        cell_grouping == as.character(desired_levels_grid_country[3]) ~ 1/16,
+        cell_grouping == as.character(desired_levels_grid_country[4]) ~ 1/8,
+        cell_grouping == as.character(desired_levels_grid_country[5]) ~ 1/4 ,
+        cell_grouping == as.character(desired_levels_grid_country[6]) ~ 1/2,
+        cell_grouping == as.character(desired_levels_grid_country[7]) ~ 1)) %>% 
+  unique()
+}
+
+# --------------------------------------------------------------------------------------------- #
+
+```
+
+##### Continental Data
+
+```{r, Continent data}
+
+# species_data_continent <- readRDS(data_path_continent)
+# layers_continent <- st_layers(grid_path_continent)$name
+
+# grid_list_continent <- sapply(layers_continent, function(i) {
+#   st_read(grid_path_continent, paste(i), quiet = TRUE)
+# }, simplify = FALSE)
+# species_data_continent <- merge(species_data_continent, FP, by.x = "tip.label", by.y="row.names", all.x=T)
+# species_data_continent <- merge(species_data_continent, avonet, by = "tip.label", all.x=T)
+# layers_continent <- unique(species_data_continent$cell_grouping)
+# desired_levels_data_continent <- factor(layers_continent, 
+#                          ordered = T, 
+#                          levels = c("cell1grid", "cell2grid", 
+#                                     "cell4grid", "cell8grid", 
+#                                     "cell16grid", "cell32grid", 
+#                                     "cell64grid", "cellfullgrid")) 
+# 
+# species_data_continent <- species_data_continent %>%
+#   mutate(cell_grouping = factor(cell_grouping, 
+#                                 levels = desired_levels_data_continent))
+# ## add column for time period (tp) - Continent
+# start_times <- sort(unique(species_data_continent$start_year))
+# end_times <- sort(unique(species_data_continent$end_year))
+# 
+# time_periods <- data.frame(start_year = start_times,
+#                            end_year = end_times, 
+#                            tp = seq_along(end_times))
+# 
+# species_data_continent <- merge(species_data_continent, time_periods, 
+#                        by=c("start_year", "end_year"), 
+#                        all.x=T)
+# species_data_continent <- species_data_continent %>% mutate(
+#       scale = case_when(
+#         cell_grouping == as.character(desired_levels_data[1]) ~ 1/128,        
+#         cell_grouping == as.character(desired_levels_data[2]) ~ 1/64,
+#         cell_grouping == as.character(desired_levels_data[3]) ~ 1/32,
+#         cell_grouping == as.character(desired_levels_data[4]) ~ 1/16,
+#         cell_grouping == as.character(desired_levels_data[5]) ~ 1/8,
+#         cell_grouping == as.character(desired_levels_data[6]) ~ 1/4 ,
+#         cell_grouping == as.character(desired_levels_data[7]) ~ 1/2,
+#         cell_grouping == as.character(desired_levels_data[8]) ~ 1)) %>% 
+#   unique()
+
+# # CONTINENT
+# 
+# layers_continent <- st_layers(grid_path_continent)$name
+# 
+# desired_levels_grid_continent <- factor(layers, 
+#                          ordered = T, 
+#                          levels = c("cell1grid", "cell2grid", 
+#                                     "cell4grid", "cell8grid", 
+#                                     "cell16grid", "cell32grid", 
+#                                     "cell64grid", "cell128grid")) 
+# 
+# # grid data
+# grid_list_continent <- sapply(layers_continent, function(i) {
+#   st_read(grid_path_continent, paste(i), quiet = TRUE)
+# }, simplify = FALSE)
+# 
+# # add scale column to the grid
+# for (i in seq_along(grid_list_continent)) {
+#   grid_list_continent[[i]] <- grid_list_continent[[i]] %>% mutate(
+#       scale = case_when(
+#         cell_grouping == as.character(desired_levels_grid_continent[1]) ~ 1/64,
+#         cell_grouping == as.character(desired_levels_grid_continent[2]) ~ 1/32,
+#         cell_grouping == as.character(desired_levels_grid_continent[3]) ~ 1/16,
+#         cell_grouping == as.character(desired_levels_grid_continent[4]) ~ 1/8,
+#         cell_grouping == as.character(desired_levels_grid_continent[5]) ~ 1/4 ,
+#         cell_grouping == as.character(desired_levels_grid_continent[6]) ~ 1/2,
+#         cell_grouping == as.character(desired_levels_grid_continent[7]) ~ 1)) %>% 
+#   unique()
+# }
+
+```
+
+##### Drop Species from Tree ?
+
+```{r, drop tips from tree}
+# # for each time period separately:
+# # a) extract species lists for each time period
+# sp_list_df1 <- sp_dat1  %>% distinct(tip.label)
+# sp_list_df2 <- sp_dat2  %>% distinct(tip.label)
+# sp_list_df3 <- sp_dat3  %>% distinct(tip.label)
+# 
+# # b) create list of species not in the data (to drop them from the tree)
+# sp.drop.tree1 <- setdiff(tree$tip.label, sp_list_df1$tip.label)
+# sp.drop.tree2 <- setdiff(tree$tip.label, sp_list_df2$tip.label)
+# sp.drop.tree3 <- setdiff(tree$tip.label, sp_list_df3$tip.label)
+# 
+# # c) create list of species not in the tree
+# sp.drop.data1 <- setdiff(sp_list_df1$tip.label, tree$tip.label) 
+# sp.drop.data2 <- setdiff(sp_list_df2$tip.label, tree$tip.label) 
+# sp.drop.data3 <- setdiff(sp_list_df3$tip.label, tree$tip.label) 
+# 
+# 
+# # --------------------------------------------------------------------------------------------- #
+# # drop species from tree (not in data):
+# # -- time period 1 -- #
+# tree1 <- drop.tip(tree, sp.drop.tree1)
+# tree1 <- ladderize(tree1)
+# # -- time period 2 -- #
+# tree2 <- drop.tip(tree, sp.drop.tree2)
+# tree2 <- ladderize(tree2)
+# # -- time period 3 -- #
+# tree3 <- drop.tip(tree, sp.drop.tree3)
+# tree3 <- ladderize(tree3)
+# 
+# 
+# # --------------------------------------------------------------------------------------------- #
+# # drop species from data (not in tree)
+# # -- time period 1 -- #
+# sp_dat1 <- sp_dat1 %>% filter(verbatim_name %in% sp.drop.data1)
+# # -- time period 2 -- #
+# sp_dat2 <- sp_dat2 %>% filter(verbatim_name %in% sp.drop.data2)
+# # -- time period 3 -- #
+# sp_dat3 <- sp_dat3 %>% filter(verbatim_name %in% sp.drop.data3)
+
+```
+
+```{r}
+model_df <- species_data_subset_merged_short %>%na.omit()
+model_df <- model_df %>% rename("HWI" = "Hand-Wing.Index")
+
+str(model_df)
+model_df$tp <- as.factor(model_df$tp)
+model_df$cell_grouping <- factor(model_df$cell_grouping, levels = c("1", "2", "4", "8", "16", "32", "64"), labels = c("1", "2", "4", "8", "16", "32", "64"))
+model_df$start_year <- as.factor(model_df$start_year)
+model_df$end_year <- as.factor(model_df$end_year)
+
+model_df$dataset <- as.factor(model_df$dataset)
+model_df$taxa <- as.factor(model_df$taxa)
+model_df$Family3 <- as.factor(model_df$Family3)
+model_df$Order3 <- as.factor(model_df$Order3)
+
+
+# --------------------------------------------------------------------------------- #
+
+set.seed(123)
+
+samp <- sample(nrow(model_df), 0.8 * nrow(model_df))
+train <- model_df[samp, ]
+test <- model_df[-samp, ]
+
+
+sp.rf <- randomForest(r2_AOO ~ ., data=train, ntree=1000, mtry=5, importance=TRUE,
+                        proximity=TRUE)
+
+sp.rf$coefs
+
+round(importance(sp.rf),2)
+
+
+
+
+
+prediction <- predict(sp.rf, newdata = test)
+
+table(prediction, test$r2_AOO)
+
+prediction
+```
