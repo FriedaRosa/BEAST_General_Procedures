@@ -473,7 +473,7 @@ telfer_results2 <- telfer_results %>%
 
 
 species_data_new2 <- merge(species_data_new, telfer_results2, by="verbatim_name")
-species_data_new2 %>% write.csv(file=paste0(out_path, "Big_table.csv"))
+
 
 ```
 
@@ -568,11 +568,15 @@ species_data_wide <- temp2 %>%
   pivot_wider(names_from = cell_grouping,
               values_from = all_of(names_v))
 
-species_data_wide <- species_data_wide %>% 
-  mutate(log_R2_1 = log(tp2_AOO_cell1grid/tp1_AOO_cell1grid), # for tp 1-2 comparison
-         log_R3_2 = log(tp3_AOO_cell1grid/tp2_AOO_cell1grid), # for tp 2-3 comparison
-         log_R3_1 = log(tp3_AOO_cell1grid/tp1_AOO_cell1grid), # for tp 1-3 comparison
-         .before = 1) # sort columns to the beginning of the table
+log_ratio_data <- species_data_wide %>% 
+  mutate(log_R2_1 = log(tp2_AOO_1/tp1_AOO_1), # for tp 1-2 comparison
+         log_R3_2 = log(tp3_AOO_1/tp2_AOO_1), # for tp 2-3 comparison
+         log_R3_1 = log(tp3_AOO_1/tp1_AOO_1), # for tp 1-3 comparison
+         .before = 1) %>% # sort columns to the beginning of the table
+  select(verbatim_name, log_R2_1, log_R3_2, log_R3_1)
+
+species_data_new3 <- merge(species_data_new2, log_ratio_data, by="verbatim_name")
+species_data_new3 %>% write.csv(file=paste0(out_path, "Big_table.csv"))
 
 ```
 
