@@ -28,7 +28,7 @@ In a similar manner, we would expect that the geometrical properties of our stud
 Part 2: Predicting past change: can data from the 00s predict the temporal change that took place between the 80s and 00s?)
 
 | Predictor group                                                                                                                                                               | Predictor sub-group                                              | Predictor                                                                                                                                                                                                          | Source                                                                                            | Status              | Note                                                                                                            |
-|------------|------------|------------|------------|------------|------------|
+|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|---------------------|-----------------------------------------------------------------------------------------------------------------|
 | Species traits                                                                                                                                                                | Evol. constrain                                                  | Phylogenetic distinctness                                                                                                                                                                                          | calculated from Jetz 2012 BirdTree (taken from Weeks et al 2022 data repository)                  | \- \[x\]            | Fair proportion metric (Isaac et al., 2007).                                                                    |
 | Species traits                                                                                                                                                                |                                                                  | Species Genus, Family, Order                                                                                                                                                                                       | AVONET                                                                                            | \- \[...\]          | Genus not included so far                                                                                       |
 |                                                                                                                                                                               | Threat Status                                                    | IUCN Global/Continental/National Red List for species                                                                                                                                                              | IUCN                                                                                              | \- \[...\]          | Don't have the national one yet \[\[Questions & Ideas\]\]                                                       |
@@ -56,7 +56,9 @@ Part 2: Predicting past change: can data from the 00s predict the temporal chang
 |                                                                                                                                                                               | Biological                                                       | total Species Richness                                                                                                                                                                                             |                                                                                                   | \- \[ \]            |                                                                                                                 |
 |                                                                                                                                                                               | Sampling in Atlas --- Biases of Atlasses                         | average local richness, beta diversity, equilibrium species richness, ratio = gamma                                                                                                                                |                                                                                                   | \- \[ \]            |                                                                                                                 |
 
-```{r}
+### 00. Libraries
+
+```{r, print = false}
 #| label: setup libraries
 
 rm(list=ls()) # clean environemnt
@@ -66,7 +68,7 @@ gc() # clean memory
 # Spatial data ------------------------------- # 
 library(sf)
 library(terra)
-library(rasterVis)
+library(tmap)
 
 # Standard data handling --------------------- #
 library(readxl)
@@ -77,6 +79,11 @@ library(tibble)
 
 # Phylogeny handling ------------------------- #
 library(ape)
+
+
+# Landscape metrics --------------------------- #
+#install.packages("landscapemetrics")
+library(landscapemetrics)
 ```
 
 ### 0. Source and Sink folders
@@ -126,6 +133,69 @@ grid_path4 <- paste0(source_path_country,"Birds_Atlas_EBBA/Birds_Atlas_EBBA_grid
 
 ```
 
+```{r}
+project_crs <- '+proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +ellps=WGS84 +units=m +no_defs'
+
+
+# Step 1: get a gridded world
+world <- st_read("~/PhD_Projects/StaticPredictors/Data/World_administrative_borders_shp/world-administrative-boundaries.shp")
+world <- st_transform(world, crs=project_crs)
+world_extent <- ext(world)
+grid <- rast(world_extent, res = 0.09, crs = project_crs)
+
+
+grid_world <- vect("~/PhD_Projects/StaticPredictors/Data/AOOGrid_10x10kmShp/AOOGrid_10x10km.shp")
+grid_world <- transform(grid_world, crs=project_crs)
+
+
+
+# grid_world <- st_read("~/PhD_Projects/StaticPredictors/Data/AOOGrid_10x10kmShp/AOOGrid_10x10km.shp")
+# 
+# grid_cropped <- st_crop(grid_world, world)
+# #   Transforming sf class to SpatVector class from terra
+# grid_world_v <- vect(grid_world)
+# 
+# #   Masking in terra
+# world_grid_masked = mask(world, grid_world_v)
+
+
+
+gc()
+# head(grid_world)
+# st_crs(grid_world)
+# st_crs(world)
+# 
+# world <- st_transform(world, crs=project_crs)
+# grid_world <- st_transform(grid_world, crs=project_crs)
+# 
+# 
+# grid_world2 <- rast(ext(world), res = 10000, crs = project_crs)
+# 
+# world2<- st_join(world, grid_world)
+
+
+
+
+
+# ggplot(grid_world)+
+#   geom_sf() +
+#   geom_sf(data = world, fill = NA, color = "black") +
+#   theme_void()
+
+
+# Step 2:'Arena' grids:
+
+## Czech Republic:
+grid_CZ <- st_read(grid_path1, layer = "cell1grid")
+grid_CZ2 <- grid_CZ %>% select(!area3s)
+grid_CZ3 <- unique(grid_CZ2)
+
+extent_CZ <- round(st_bbox(grid_CZ3),0) + c(1,-1,1,1)
+
+grid_CZ4 <- terra::vect(grid_CZ3)
+grid_CZ <- grid_CZ4
+```
+
 ### 2. Static Predictors
 
 #### 2.1 Species traits
@@ -136,6 +206,9 @@ traits_path <- paste0(predictors_path, "AVONET/ELEData/TraitData/AVONET3_BirdTre
 threat_path <- paste0(predictors_path, "European Red List of birds (2021)/EU_red_list_2021.csv")
 fractal_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/out/Big_table.csv"
 
+
+
+Chelsa_path <- "~/PhD_Projects/StaticPredictors/Data/Chelsa_Bio_PET/"
 # threat_path2 <- "~/../Datasets/Raw/National Red List database/nrl_simplified_table.txt"
 # glob_range_path <- "~/../Datasets/Raw/Distributions/BIrds_of_the_world/BOTW.gdb"
 
@@ -143,20 +216,61 @@ fractal_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_Ge
 
 #### 2.2 Environmental predictors
 
-```{r}
-library(raster)
-library(rnaturalearth)
+##### 2.2.1 CHELSA climate data
 
+calculating the global climate niche of species...
+
+```{r}
+library(stars)
+project_crs <- '+proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +ellps=WGS84 +units=m +no_defs'
+
+# Resample to new resolution, projection 
+# tavg <- resample(grid_world, r, method = "bilinear")
+# footp <- resample(footp, r, method = "near")
 
 # Chelsa climate data to calculate climate space (to calculate species niches)
-Chelsa_path <- "~/PhD_Projects/StaticPredictors/Data/Chelsa_Bio_PET/"
-
 c_layers <- list.files(Chelsa_path)
+c_layers_names <- setNames( c("bio1", "bio12", "bio13", "bio14", "bio15", "bio2", "bio3", "bio4", "bio5", "bio6", "bio7", "pet"), c_layers)
+
 r_list <- list()
-for (i in seq_along(c_layers)){
-  l <- raster::raster(paste0(Chelsa_path, c_layers[i]))
-  r_list[[i]] <- l
+
+#i = 1
+for (i in seq_along(c_layers_names)){
+
+
+### Step 1: read in bio clim layers separately, extract values from grid cells
+  temp_layer_name <- c_layers[i]
+  l <- terra::rast(paste0(Chelsa_path, temp_layer_name))
+  names(l) <- (c_layers_names[i])
+
+  #l_poly <- as.polygons(l)
+  #l_agg <- terra::aggregate(l_poly, grid)
+  #coarse_chelsa <- aggregate(l, fact = 2, fun = mean, na.rm = TRUE)  
+  
+  ####
+  l_values <- terra::extract(l, grid, fun = mean) # all values per grid cell
+  #l_values <- terra::resample(l, grid) ## Throws error: Warnung: [resample] Estimated disk space needed without compression: 216445103GB. Available: 685 GB.Error: [resample] interrupted
+
+# Average across cells
+  l_vals <- l_values %>%
+    group_by(ID) %>%
+    reframe(mean_var = mean(l_values[,2])) %>%
+    rename_with(.cols = mean_var, function(x){paste0(c_layers_names[i], "_", "mean")}) 
+  
+  
+  
+
+  
+  # l2 <- terra::extract(l, grid)
+  # l3 <- terra::crop(l, grid)
+  # plot(mask(l3, grid))
+  # 
+  # pol <- terra::as.polygons(l2)
+  # sf_new <- sf::st_as_sf(pol)
+  # r_list[[i]] <- l
 }
+
+data.frame(grid)
 rast_list <- raster::stack(r_list)
 class(rast_list[[1]])
 
@@ -174,7 +288,16 @@ nlyr(Chelsa_dd) # Number of Layers
 rasterToPoints(Chelsa_dd[[1]])
 
 landcover_CZ <- st_read(paste0(predictors_path, "CorineLandCover90s/")) #class(vect(landcover))
+lc <- rast(landcover_CZ)
 
+
+
+### Function to transform raster to sf
+
+
+pol_py <- sf::st_as_sf(terra::as.polygons(r_list[[1]]))
+
+####
 
 
 ```

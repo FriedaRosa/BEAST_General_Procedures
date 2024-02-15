@@ -41,11 +41,11 @@ library(terra)
 library(readxl)
 library(dplyr)
 library(ggplot2) # plotting
+library(tidyr)
+library(tibble)
 
 # Community data ----------------------------- #
 library(cooccur)
-library(tidyr)
-library(tibble)
 library(fossil)
 # library(vegan)
 
