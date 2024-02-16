@@ -28,7 +28,7 @@ In a similar manner, we would expect that the geometrical properties of our stud
 Part 2: Predicting past change: can data from the 00s predict the temporal change that took place between the 80s and 00s?)
 
 | Predictor group                                                                                                                                                               | Predictor sub-group                                              | Predictor                                                                                                                                                                                                          | Source                                                                                            | Status              | Note                                                                                                            |
-|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|---------------------|-----------------------------------------------------------------------------------------------------------------|
+|------------|------------|------------|------------|------------|------------|
 | Species traits                                                                                                                                                                | Evol. constrain                                                  | Phylogenetic distinctness                                                                                                                                                                                          | calculated from Jetz 2012 BirdTree (taken from Weeks et al 2022 data repository)                  | \- \[x\]            | Fair proportion metric (Isaac et al., 2007).                                                                    |
 | Species traits                                                                                                                                                                |                                                                  | Species Genus, Family, Order                                                                                                                                                                                       | AVONET                                                                                            | \- \[...\]          | Genus not included so far                                                                                       |
 |                                                                                                                                                                               | Threat Status                                                    | IUCN Global/Continental/National Red List for species                                                                                                                                                              | IUCN                                                                                              | \- \[...\]          | Don't have the national one yet \[\[Questions & Ideas\]\]                                                       |
@@ -204,14 +204,114 @@ grid_CZ <- grid_CZ4
 tree_path <- paste0(predictors_path, "Weeks_et_at_2022/singe_bird_phylo.tre")
 traits_path <- paste0(predictors_path, "AVONET/ELEData/TraitData/AVONET3_BirdTree.xlsx")
 threat_path <- paste0(predictors_path, "European Red List of birds (2021)/EU_red_list_2021.csv")
-fractal_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/out/Big_table.csv"
-
+fractal_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/out/Big_table_CZ_JP_NY.csv"
 
 
 Chelsa_path <- "~/PhD_Projects/StaticPredictors/Data/Chelsa_Bio_PET/"
 # threat_path2 <- "~/../Datasets/Raw/National Red List database/nrl_simplified_table.txt"
 # glob_range_path <- "~/../Datasets/Raw/Distributions/BIrds_of_the_world/BOTW.gdb"
 
+```
+
+#### 2.1.2 Handle BirdLife GeoDatabase
+
+Some Explanations (from the metadata document):
+
+> Presence:
+>
+> -   1 = extant
+>
+> -   2 = Probably extant (N.B.)
+>
+> -   3 = Possibly Extant
+>
+> -   4 = Possibly extinct
+>
+> -   5 = Extinct (post 1500)
+>
+> -   6 = Presence Uncertain
+>
+> Origin:
+>
+> -   1 = Native
+>
+> -   2 = Reintroduced
+>
+> -   3 = Introduced
+>
+> -   4 = Vagrant
+>
+> -   5 = Origin uncertain
+>
+> -   6 = assisted colonization
+>
+> Season:
+>
+> -   1 = Resident
+>
+> -   2 = Breeding Season
+>
+> -   3 =Non-breeding Season
+>
+> -   4 = Passage
+>
+> -   5 = Seasonal Occurrence Uncertain
+
+```{r}
+require(sf)
+require(dplyr)
+
+fractal_data <- read.csv(fractal_path)
+sp_list_all <- fractal_data %>% select(dataset, verbatim_name) %>% distinct()
+
+# The input file geodatabase
+fgdb <- "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Raw/Distributions/Birds_of_the_world/BOTW.gdb"
+
+st_layers(fgdb)
+st_read(fgdb)
+All_sp <- st_read(fgdb, layer = "All_Species") 
+Tax_sp <- st_read(fgdb, layer = "Taxonomic_checklist") # Global Red List status
+
+Subset_Tax_sp <- Tax_sp %>% filter(ScientificName %in% sp_list_all$verbatim_name) %>% select(ScientificName, FamilyName, Subfamily, Tribe, RL_Category)
+Subset_all_sp <- All_sp %>% filter(sci_name %in% sp_list_all$verbatim_name) %>% filter(presence %in% c(1,3),
+                                                                                       origin %in% c(1,2),
+                                                                                       seasonal %in% c(1,2,4))
+
+
+library(maps)
+maps::map('world')
+plot(Subset_all_sp, col='red', add=T)
+
+
+```
+
+#### 2.1.3 Handle National and Global Red List status
+
+```{r}
+library(stringr)
+nrl_path <-"c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/PhD_Projects/StaticPredictors/Data/NationalThreatsAves_subset/nrl_simpified_table_Aves.txt" 
+
+sp_names_JP <- read.csv("c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_atlas_Japan/Birds_atlas_Japan_spnames_INFO.csv")
+
+nrl <- read.csv(nrl_path, sep="\t")
+nrl[c('Species', 'Subspecies')] <- str_split_fixed(nrl$Species, ' ', 2)
+nrl$Verbatim_name <- str_c(nrl$Genus," ", nrl$Species)
+
+nrl <- nrl %>% filter(Nation %in% c("Czech Republic", "Japan")) 
+nrl %>% filter(Verbatim_name %in% sp_list_all$verbatim_name ) # only 25 species match...
+  
+
+str(nrl)
+```
+
+#### 2.1.4 Life History traits (N=45/237)
+
+```{r}
+storchova <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/PhD_Projects/StaticPredictors/Data/Storchova_LifeHistoryBirdsEU/Life-history characteristics of European birds.txt"
+
+lifehistory <- read.csv(storchova, sep="\t")
+
+intersect(lifehistory$Species, sp_list_all$verbatim_name)
 ```
 
 #### 2.2 Environmental predictors
