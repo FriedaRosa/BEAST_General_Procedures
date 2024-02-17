@@ -18,7 +18,7 @@ library(sparta)
 library(ggplot2)
 ```
 
-## Data Paths 
+## Data Paths
 
 ```{r}
 #| warning: false
