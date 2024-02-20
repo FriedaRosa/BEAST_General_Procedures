@@ -45,17 +45,21 @@ grid_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_grid.gpkg"),
                 paste0(source_paths[3], "Birds_atlas_Japan_grid.gpkg"),
                 paste0(source_paths[4], "Birds_atlas_EBBA_grid.gpkg"))
 
+
+# make list with names of layers so we can read them in below
 layers_list <- list()
-# save names of layers from file (needed to read them in):
+
+## save names of layers from file (needed to read them in):
 for (i in seq_along(grid_paths)){
   layers <- st_layers(grid_paths[i])$name
   layers_list[[i]] <- layers
-  
 }
 
 # Define the desired order of factor levels
-# Define the desired order of factor levels
-desired_levels <- factor(layers, 
+desired_levels <- factor(c("1", "2", 
+                                    "4", "8", 
+                                    "16", "32",
+                                    "64", "128"), 
                          ordered = T, 
                          levels = c("1", "2", 
                                     "4", "8", 
@@ -63,462 +67,403 @@ desired_levels <- factor(layers,
                                     "64", "128")) 
 
 
-### 3. Reading the data
+```
 
+## Read & Process Data
 
-# Species data
+```{r}
+
 # Species data
 presence_data <- list()
 for (i in seq_along(data_paths)){
   pres_dat <- readRDS(data_paths[i])
   presence_data[[i]] <- pres_dat
-  
 }
+
+# remove tp3 from CZ data for easier handling of all datasets
+presence_data[[1]] <- presence_data[[1]] %>% 
+  filter(start_year != 2014) 
+
+# Merge list together
 presence_data_df <- plyr::rbind.fill(presence_data, fill=T)
 presence_data <- presence_data_df
 
+# Vetor with atlas names
 atlas_names <- unique(presence_data$dataset)
 
-
-
 ## add column for time period (tp)
-
-
-time_periods <- presence_data %>% group_by(dataset) %>% select(start_year, end_year) %>% distinct()
-time_periods$tp <- c(1, 2, 3, 2, 1, 1, 2, 1, 2)
-
-# 
-# start_times <- sort(unique(presence_data$start_year))
-# end_times <- sort(unique(presence_data$end_year))
-# 
-# time_periods <- data.frame(start_year = start_times,
-#                            end_year = end_times, 
-#                            tp = seq_along(end_times))
+time_periods <- presence_data %>% 
+  group_by(dataset) %>% 
+  select(start_year, end_year) %>% 
+  distinct() %>% 
+  arrange(start_year, by.group = T)
+time_periods$tp <- c(rep(1,4), rep(2,4))
 
 presence_data2 <- merge(presence_data, time_periods, 
                        by=c("dataset","start_year", "end_year"), 
                        all.x=T)
+
+
+
 rm(presence_data, layers, presence_data_df, pres_dat) # clear space
 
 
 # grid data
 grid_list2 <- list()
-
 for (a in seq_along(grid_paths)) {
-
     grid_list <- sapply(layers_list[[a]], function(i) {
-  
       st_read(grid_paths[[a]], paste(i), quiet = TRUE)
       }, simplify = FALSE)
-
-    
     grid_list2[[a]] <- grid_list
-    
     }
 
 
 
-rm(grid_list, a) # clear space
+ # clear space
+rm(grid_list, a)
 
 ```
 
 ## Calculate occupancy
 
-```{r}
-#| label: AOO calculation across scales and species
+```{r, calculate occupancy short version}
 
-occ_data_list <- list()
-occ_data_list_all_Atlas <- list()
-# We run the loop for each Atlas
-for (j in seq_along(grid_list2)){ ## Atlas
+pres_dat_full1 <- list()
+pres_dat_full3 <- list()
+
+for (n_atlas in seq_along(atlas_names)){
+  atlas_name <- atlas_names[n_atlas] # set variable for current run of the loop
+  atlas <- grid_list2[[n_atlas]]# subset list of atlases to one
   
-  for (i in seq_along(grid_list2[[j]])){
+  for (grain in seq_along(atlas)){
+    # set some variables for current run of the loop
+    grain_a <- names(atlas)[grain]
+    grain_d <- as.numeric(gsub("\\D", "", grain_a)) # "\\D" = remove all non-numbers
     
-    # subset the grid_list and work on a single spatial grain:
- 
-    map_atlas_1scale <- grid_list2[[j]][[i]] 
-
+    # subset atlas to one grain
+    atlas_1scale <- atlas[[grain]] %>% 
+      select(cell_grouping, cell_label, area1s, area2s, area_cropped, cell_long, cell_lat) %>%
+      st_drop_geometry()
     
-  # Calculate total sampled area per time period:
-  
+    # Calculate total sampled area per time period:
+    atlas_1scale <- atlas_1scale %>% mutate(
+      Total_area1 = sum(atlas_1scale$area1s),
+      Total_area2 = sum(atlas_1scale$area2s))
+    
+    # Calculate total number of sampled cells per time period:
+    Total_Ncells1 <- atlas_1scale %>%
+      filter(area1s > 0) %>%
+      mutate(Total_Ncells1 = length(unique(cell_label))) %>%
+      pull(Total_Ncells1) %>%
+      unique()
+    
+    Total_Ncells2 <- atlas_1scale %>%
+      filter(area2s > 0) %>%
+      mutate(Total_Ncells2 = length(unique(cell_label))) %>%
+      pull(Total_Ncells2) %>%
+      unique()
+    
+    atlas_1scale$Total_Ncells1 <- Total_Ncells1
+    atlas_1scale$Total_Ncells2 <- Total_Ncells2
 
-  map_atlas_1scale <- map_atlas_1scale %>% mutate(
-    Total_area1 = sum(map_atlas_1scale$area1s),
-    Total_area2 = sum(map_atlas_1scale$area2s))
+    map_atlas_1scale <- atlas_1scale
+    
+    # subset the presence/absence data to the current spatial grain:
+    pres_data_1atlas <- presence_data2 %>% 
+      filter(dataset == atlas_name) %>%
+      filter(cell_grouping == grain_d) %>%
+      select(dataset, tp, verbatim_name, samp_effort_type, effort, cell_label, cell_grouping)
   
-  # Calculate total number of sampled cells per time period:
-Total_Ncells1 <- map_atlas_1scale %>%
-  filter(area1s > 0) %>%
-  mutate(Total_Ncells1 = length(unique(cell_label))) %>%
-  pull(Total_Ncells1) %>%
-  unique()
-Total_Ncells2 <- map_atlas_1scale %>%
-  filter(area2s > 0) %>%
-  mutate(Total_Ncells2 = length(unique(cell_label))) %>%
-  pull(Total_Ncells2) %>%
-  unique()
-
-  
-  Total_Ncells <- data.frame(
-    cell_grouping = unique(map_atlas_1scale$cell_grouping),
-    Total_Ncells1, Total_Ncells2)
-  
-  map_atlas_1scale <- merge(map_atlas_1scale, Total_Ncells)
-  
-  # map_atlas_1scale %>% 
-  #   pivot_longer(cols=c('Total_Ncells1', 'Total_Ncells2', 'Total_Ncells3'),
-  #                names_to='year',
-  #                values_to='Total_N_cells')
-
-  # subset the presence/absence data to the current spatial grain:
-  pres_data_1atlas <- presence_data2 %>% 
-    filter(dataset == atlas_names[j]) %>%
-    filter(cell_grouping == unique(map_atlas_1scale$cell_grouping))
-
-  # Merge sampled and unsampled cells for calculations:
-  pres_data_full_1atlas <- merge(pres_data_1atlas, map_atlas_1scale, 
+    # Merge sampled and unsampled cells for calculations:
+    pres_data_full_1atlas <- merge(pres_data_1atlas, map_atlas_1scale, 
                           by = intersect(names(pres_data_1atlas), names(map_atlas_1scale)), 
                           all = T)
-  pres_data_full_1atlas <- unique(pres_data_full_1atlas)
+    
+    pres_data_full_1atlas %>% filter(!is.na(verbatim_name))
 
   # Reduce columns needed for analysis:
-  pres_data_full_1atlas_reduced <- pres_data_full_1atlas %>% 
+  pres_data_1atlas_reduced <- pres_data_full_1atlas %>% 
   ungroup() %>% 
     mutate(
       area_sampled = case_when(
         tp == 1 ~ area1s,
         tp == 2 ~ area2s,
-        tp == 3 ~ NA),
+        is.na(tp) ~ 0),
       area_c = case_when(
         tp == 1 ~ area_cropped,
         tp == 2 ~ area_cropped,
-        tp == 3 ~ NA),
+        is.na(tp) ~ area_cropped),
       Total_area =case_when(
         tp == 1 ~ Total_area1,
         tp == 2 ~ Total_area2,
-        tp == 3 ~ NA),
+        is.na(tp) ~ 0),
       Total_Ncells = case_when(
         tp == 1 ~ Total_Ncells1,
         tp == 2 ~ Total_Ncells2,
-        tp == 3 ~ NA)) %>% 
-    select(verbatim_name, tp, cell_grouping, cell_label,
-           area_sampled, area_c, Total_area, Total_Ncells) %>%
-    filter_all(any_vars(!is.na(.)))
+        is.na(tp) ~ 0),
+      effort = case_when(
+        tp == 1 ~ effort,
+        tp == 2 ~ effort,
+        is.na(tp) ~ 0
+      ))
   
-## ========================================================================= ##
-##  ========================== Calculate Occupancy ========================= ##
-## ========================================================================= ##
+  pres_data_1atlas_reduced$dataset <- atlas_names[n_atlas]
+  
+  pres_dat_full1[[grain]] <- pres_data_1atlas_reduced %>% unique()
+    
+  }
+  
+  pres_dat_full2 <- plyr::rbind.fill(pres_dat_full1, fill=T)
+  pres_dat_full3[[n_atlas]] <- pres_dat_full2
+  
+}
 
-occ_data <- pres_data_full_1atlas_reduced %>%
-  ungroup() %>%   
-  
-# Remove unsampled cells:  
-  filter(!is.na(verbatim_name)) %>%
+pres_dat_full4 <- plyr::rbind.fill(pres_dat_full3, fill=T)
 
-# Necessary grouping to calculate occupancy:
-  group_by(verbatim_name, tp, cell_grouping) %>% unique() %>%
-  
+pres_dat_final <- pres_dat_full4 %>%  
+  mutate(cell_grouping = factor(cell_grouping, 
+                                levels = desired_levels)) %>% 
+  filter(!is.na(verbatim_name))
+
+
+### =============================================== ###
+rm(pres_dat_full1, pres_dat_full2, pres_dat_full3, pres_dat_full4, pres_data_1atlas, pres_data_full_1atlas, pres_data_1atlas_reduced, map_atlas_1scale)
+### =============================================== ###
+
+
+occ_data <- pres_dat_final %>%
+  ungroup() %>%
+  group_by(dataset, tp, cell_grouping, verbatim_name) %>% distinct() %>%
 # Calculate Occupancy:
-  # mutate(occupancy_area = sum(area_sampled)) %>%
+  mutate(occupancy_area = sum(area_sampled)) %>%
   mutate(occupancy_Ncells = n_distinct(cell_label)) %>%
-  
 # Calculate AOO:
   mutate(AOO = occupancy_Ncells * mean(area_sampled)) %>%
-  
 # Calculate relative Occupancy:
-  # mutate(relative_occupancy_area = occupancy_area/Total_area) %>%
+  mutate(relative_occupancy_area = occupancy_area/Total_area) %>%
   mutate(relative_occupancy_Ncells = occupancy_Ncells/Total_Ncells) %>%
-  
-# Round values to 2 digits after the comma:
-  # mutate(relative_occupancy_area = round(relative_occupancy_area, 3)) %>% 
-  # mutate(relative_occupancy_Ncells = round(relative_occupancy_Ncells, 2)) %>% 
-
 # Remove duplicated rows:
   distinct() 
 
-
-occ_data$dataset <- atlas_names[j]
-
-
-# save to list:
-occ_data_list[[i]] <- occ_data
-
-
-
-}
-
-occ_data_full_df <- plyr::rbind.fill(occ_data_list, fill=T)
-occ_data_list_all_Atlas[[j]] <- occ_data_full_df
-
-
-}
-
-
-occ_data_all_Atlas <- plyr::rbind.fill(occ_data_list_all_Atlas, fill=T)
-occ_data_all_Atlas <- occ_data_all_Atlas %>% filter(tp != 3)
-
+occ_data$cell_grouping2 <- as.numeric(as.character(occ_data$cell_grouping))
+occ_data %>% filter_all(any_vars(is.na(.)))
 
 # create scale column as a fraction of the full country:
-occ_data_Atlas_CZ <- occ_data_all_Atlas %>% 
-  filter(dataset == atlas_names[1]) %>% 
-  mutate(
-      scale = case_when(
-        cell_grouping == "1" ~ 1/64,
-        cell_grouping == "2" ~ 1/32,
-        cell_grouping == "4" ~ 1/16,
-        cell_grouping == "8" ~ 1/8,
-        cell_grouping == "16" ~ 1/4,
-        cell_grouping == "32" ~ 1/2 ,
-        cell_grouping == "64" ~ 1)) %>% distinct()
+occ_data_final <- occ_data %>% 
+  ungroup() %>%
+  group_by(dataset) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "1", 1/64, NA)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "2", 1/32, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "4", 1/16, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "8", 1/8, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "16", 1/4, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "32", 1/2, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "64", 1, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "1", 1/128, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "2", 1/16, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "4", 1/32, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "8", 1/16, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "16", 1/8, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "32", 1/4, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "64", 1/2, scale)) %>%
+  mutate(scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "128", 1, scale))
+
+occ_data_final %>% filter_all(any_vars(is.na(.)))
 
 
-occ_data_Atlas_NY <- occ_data_all_Atlas %>% 
-  filter(dataset == atlas_names[2]) %>% 
-  mutate(
-      scale = case_when(
-        cell_grouping == "1" ~ 1/128,
-        cell_grouping == "2" ~ 1/64,
-        cell_grouping == "4" ~ 1/32,
-        cell_grouping == "8" ~ 1/16,
-        cell_grouping == "16" ~ 1/8,
-        cell_grouping == "32" ~ 1/4,
-        cell_grouping == "64" ~ 1/2 ,
-        cell_grouping == "128" ~ 1)) %>% distinct()
-
-occ_data_Atlas_JP <- occ_data_all_Atlas %>% 
-  filter(dataset == atlas_names[3]) %>% 
-  mutate(
-      scale = case_when(
-        cell_grouping == "1" ~ 1/128,
-        cell_grouping == "2" ~ 1/64,
-        cell_grouping == "4" ~ 1/32,
-        cell_grouping == "8" ~ 1/16,
-        cell_grouping == "16" ~ 1/8,
-        cell_grouping == "32" ~ 1/4,
-        cell_grouping == "64" ~ 1/2 ,
-        cell_grouping == "128" ~ 1)) %>% distinct()
-
-occ_data_Atlas_EBBA <- occ_data_all_Atlas %>% 
-  filter(dataset == atlas_names[4]) %>% 
-  mutate(
-      scale = case_when(
-        cell_grouping == "1" ~ 1/128,
-        cell_grouping == "2" ~ 1/64,
-        cell_grouping == "4" ~ 1/32,
-        cell_grouping == "8" ~ 1/16,
-        cell_grouping == "16" ~ 1/8,
-        cell_grouping == "32" ~ 1/4,
-        cell_grouping == "64" ~ 1/2 ,
-        cell_grouping == "128" ~ 1)) %>% distinct()
-
-# Merge back together
-occ_data_Atlas_all <- merge(occ_data_Atlas_CZ, occ_data_Atlas_NY, 
-                            by=intersect(names(occ_data_Atlas_CZ), names(occ_data_Atlas_NY)), all = T)
-
-occ_data_Atlas_all2 <- merge(occ_data_Atlas_all, occ_data_Atlas_JP, 
-                             by=intersect(names(occ_data_Atlas_all), names(occ_data_Atlas_JP)), all = T)
-
-occ_data_Atlas_all3 <- merge(occ_data_Atlas_all2, occ_data_Atlas_EBBA, 
-                             by=intersect(names(occ_data_Atlas_all2), names(occ_data_Atlas_EBBA)), all = T)
-
-occ_data_Atlas_all3$dataset <- as.factor(occ_data_Atlas_all3$dataset)
-
-table(occ_data_Atlas_all3$dataset)
-
-occ_data_final <- occ_data_Atlas_all3
-
+### =============================================== ###
+rm(occ_data)
+### =============================================== ###
 
 # save reduced version of this to file:
 
-species_data <- occ_data_final %>% select(-c(cell_label, area_sampled, area_c)) %>% distinct(.) 
+species_data <- occ_data_final %>% 
+  select(dataset, tp, cell_grouping, scale, verbatim_name, Total_area, Total_Ncells, 
+         occupancy_area, occupancy_Ncells, AOO, relative_occupancy_area, relative_occupancy_Ncells) %>%
+  distinct() 
+
 table(species_data$dataset)
 
 species_data %>% filter(AOO == 0)
 species_data <- species_data %>% filter(verbatim_name != 'Acridotheres tristis')
+species_data %>% filter_all(any_vars(is.na(.)))
+species_data %>% filter(is.na(AOO)) # none
 
-#species_data %>% write.csv(paste0(out_path, "Occupancy_table.csv"))
+species_data %>% write.csv(paste0(out_path, "Occupancy_table.csv"))
 
-rm(occ_data_list, occ_data_list_all_Atlas, occ_data_full_df, occ_data_Atlas_CZ, occ_data_Atlas_NY, occ_data_Atlas_JP, occ_data_Atlas_EBBA, occ_data_Atlas_all, occ_data_Atlas_all2, occ_data_all_Atlas, pres_data_1atlas, pres_data_full_1atlas, pres_data_full_1atlas_reduced, Total_Ncells, Total_Ncells1, Total_Ncells2, j, i, map_atlas_1scale, occ_data_Atlas_all3, occ_data) # clear space
 ```
 
-## Scale-Area Curves
-
 ```{r}
+plot(x = log(occ_data_final$area_sampled), y = log(occ_data_final$AOO))
+plot(x = log(occ_data_final$scale), y = log(occ_data_final$AOO))
+```
 
+## Occupancy-Area Relationship
+
+A consideration:
+
+-   when saturated scales are excluded (i.e., scales for each species where: relative occupancy = 1), there are not enough scales left for some species (in CZ) to calculate the OAR: many of them saturate quickly.
+
+    -   original scale: 4 (tp1), 5 (tp2)
+
+    -   2nd scale: 21 (tp1), 24 (tp2)
+
+    -   3rd scale: 32 (tp1), 66 (tp2)\
+        \
+        --\> by scale 3, 57 (tp1) and 95 (tp2) species are saturated in CZ
+
+-   New York:
+
+    -   3rd scale: 9 (tp1), 1 (tp2)
+
+-   Japan
+
+    -   3rd scale: 1 (tp2)
+
+```{r, Saturated Species stats}
+
+species_data %>% 
+  filter(relative_occupancy_Ncells == 1) %>% 
+  distinct() %>%
+  group_by(dataset, cell_grouping, tp) %>%
+  summarise(N_sp = n_distinct(verbatim_name)) # check saturated occupancies
+
+
+```
+
+```{r OAR}
 dd <- species_data %>%
   filter(relative_occupancy_Ncells < 1) %>% # exclude saturated scales
   unique() %>%
-  filter_at(
-    vars(c(
+  filter_at(vars(c(
       cell_grouping, scale,
       AOO, occupancy_Ncells,
-      relative_occupancy_Ncells
-    )),
-    any_vars(!is.na(.))
-  )
-## 
+      relative_occupancy_Ncells)), any_vars(!is.na(.)))
 
-dd$dataset <- as.factor(dd$dataset)
-tp1_dd <- dd %>% filter(tp == 1)
-tp2_dd <- dd %>% filter(tp == 2)
+## Variables:
+atlas_names <- unique(dd$dataset)
+period <- c(1,2)
+OAR_list_sp <- list()
+OAR_list_sp_tp <- list()
+OAR_list_sp_tp_atlas <- list()
 
-tp_dd_list <- list(tp1_dd, tp2_dd)
-rm(tp1_dd, tp2_dd)
+## Loop:
+for (n_atlas in seq_along(atlas_names)){
+  atlas_name <- atlas_names[n_atlas]
+  atlas <- dd %>% filter(dataset == atlas_name)
+  for (time in seq_along(period)){
+    period_nr <- period[time]
+    atlas_1time <- atlas %>% filter(tp == period_nr) 
+    sp <- unique(atlas_1time$verbatim_name)
+    for(spec in seq_along(sp)){
+      species <- sp[spec]
+      model_df <- atlas_1time %>% filter(verbatim_name == species) %>% distinct()
+      
+      OAR <- lm(log(AOO) ~ log(scale), data = model_df)
+      OAR2 <- lm(log(relative_occupancy_Ncells) ~ log(scale), data = model_df)
 
-# loop along tp_dd list, then along species
+      OAR_df <- data.frame(
+        verbatim_name = species,
+        dataset = atlas_name,
+        tp = period_nr, 
+        m_AOO = OAR$coefficients[2],
+        b_AOO = OAR$coefficients[1],
+        m_relOcc = OAR2$coefficients[2], 
+        b_relOcc = OAR2$coefficients[1])
+      
+      OAR_df$D_AOO <- -2*OAR_df$m_AOO+2
+      OAR_df$D_relOcc <- -2*OAR_df$m_relOcc+2
+      OAR_df$dataset <- as.factor(OAR_df$dataset)
+      
 
-models_est_list <- list()
-all_atlas_list <- list()
-all_atlas_list_allyears <- list()
-#all_AIC_tabs <- list()
-#all_AIC_tabs_all <- list()
-
-
-for (y in seq_along(tp_dd_list)){ # tp 1 and tp 2
-  
-  temp_df <- tp_dd_list[[y]]
-  
-  for (b in seq_along(levels(temp_df$dataset))){ # 4 different atlas datasets
-     temp_df <- temp_df %>% filter(dataset == levels(temp_df$dataset)[b])
-  
-  
-     for (i in seq_along(unique(temp_df$verbatim_name))){ # each species separately
+      OAR_list_sp[[spec]] <- OAR_df
+      
+    }
     
-       sp <- unique(temp_df$verbatim_name)[i]
-       model_df <- temp_df %>% filter(verbatim_name == sp)
-    
-     
-       m_lin <- lm(log(AOO) ~ log(scale), data = model_df)
-      
-      
-      m_df1 <- data.frame(
-      # row.names = c("linear"),      
-      verbatim_name = sp,
-      dataset = levels(temp_df$dataset)[b],
-      tp = y, 
-      m_AOO = m_lin$coefficients[2],
-      b_AOO = m_lin$coefficients[1],
-      r2_AOO = summary(m_lin)$r.squared)
-      
-      m_df1$D_AOO <- -2* m_df1$m_AOO+2
-      m_df1$dataset <- as.factor(m_df1$dataset)
-      
-
-      models_est_list[[i]] <- m_df1 ## Model resolts for all Species of one atlas at one time period
-      
-     }
-     models_est_list2 <- plyr::rbind.fill(models_est_list, fill = T)
-     all_atlas_list[[b]] <- models_est_list2
+    OAR_df_sp <- plyr::rbind.fill(OAR_list_sp, fill = T)
+    OAR_list_sp_tp[[time]] <- OAR_df_sp
      
   }
-  all_atlas_list2 <- plyr::rbind.fill(all_atlas_list, fill = T)   
-  all_atlas_list_allyears[[y]] <- all_atlas_list2
-
-
-  
+  OAR_df_sp_tp <- plyr::rbind.fill(OAR_list_sp_tp, fill = T)   
+  OAR_list_sp_tp_atlas[[n_atlas]] <- OAR_df_sp_tp
 }
+    
+OAR_final <- plyr::rbind.fill(OAR_list_sp_tp_atlas, fill = T) %>% distinct()
+
+OAR_final %>% filter_all(any_vars(is.na(.))) # None !#
 
 
-all_atlas_list_allyears2 <- plyr::rbind.fill(all_atlas_list_allyears, fill = T)
-str(all_atlas_list_allyears2)
+species_data_new <- merge(species_data, 
+                          OAR_final, 
+                          by=c(intersect(names(species_data), names(OAR_final))), all = T) %>% distinct()
 
-OAR_final <- all_atlas_list_allyears2
 
-# rm(models_est_list, models_est_list2,all_atlas_list, all_atlas_list2, all_atlas_list_allyears, m_df1, model_df, sp, temp_df, dd, m_lin, y, b, i)
+species_data_new %>% filter(is.na(m_AOO)) %>% pull(verbatim_name) %>% unique() 
+species_data_new %>% filter(is.na(m_AOO)) %>% pull(dataset) %>% unique() 
+
+# NAs where we did not have enough scales to calculate the OAR after removing the saturated scales. This is only the case for Czech Republic
+
+### =============================================== ###
+rm(dd, OAR_list_sp_tp_atlas, OAR_list_sp_tp, OAR_df_sp_tp, OAR_list_sp, OAR_df_sp, OAR_df, OAR, OAR2, sp, atlas_1time, model_df )
+### =============================================== ###
+
 ```
 
 ## Telfer Index of change (not static)
 
-```{r}
-species_data_new <- merge(species_data, 
-                          OAR_final, 
-                          by=c(intersect(names(species_data), names(OAR_final)))) %>% unique()
+```{r, telfer calculation}
 
 # Telfer:
-CZ <- presence_data2 %>% filter(dataset == atlas_names[1] & tp %in% c(1,2)) %>% distinct()
-NY <- presence_data2 %>% filter(dataset == atlas_names[2]) %>% distinct()
-JP <- presence_data2 %>% filter(dataset == atlas_names[3]) %>% distinct()
-EBBA <- presence_data2 %>% filter(dataset == atlas_names[4]) %>% distinct()
-
-
-telfer_res_CZ <- sparta::telfer(taxa = CZ$verbatim_name,
-                         site = CZ$cell_label,
-                         time_period = CZ$tp,
+telfer_res <- list()
+for (i in seq_along(atlas_names)){
+  df <- pres_dat_final %>% filter(dataset == atlas_names[i]) %>% distinct()
+  telfer <- sparta::telfer(taxa = df$verbatim_name,
+                         site = df$cell_label,
+                         time_period = df$tp,
                          minSite = 2)
-telfer_res_CZ$dataset <- atlas_names[1]
-telfer_res_NY <- sparta::telfer(taxa = NY$verbatim_name,
-                         site = NY$cell_label,
-                         time_period = NY$tp,
-                         minSite = 2)
-telfer_res_NY$dataset <- atlas_names[2]
-telfer_res_JP <- sparta::telfer(taxa = JP$verbatim_name,
-                         site = JP$cell_label,
-                         time_period = JP$tp,
-                         minSite = 2)
-telfer_res_JP$dataset <- atlas_names[3]
+telfer$dataset <- atlas_names[i]
+telfer_res[[i]] <- telfer
+  
+}
 
-telfer_res_EBBA <- sparta::telfer(taxa = EBBA$verbatim_name,
-                         site = EBBA$cell_label,
-                         time_period = EBBA$tp,
-                         minSite = 2)
-telfer_res_EBBA$dataset <- atlas_names[4]
-
-telfer_res <- merge(telfer_res_CZ, telfer_res_NY, all =T)
-telfer_res <- merge(telfer_res, telfer_res_JP, all =T)
-telfer_res <- merge(telfer_res, telfer_res_EBBA, all =T)
-
-
-
-telfer_res2 <- telfer_res %>% 
+telfer_res_df <- plyr::rbind.fill(telfer_res, fill = T) %>% distinct() %>%
   select(taxa, Telfer_1_2, dataset) %>% 
   rename(verbatim_name = taxa)
 
 
-species_data_new2 <- merge(species_data_new, telfer_res2, by=c("verbatim_name", "dataset"), all.x = T)
+species_data_new2 <- merge(species_data_new, telfer_res_df, by=c("verbatim_name", "dataset"), all.x = T)
+
+### =============================================== ###
+rm(telfer, telfer_res, species_data_new, df)
+### =============================================== ###
+
+```
+
+```{r, telfer ggplots}
 
 library(ggplot2)
 ## Plot
-ggp1 <- ggplot(data = telfer_res2) +
-  geom_histogram(aes(x = Telfer_1_2), bins = 20, 
+ggplot(data = telfer_res_df) +
+  geom_histogram(aes(x = Telfer_1_2), bins = 50, 
                  bg = "lightgrey", col = "darkgrey")+
   theme_classic() +
-  #xlim(-4, 4)+
-  #ylim(0, 85)+ 
-  # Add line for mean:
-  geom_vline(xintercept = mean(telfer_res2$Telfer_1_2, na.rm=T),
-             col = "red",
-             lwd = 1) +
-  # Add text for mean:
-   annotate("text",                        
-           x = mean(telfer_res2$Telfer_1_2, na.rm=T) -2.5,
-           y = mean(telfer_res2$Telfer_1_2, na.rm=T) +80,
-           label = paste("Mean =", 
-                         round(mean(telfer_res2$Telfer_1_2, na.rm=T),
-                               3)
-                         ),
-           col = "red",
-           size = 6)+
-  # Add line for mean:
-    geom_vline(xintercept = median(telfer_res2$Telfer_1_2, na.rm=T), 
-             col = "orange",
-             lwd = 1) +
-  # Add text for mean:
-     annotate("text",                        
-           x = mean(telfer_res2$Telfer_1_2, na.rm=T) -2.5,
-           y = mean(telfer_res2$Telfer_1_2, na.rm=T) +70,
-           label = paste("Median =", 
-                         round(median(telfer_res2$Telfer_1_2, na.rm=T),
-                               3)
-                         ),
-           col = "orange",
-           size = 6)
-ggp1
+  facet_wrap(dataset~.)
+
+
+ggplot(data = telfer_res_df %>% filter(dataset == "Birds_atlas_EBBA")) +
+  geom_histogram(aes(x = Telfer_1_2), bins = 100, 
+                 bg = "lightgrey", col = "darkgrey")+
+  theme_classic()
+ 
+plot1 <- ggplot(data = telfer_res_df)+
+  geom_boxplot(aes(y = Telfer_1_2, x = dataset), outlier.colour = "red")+
+  theme_classic()+
+  labs(title = "Telfer index of relative Change")
 ```
 
-## Log Ratio (Temporal Change = Response)
+### Make wide-format
 
-```{r}
-
+```{r, make wide format}
 
 # Re-formating the data.. there is probably a smoother way to do it..
 species_data_wide1 <- species_data_new2 %>% 
@@ -551,69 +496,283 @@ species_data_wide2 <- species_data_new2 %>%
          cell_grouping = tp2_cell_grouping, 
          dataset = tp2_dataset)
 
-
 # merge back together:
 temp <- merge(species_data_wide1, species_data_wide2, 
-              by=intersect(names(species_data_wide1), names(species_data_wide2)))
-names_v <- names(temp)[-(1:3)]
+              by=intersect(names(species_data_wide1), names(species_data_wide2)), all = T)
+names_v <- names(temp)[-(1:3)] # remove verbatim_name, cell_grouping and dataset columns
 
 # Transform to wide format by cell_grouping
 species_data_wide <- temp %>% 
   pivot_wider(names_from = cell_grouping,
-              values_from = all_of(names_v))
+              values_from = all_of(names_v)) %>% unique()
 
+### =============================================== ###
+rm(species_data_wide1, species_data_wide2, temp, names_v)
+### =============================================== ###
+
+
+```
+
+## Log Ratio (Temporal Change = Response)
+
+```{r, temporal change}
+# Calculate log-Ratio of AOO (Temporal change)
 log_ratio_data <- species_data_wide %>% 
-  mutate(log_R2_1 = log(tp2_AOO_1/tp1_AOO_1), # for tp 1-2 comparison
-         .before = 1) %>% # sort columns to the beginning of the table
-  select(verbatim_name, log_R2_1) %>%
-  mutate(log_R2_1 = round(log_R2_1, 2))
+  mutate(log_R2_1 = log(tp2_AOO_1/tp1_AOO_1)) %>%
+  select(dataset, verbatim_name, log_R2_1)
 
-species_data_new3 <- merge(species_data_new2, log_ratio_data, by="verbatim_name")
-species_data_new3 %>% write.csv(file=paste0(out_path, "Big_table_CZ_JP_NY.csv"))
+species_data_bigtable <- merge(species_data_new2, log_ratio_data, by=c("verbatim_name", "dataset"),all = T)
+species_data_bigtable %>% write.csv(file=paste0(out_path, "Big_table_CZ_JP_NY.csv"))
 
 
-species_data_new3 %>% group_by(dataset, tp, cell_grouping) %>% 
-  select(verbatim_name, dataset, tp, cell_grouping, log_R2_1, AOO, relative_occupancy_Ncells, m_AOO, D_AOO, Telfer_1_2) %>%
-  rstatix::get_summary_stats(type = "robust")
+species_data_bigtable %>% filter_all(any_vars(is.na(.))) %>% 
+  select(dataset, tp, verbatim_name) %>% unique() %>% pull(verbatim_name) %>% unique() ### There is a problem here !
+
+
+species_data_bigtable %>% 
+  group_by(dataset, tp, cell_grouping) %>% 
+  select(verbatim_name, dataset, tp, cell_grouping, 
+         log_R2_1, Telfer_1_2,
+         AOO, relative_occupancy_Ncells, 
+         m_AOO, D_AOO) %>%
+  rstatix::get_summary_stats(type = "mean_sd")
+
+
+
+Change_Data <- species_data_bigtable %>% 
+  filter(!is.na(log_R2_1)) %>% 
+  select(verbatim_name, dataset, log_R2_1) %>% 
+  distinct() %>% 
+  na.omit()
+
+
+Change_Data %>% 
+  write.csv(paste0(out_path, "Change_Data.csv"))
+
+Change_Data %>% 
+  group_by(dataset) %>% 
+  summarise(N_sp = n(),
+            meanChange = mean(log_R2_1),
+            sdChange = sd(log_R2_1),
+            medianChange = median(log_R2_1))
+
+
+species_data_bigtable %>% 
+  filter(!is.na(Telfer_1_2)) %>% 
+  select(verbatim_name, dataset, Telfer_1_2) %>% 
+  distinct() %>% 
+  na.omit() %>% 
+  group_by(dataset) %>% 
+  summarise(N_sp = n(),
+            meanChange = mean(Telfer_1_2),
+            sdChange = sd(Telfer_1_2),
+            medianChange = median(Telfer_1_2))
+
+### =============================================== ###
+rm(species_data_new2, log_ratio_data)
+### =============================================== ###
 
 ```
 
 ```{r}
-
-cor_df <- species_data_new3 %>% select("tp", "scale", "AOO", "relative_occupancy_Ncells", "m_AOO", "b_AOO", "D_AOO", "Telfer_1_2", "log_R2_1")
-
-cormat <- round(cor(cor_df, use="pairwise.complete.obs"),2)
-
-
-library(reshape2)
-melted_cormat <- melt(cormat)
-head(melted_cormat)
-
-library(ggplot2)
-ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile()
+  
+plot2 <- ggplot(data = Change_Data)+
+  geom_boxplot(aes(y = log_R2_1, x = dataset), outlier.colour = "red")+
+  theme_classic()+
+  labs(title = "log Ratio")
+gridExtra::grid.arrange(plot1, plot2)
 
 
-reorder_cormat <- function(cormat){
-# Use correlation between variables as distance
-dd <- as.dist((1-cormat)/2)
-hc <- hclust(dd)
-cormat <-cormat[hc$order, hc$order]
+```
+
+## Negative D?
+
+```{r}
+x <- species_data_bigtable %>% filter(D_AOO < 0 & relative_occupancy_area < 1)
+sp <- unique(x$verbatim_name)
+length(sp) # 60 species from CZ have negative D
+
+x %>% group_by(dataset, tp) %>% rstatix::get_summary_stats(type="common")
+
+
+# Comparison plot
+species_data_bigtable %>% filter(D_AOO > 0 & relative_occupancy_area < 1) %>%
+  ggplot(aes(x = log(scale), y=log(AOO), col = tp, alpha = 0.5))+
+    geom_point()+
+    geom_line(aes(group = factor(verbatim_name)))+
+    theme_classic()+
+    facet_wrap(dataset~.)+
+    labs(title = "D > 0")+
+    viridis::scale_color_viridis(discrete = F)+
+    theme(legend.position = "none")
+
+species_data_bigtable %>% filter(D_AOO < 0 & relative_occupancy_area < 1) %>%
+  ggplot(aes(x = log(scale), y=log(AOO), col = tp, alpha = 0.5))+
+    geom_point()+
+    geom_line(aes(group = factor(verbatim_name)))+
+    theme_classic()+
+    facet_wrap(dataset~.)+
+    labs(title = "D < 0")+
+    viridis::scale_color_viridis(discrete = F)+
+    theme(legend.position = "none")
+
+
+
+x_list <- list()
+for (i in seq_along(sp)) {
+  model_df <- x %>% filter(verbatim_name == sp[i]) %>% unique()
+  m_lin <- lm(log(AOO) ~ log(scale), data = model_df)
+  dd <- data.frame(
+      verbatim_name = sp[1],
+      m_AOO = m_lin$coefficients[2],
+      b_AOO = m_lin$coefficients[1],
+      r2_AOO = summary(m_lin)$r.squared)
+  dd$D_AOO <- -2*dd$m_AOO+2
+  dd 
+  x_list[[i]] <- dd
+ }
+
+```
+
+## Correlation matrix
+
+```{r}
+library(ggcorrplot)
+cor_df <- species_data_bigtable %>% 
+  select("tp", "scale", 
+         "AOO", "relative_occupancy_Ncells", 
+         "m_AOO", "b_AOO", "m_relOcc", "b_relOcc",
+         "D_AOO", "D_relOcc",
+         "Telfer_1_2", "log_R2_1", "dataset")
+
+p.mat <-  model.matrix(~0+., data=cor_df) %>% cor_pmat()
+
+model.matrix(~0+., data=cor_df) %>% 
+  cor(use="pairwise.complete.obs") %>% 
+  ggcorrplot( lab=TRUE, lab_size=2, hc.order=T, insig ="blank",p.mat = p.mat)
+
+
+```
+
+```{r}
+m1 <- lm(log_R2_1 ~ D_AOO, data = species_data_bigtable, na.action = na.omit)
+summary(m1)
+m2 <- lm(Telfer_1_2 ~ D_AOO, data = species_data_bigtable, na.action = na.omit)
+summary(m2)
+
+```
+
+## Plot: Temporal Change \~ D
+
+```{r}
+# Plots =================================================================== #
+## 1. Change between tp1 and 2 ~ D from tp1
+p1 <- species_data_bigtable %>% filter(tp == 1) %>%
+  ggplot(aes(y = log_R2_1, x = D_AOO))+
+  geom_point()+
+  ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
+  xlab("tp1_D")+
+ #geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  geom_smooth(alpha = 0.5)+
+  theme_classic()+
+  labs(title = "Prediction of future change",
+       subtitle = "Log Ratio between AOO from time period 1 and 2 ~ D from time period 1 ")+
+    geom_hline(yintercept = 0, col = "red")+
+  facet_wrap(dataset~.)
+
+
+
+
+p2 <- species_data_bigtable %>% filter(tp == 2) %>%
+  ggplot(aes(y = log_R2_1, x = D_AOO))+
+  geom_point()+
+  ylab(expression("log"~ frac("tp2_AOO_cell1grid", "tp1_AOO_cell1grid")))+
+  xlab("tp2_D")+
+ geom_smooth(method = "lm", formula = y ~ x, se = T, alpha = 0.5)+
+  theme_classic()+
+  labs(title = "Prediction of past change",
+       subtitle = "Log Ratio between AOO from time period 1 and 2 ~ D from time period 2 ")+
+    geom_hline(yintercept = 0, col = "red")+
+  facet_wrap(dataset~.)
+
+
+gridExtra::grid.arrange(p1,p2, nrow = 1, ncol = 2)
+```
+
+# Predictors
+
+```{r}
+
+# Make dataframe with predictors ======================
+names(species_data_bigtable)
+
+predictors_df <- species_data_bigtable %>% 
+  filter(cell_grouping == 1) %>%
+  select(
+    verbatim_name, dataset, tp, # Grouping variables
+    log_R2_1, Telfer_1_2, # Response variables
+    Total_area, # Extent of the Arena
+    relative_occupancy_Ncells, # Relative Occupancy
+    m_AOO, # slope of OAR1
+    m_relOcc, # slope of OAR2
+    D_AOO, # D of AOO
+    D_relOcc # D of rel. Occupancy
+    )
+
+
+## Calculate Diversity Measures ======================
+GammaAlphaBeta_Atlas <- pres_dat_final %>%
+  filter(cell_grouping == 1) %>%
+  select(dataset, tp, cell_label, verbatim_name) %>% distinct() %>%
+  group_by(dataset,tp) %>%
+  mutate(GammaSR = sum(n_distinct(verbatim_name))) %>% ungroup() %>%
+  group_by(dataset, tp, cell_label) %>%
+  mutate(AlphaSR = sum(n_distinct(verbatim_name))) %>%
+  mutate(BetaSR = GammaSR/AlphaSR)
+
+GammaAlphaBeta_Species <- GammaAlphaBeta_Atlas %>%   
+  ungroup() %>%
+  group_by(dataset, tp, verbatim_name) %>%
+  mutate(AlphaSR_sp = mean(AlphaSR)) %>%
+  mutate(BetaSR_sp = GammaSR/AlphaSR_sp) %>%
+  select(dataset, tp, verbatim_name, AlphaSR_sp, BetaSR_sp, GammaSR) %>% distinct()
+
+predictors_df2 <- merge(predictors_df, GammaAlphaBeta_Species, by=c("dataset", "tp", "verbatim_name"), all = T)
+
+## Calculate Mean Sampling Effort  ======================
+AvgEffort <- pres_dat_final %>%
+  filter(cell_grouping == 1) %>%
+  select(dataset, tp, cell_label, verbatim_name, samp_effort_type, effort) %>% 
+  distinct() %>%
+  group_by(dataset, tp, verbatim_name) %>%
+  summarize(avgEffort = mean(effort))
+
+
+predictors_df3 <- merge(predictors_df2, AvgEffort, intersect(names(predictors_df2), names(AvgEffort)), all = T)
+
+
+
+
+
+
+
+
+
+
+# Extract more predictor data from the grids:
+grid_list2
+grid_list3 <- list()
+for (i in seq_along(grid_list2)){
+  cell1grid <- grid_list2[[i]][[1]]
+  grid_list3[[i]] <- cell1grid
+  
 }
-cormat <- reorder_cormat(cormat)
-melted_cormat <- melt(cormat)
-head(melted_cormat)
+rast <- terra::rast(grid_list2[[1]][[7]]) 
 
-library(ggplot2)
-ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile()+
-   theme_minimal()+ # minimal theme
- theme(axis.text.x = element_text(angle = 45, vjust = 1, 
-    size = 12, hjust = 1))+
- coord_fixed()
+pli <- mosaic_to_pliman(rast)
+plot(pli)
 
+poly_measure(poly)
+object_contour(grid_list2[[1]][[7]])
 
-
-summary(lm(log_R2_1 ~ D_AOO, data = species_data_new3, na.action = na.omit))
-summary(lm(Telfer_1_2 ~ D_AOO, data = species_data_new3, na.action = na.omit))
 ```
