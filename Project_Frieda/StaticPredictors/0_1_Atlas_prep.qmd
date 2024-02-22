@@ -11,6 +11,7 @@ editor: visual
 
 rm(list=ls())
 library(sf)
+sf_use_s2(FALSE) # switch spherical geometry off
 library(dplyr)
 library(AICcmodavg)
 library(tidyr)
@@ -25,14 +26,18 @@ library(ggplot2)
 #| message: false
 #| label: Variables
 
+source_atlas <- c("c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/")
+source_predictors <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/PhD_Projects/StaticPredictors/Data/")
+source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/")
+
 # folder path to atlas data
-source_paths <- c("c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_Czechia/", 
-                  "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_Atlas_New_York/" , 
-                  "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_atlas_Japan/", 
-                   "c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/Birds_atlas_EBBA/")
+source_paths <- c(paste0(source_atlas, "Birds_Atlas_Czechia/"), 
+                  paste0(source_atlas, "Birds_Atlas_New_York/"), 
+                  paste0(source_atlas, "Birds_atlas_Japan/"), 
+                  paste0(source_atlas, "Birds_atlas_EBBA/"))
 
 # folder path to output folder
-out_path <- "c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/out/"
+out_path <- c(paste0(source_Git, "out/"))
 
 # create path to read in data and grids from variables
 data_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_beast_data.rds"), 
@@ -46,14 +51,13 @@ grid_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_grid.gpkg"),
                 paste0(source_paths[4], "Birds_atlas_EBBA_grid.gpkg"))
 
 
-# make list with names of layers so we can read them in below
-layers_list <- list()
 
-## save names of layers from file (needed to read them in):
-for (i in seq_along(grid_paths)){
-  layers <- st_layers(grid_paths[i])$name
-  layers_list[[i]] <- layers
-}
+
+```
+
+## Read & Process Data
+
+```{r}
 
 # Define the desired order of factor levels
 desired_levels <- factor(c("1", "2", 
@@ -65,13 +69,6 @@ desired_levels <- factor(c("1", "2",
                                     "4", "8", 
                                     "16", "32",
                                     "64", "128")) 
-
-
-```
-
-## Read & Process Data
-
-```{r}
 
 # Species data
 presence_data <- list()
@@ -103,12 +100,24 @@ presence_data2 <- merge(presence_data, time_periods,
                        by=c("dataset","start_year", "end_year"), 
                        all.x=T)
 
-
+saveRDS(presence_data2, paste0(out_path, "presence_data.rds"))
 
 rm(presence_data, layers, presence_data_df, pres_dat) # clear space
 
 
 # grid data
+
+# make list with names of layers so we can read them in below
+layers_list <- list()
+
+## save names of layers from file (needed to read them in):
+for (i in seq_along(grid_paths)){
+  layers <- st_layers(grid_paths[i])$name
+  layers_list[[i]] <- layers
+}
+
+
+
 grid_list2 <- list()
 for (a in seq_along(grid_paths)) {
     grid_list <- sapply(layers_list[[a]], function(i) {
@@ -774,5 +783,120 @@ plot(pli)
 
 poly_measure(poly)
 object_contour(grid_list2[[1]][[7]])
+
+```
+
+## Spatial Autocorrelation
+
+ref: Carmen
+
+```{r}
+library(spdep)
+library(sfdep)
+## We need the highes resolution data = cell_grouping = 1
+
+# grid data
+grids <- list()
+for (a in seq_along(grid_paths)) {
+    grids_a<- sapply("cell1grid", function(i) {
+      st_read(grid_paths[[a]], paste(i), quiet = TRUE)  %>% st_transform(crs = 4326)
+      }, simplify = FALSE)
+    grids[[a]] <- grids_a
+}
+
+# Raw species occurrence data
+# Species data
+presence_data_all <- list()
+for (i in seq_along(data_paths)){
+  pres_dat <- readRDS(data_paths[i])
+  
+  sy <- sort(unique(pres_dat$start_year))
+  pres_dat2 <- pres_dat %>% mutate(
+    tp = ifelse(start_year == sy[1], 1, 2))
+  
+  sp1 <- pres_dat2 %>% filter(tp == 1) %>% pull(verbatim_name) %>% unique() 
+  sp2 <- pres_dat2 %>% filter(tp == 2) %>% pull(verbatim_name) %>% unique()
+  sp <- intersect(sp1, sp2) 
+  pres_dat3 <- pres_dat2 %>% filter(verbatim_name %in% sp)
+  
+ presence_data_all[[i]] <- pres_dat3
+}
+
+presence_data_all[[1]] <- presence_data_all[[1]] %>% 
+  filter(start_year != 2014)
+
+## autocorrelation loop
+
+
+out_list <- list()
+time_periods <- c(1,2)
+atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japan", "Birds_atlas_EBBA")
+
+
+for (a in seq_along(atlas_names)){
+  grid <- grids[[a]]$cell1grid
+  presence_data <- presence_data_all[[a]]
+  presence_sf <- left_join(grid, presence_data)
+  dd <- presence_sf %>% filter(dataset == atlas_names[a])
+
+
+  for (y in seq_along(time_periods)){
+    dd1 <- dd %>% filter(tp == time_periods[y])
+    
+    ## From Carmen ===============================
+    
+    sp_list <- unique(dd1$verbatim_name)
+    # Contiguity methods
+    neighbor_method <- "contiguity"
+    # Output columns
+    columns_df <- c("tp", "dataset", "neighbor_method", "mean_area", "mean_area_cropped")
+    spmor_cols <- c("verbatim_name", "global_moran", "p_value", columns_df)
+    spmoran_df <- data.frame(matrix(nrow = length(sp_list), ncol = length(spmor_cols)))
+    colnames(spmoran_df) <- spmor_cols
+
+    row_id <- 1
+    
+        
+    for (s in seq_along(sp_list)) {
+      # Obtain a df for each species that indicates the presence (1) or absence (0) of the species
+      data_species <- dd1 %>%
+        mutate(verbatim_name = ifelse(verbatim_name != sp_list[s], NA, verbatim_name)) %>%
+        group_by(across(-verbatim_name)) %>%
+        slice(which.max(!is.na(verbatim_name))) %>%
+        mutate(presence = ifelse(!is.na(verbatim_name), 1, 0))
+      
+      # Filling in the data
+      spmoran_df$verbatim_name[row_id] <- sp_list[s]
+      spmoran_df$dataset[row_id] <- atlas_names[a]
+      spmoran_df$neighbor_method[row_id] <- neighbor_method
+      spmoran_df$tp[row_id] <- unique(data_species$tp)
+      spmoran_df$mean_area[row_id] <- mean(data_species$area, na.rm = TRUE)
+      spmoran_df$mean_area_cropped[row_id] <- mean(data_species$area_cropped, na.rm = TRUE)
+
+      tryCatch({
+      # Creating neighbors
+      nb <- poly2nb(data_species, queen = TRUE)
+      # Spatial weights for the neighbors
+      listw <- nb2listw(nb, style = "W", zero.policy = TRUE)
+      # Moran's I
+      moran_res <- moran.test(data_species$presence, listw, zero.policy = TRUE)
+      spmoran_df[row_id, "global_moran"] <- as.numeric(moran_res$estimate)[1]
+      spmoran_df[row_id, "p_value"] <- moran_res$p.value
+      }, error = function(e) {
+        # Handle the case where Moran's I cannot be calculated
+        spmoran_df[row_id, c("global_moran", "p_value")] <- NA
+      })
+
+      row_id <- row_id + 1  # Update row_id for the next entry
+    
+      }
+    
+    out_list[[length(out_list) + 1]] <- spmoran_df
+  
+  }
+  
+}
+SAC_df <- plyr::rbind.fill(out_list, fill = T) %>% distinct()
+write.csv(SAC_df, paste0(out_path, "SAC_data.csv"))
 
 ```

@@ -318,7 +318,7 @@ plot(sf)
 
 ##### Co-occurrence as a predictor
 
-```{r make community matrix}ce_extract}
+```{r, make community matrix}
 
 # ----------------------------------------------------------- #
 
