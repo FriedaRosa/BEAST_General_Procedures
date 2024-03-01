@@ -5,6 +5,10 @@ format: html
 editor: visual
 ---
 
+## Predicting temporal change from static patterns
+
+This first script is dedicated to work the Atlas data and calculate AOO, OAR/D, Log response ratio, Telfer Index, do some collinearty assessments and process the data to remove biases.
+
 ## Libraries
 
 ```{r, message = F}
@@ -152,7 +156,7 @@ rm(grid_list, a, layers, layers_list)
 
 ```
 
-## Calculate occupancy
+## 1. Calculate occupancy (AOO)
 
 ```{r, calculate occupancy short version}
 
@@ -213,6 +217,7 @@ pres_dat_final <- pres_dat_full4 %>%
   mutate(cell_grouping = factor(cell_grouping, 
                                 levels = desired_levels)) %>% 
   filter(!is.na(verbatim_name))
+saveRDS(pres_dat_final, paste0(out_path, "pres_dat_final.rds"))
 
 
 ### =============================================== ###
@@ -287,7 +292,7 @@ plot(x = log(occ_data_final$area), y = log(occ_data_final$AOO))
 plot(x = log(occ_data_final$scale), y = log(occ_data_final$AOO))
 ```
 
-## Occupancy-Area Relationship
+## 2. Occupancy-Area Relationship (OAR, D)
 
 A consideration:
 
@@ -798,218 +803,5 @@ p2 <- species_data_bigtable %>% filter(tp == 2) %>%
 gridExtra::grid.arrange(p1,p2, nrow = 1, ncol = 2)
 ```
 
-# Predictors
-
-```{r}
-
-# Make dataframe with predictors ======================
-names(species_data_bigtable)
-
-predictors_df <- species_data_bigtable %>% 
-  filter(cell_grouping == 1) %>%
-  select(
-    verbatim_name, dataset, tp, # Grouping variables
-    log_R2_1, Telfer_1_2, # Response variables
-    Total_area, # Extent of the Arena
-    relative_occupancy_Ncells, # Relative Occupancy
-    m_AOO_s, # slope of OAR1
-    m_relOcc_s, # slope of OAR2
-    D_AOO_s, # D of AOO
-    D_relOcc_s # D of rel. Occupancy
-    )
-
-
-## Calculate Diversity Measures ======================
-GammaAlphaBeta_Atlas <- pres_dat_final %>%
-  filter(cell_grouping == 1) %>%
-  select(dataset, tp, cell_label, verbatim_name) %>% distinct() %>%
-  group_by(dataset,tp) %>%
-  mutate(GammaSR = sum(n_distinct(verbatim_name))) %>% ungroup() %>%
-  group_by(dataset, tp, cell_label) %>%
-  mutate(AlphaSR = sum(n_distinct(verbatim_name))) %>%
-  mutate(BetaSR = GammaSR/AlphaSR)
-
-GammaAlphaBeta_Species <- GammaAlphaBeta_Atlas %>%   
-  ungroup() %>%
-  group_by(dataset, tp, verbatim_name) %>%
-  mutate(AlphaSR_sp = mean(AlphaSR)) %>%
-  mutate(BetaSR_sp = GammaSR/AlphaSR_sp) %>%
-  select(dataset, tp, verbatim_name, AlphaSR_sp, BetaSR_sp, GammaSR) %>% distinct()
-
-predictors_df2 <- merge(predictors_df, GammaAlphaBeta_Species, by=c("dataset", "tp", "verbatim_name"), all = T)
-
-## Calculate Mean Sampling Effort  ======================
-AvgEffort <- pres_dat_final %>%
-  filter(cell_grouping == 1) %>%
-  select(dataset, tp, cell_label, verbatim_name, samp_effort_type, effort) %>% 
-  distinct() %>%
-  group_by(dataset, tp, verbatim_name) %>%
-  summarize(avgEffort = mean(effort))
-
-
-predictors_df3 <- merge(predictors_df2, AvgEffort, intersect(names(predictors_df2), names(AvgEffort)), all = T)
-
-
-
-
-
-
-
-
-
-
-# Extract more predictor data from the grids:
-grid_list2
-grid_list3 <- list()
-for (i in seq_along(grid_list2)){
-  cell1grid <- grid_list2[[i]][[1]]
-  grid_list3[[i]] <- cell1grid
-  
-}
-# rast <- terra::rast(grid_list2[[1]][[7]]) 
-# 
-# pli <- mosaic_to_pliman(rast)
-# plot(pli)
-# 
-# poly_measure(poly)
-# object_contour(grid_list2[[1]][[7]])
-
-```
-
-## Spatial Autocorrelation
-
-ref: Carmen
-
-```{r}
-library(spdep)
-library(sfdep)
-## We need the highes resolution data = cell_grouping = 1
-
-# grid data
-grids <- list()
-for (a in seq_along(grid_paths)) {
-    grids_a<- sapply("cell1grid", function(i) {
-      st_read(grid_paths[[a]], paste(i), quiet = TRUE)  %>% st_transform(crs = 4326) %>% reorder_levels( cell_grouping, order=desired_levels)
-      }, simplify = FALSE)
-    grids[[a]] <- grids_a
-}
-
-# Raw species occurrence data
-# Species data  =====================
-presence_data_all <- list()
-for (i in seq_along(data_paths)){
-  pres_dat <- readRDS(data_paths[i])
-  sy <- sort(unique(pres_dat$start_year))
-  
-## Add time-period column 
-  pres_dat2 <- pres_dat %>%     
-    filter(cell_grouping == 1) %>%
-    mutate(tp = ifelse(start_year == sy[1], 1, 2)) %>% 
-    reorder_levels( cell_grouping, order=desired_levels)
-  
-  ## Filter for cells that have been sampled twice ============== (!!)
-  pres_dat3 <- pres_dat2 %>% ungroup() %>% 
-    group_by(cell_label) %>%
-    mutate(num_periods = n_distinct(tp)) %>%
-    mutate(repeated = ifelse(num_periods == 2, 1, 0)) %>%
-    filter(repeated == 1)
-  
-  ## Filter for species that have change data (sp that occur in both time periods)
-  common_species <- pres_dat3 %>%
-    group_by(verbatim_name) %>%
-    summarise(num_periods = n_distinct(tp)) %>%
-    filter(num_periods == 2) %>%
-    pull(verbatim_name)
-  
-  pres_dat4 <- pres_dat3 %>% filter(verbatim_name %in% common_species)
-
-  presence_data_all[[i]] <- pres_dat4
-}
-
-# remove tp3 from CZ data for easier handling of all datasets
-presence_data_all[[1]] <- presence_data_all[[1]] %>% 
-  filter(start_year != 2014)
-
-
-## Filter for cells that have been sampled twice =====================================
-
-
-## autocorrelation loop
-
-
-out_list <- list()
-time_periods <- c(1,2)
-atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japan", "Birds_atlas_EBBA")
-presence_sf_list <- list()
-
-for (a in seq_along(atlas_names)){
-  grid <- grids[[a]]$cell1grid
-  presence_data <- presence_data_all[[a]]
-  presence_sf <- left_join(grid, presence_data)
-  dd <- presence_sf %>% filter(dataset == atlas_names[a])
-  presence_sf_list[[a]] <- dd
-
-
-  for (y in seq_along(time_periods)){
-    dd1 <- dd %>% filter(tp == time_periods[y])
-    
-    ## From Carmen ===============================
-    
-    sp_list <- unique(dd1$verbatim_name)
-    # Contiguity methods
-    neighbor_method <- "contiguity"
-    # Output columns
-    columns_df <- c("tp", "dataset", "neighbor_method", "mean_area", "mean_area_cropped")
-    spmor_cols <- c("verbatim_name", "global_moran", "p_value", columns_df)
-    spmoran_df <- data.frame(matrix(nrow = length(sp_list), ncol = length(spmor_cols)))
-    colnames(spmoran_df) <- spmor_cols
-
-    row_id <- 1
-    
-        
-    for (s in seq_along(sp_list)) {
-      # Obtain a df for each species that indicates the presence (1) or absence (0) of the species
-      data_species <- dd1 %>%
-        mutate(verbatim_name = ifelse(verbatim_name != sp_list[s], NA, verbatim_name)) %>%
-        group_by(across(-verbatim_name)) %>%
-        slice(which.max(!is.na(verbatim_name))) %>%
-        mutate(presence = ifelse(!is.na(verbatim_name), 1, 0))
-      
-      # Filling in the data
-      spmoran_df$verbatim_name[row_id] <- sp_list[s]
-      spmoran_df$dataset[row_id] <- atlas_names[a]
-      spmoran_df$neighbor_method[row_id] <- neighbor_method
-      spmoran_df$tp[row_id] <- unique(data_species$tp)
-      spmoran_df$mean_area[row_id] <- mean(data_species$area, na.rm = TRUE)
-      spmoran_df$mean_area_cropped[row_id] <- mean(data_species$area_cropped, na.rm = TRUE)
-
-      tryCatch({
-      # Creating neighbors
-      nb <- poly2nb(data_species, queen = TRUE)
-      # Spatial weights for the neighbors
-      listw <- nb2listw(nb, style = "W", zero.policy = TRUE)
-      # Moran's I
-      moran_res <- moran.test(data_species$presence, listw, zero.policy = TRUE)
-      spmoran_df[row_id, "global_moran"] <- as.numeric(moran_res$estimate)[1]
-      spmoran_df[row_id, "p_value"] <- moran_res$p.value
-      }, error = function(e) {
-        # Handle the case where Moran's I cannot be calculated
-        spmoran_df[row_id, c("global_moran", "p_value")] <- NA
-      })
-
-      row_id <- row_id + 1  # Update row_id for the next entry
-    
-      }
-    
-    out_list[[length(out_list) + 1]] <- spmoran_df
-  
-  }
-  
-}
-saveRDS(presence_sf_list, paste0(out_path, "presence_sf_list.rds"))
-SAC_df <- plyr::rbind.fill(out_list, fill = T) %>% distinct()
-write.csv(SAC_df, paste0(out_path, "SAC_data.csv"))
-
-```
 
 
