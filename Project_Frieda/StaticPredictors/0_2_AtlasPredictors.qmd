@@ -31,6 +31,7 @@ library(dplyr); # Data wrangling
 library(rstatix); # Reorder levels function
 library(tidyr);
 library(tibble);
+library(readxl);
 
 # Plotting: 
 library(ggplot2); # Plotting
@@ -98,6 +99,7 @@ big_tab_path <- paste0(out_path, "Big_table_CZ_JP_NY.csv") # Created in 0_1_Atla
 tree_path <- paste0(source_predictors, "Weeks_et_at_2022/singe_bird_phylo.tre")
 traits_path <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET3_BirdTree.xlsx")
 sac_path <- paste0(out_path, "SAC_data.csv") # Created in this script (code runs a long time ~ 2h, so here is the object)
+AVONET_path <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET3_BirdTree.xlsx")
 
 
 ############## Read Processed Data from 0_1_Atlas_prep.qmd script:
@@ -106,7 +108,7 @@ pres_dat_final <- readRDS(paste0(out_path, "pres_dat_final")) # species data per
 presence_sf_list <- readRDS(paste0(out_path, "presence_sf_list.rds"))
 big_tab <- read.csv(file=paste0(out_path, "Big_table_CZ_JP_NY.csv")) %>% 
   reorder_levels(cell_grouping, desired_levels)
-
+avonet <- read_excel(AVONET_path, sheet = 2)
 
 ```
 
@@ -272,8 +274,7 @@ predictors_df <- species_data_bigtable %>%
 
 ## Diversity Metrics
 
-```{r}
-
+```{r, eval = F}
 ## Calculate Diversity Measures ======================
 GammaAlphaBeta_Atlas <- pres_dat_final %>%
   filter(cell_grouping == 1) %>%
@@ -291,7 +292,7 @@ GammaAlphaBeta_Species <- GammaAlphaBeta_Atlas %>%
   mutate(BetaSR_sp = GammaSR/AlphaSR_sp) %>%
   select(dataset, tp, verbatim_name, AlphaSR_sp, BetaSR_sp, GammaSR) %>% distinct()
 
-predictors_df2 <- merge(predictors_df, GammaAlphaBeta_Species, by=c("dataset", "tp", "verbatim_name"), all = T)
+# predictors_df2 <- merge(predictors_df, GammaAlphaBeta_Species, by=c("dataset", "tp", "verbatim_name"), all = T)
 
 ## Calculate Mean Sampling Effort  ======================
 AvgEffort <- pres_dat_final %>%
@@ -302,7 +303,15 @@ AvgEffort <- pres_dat_final %>%
   summarize(avgEffort = mean(effort))
 
 
-predictors_df3 <- full_join(predictors_df2, AvgEffort)
+Diversity_Effort <- full_join(GammaAlphaBeta_Species, AvgEffort)
+saveRDS(Diversity_Effort, paste0(out_path, "Diversity_AvgEffort.rds"))
+```
+
+#### Diversity_Effort: Read back in
+```{r}
+
+Diversity_Effort <- readRDS(paste0(out_path, "Diversity_AvgEffort.rds"))
+predictors_df2 <- full_join(predictors_df, Diversity_Effort)
 
 ```
 
@@ -317,8 +326,13 @@ sf_use_s2(FALSE)
 out_list <- list()
 time_periods <- c(1,2)
 atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japan", "Birds_atlas_EBBA")
-presence_sf_list <- list()
 
+```
+
+This takes quite some time (~ 2.5h). Read the SAC_df back in instead of re-running the code.
+```{r, eval = F}
+
+presence_sf_list <- list()
 for (a in seq_along(atlas_names)){
   grid <- grids[[a]]
   presence_data <- presence_data_all[[a]]
@@ -392,125 +406,11 @@ saveRDS(SAC_df, paste0(out_path, "SAC_data.rds"))
 
 ```
 
-### SAC: Distance-based (WIP)
-
-```{r, eval = F, include = F}
-
-sf_use_s2(FALSE)
-out_list_distance <- list()
-time_periods <- c(1,2)
-atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japan", "Birds_atlas_EBBA")
-presence_sf_list <- list()
-
-for (a in seq_along(atlas_names)){
-  grid <- grids[[a]]
-  presence_data <- presence_data_all[[a]]
-  presence_sf <- left_join(grid, presence_data)
-  dd <- presence_sf %>% filter(dataset == atlas_names[a])
-  presence_sf_list[[a]] <- dd
-
-
-  for (y in seq_along(time_periods)){
-    dd1 <- dd %>% filter(tp == time_periods[y])
-    
-    ## From Carmen ===============================
-    
-    sp_list <- unique(dd1$verbatim_name)
-    # Contiguity methods
-    neighbor_method <- "Distance"
-    # Output columns
-    columns_df <- c("tp", "dataset", "neighbor_method", "mean_area", "mean_area_cropped")
-    spmor_cols <- c("verbatim_name", "global_moran", "p_value", columns_df)
-    spmoran_df <- data.frame(matrix(nrow = length(sp_list), ncol = length(spmor_cols)))
-    colnames(spmoran_df) <- spmor_cols
-
-    row_id <- 1
-    
-        
-    for (s in seq_along(sp_list)) {
-      
-      print(paste("atlas =", atlas_names[a], "tp =", time_periods[y], "sp = ", sp_list[s]))
-      # Obtain a df for each species that indicates the presence (1) or absence (0) of the species
-      data_species <- dd1 %>%
-        mutate(verbatim_name = ifelse(verbatim_name != sp_list[s], NA, verbatim_name)) %>%
-        group_by(across(-verbatim_name)) %>%
-        slice(which.max(!is.na(verbatim_name))) %>%
-        mutate(presence = ifelse(!is.na(verbatim_name), 1, 0))
-      
-       tryCatch({
-         
-         coords <- st_coordinates(st_centroid(data_species)) %>% unique()
-         knear <- knn2nb(knearneigh(coords, k=1))
-         dsts<-unlist(nbdists(knear, coords, longlat = F))
-         max(dsts) #max distance necessary to connect to neighbors
-         
-         #Neighbour defined by dnearneigh()
-         nb<-dnearneigh(coords,0,max(dsts), longlat=F) #To match Africa dataset
-         par(mfrow=c(3,4), mar=c(2,4,1,1))
-         plot(coords)
-         plot(nb, coords, pch=20, lwd=2)
-         summary(nb)
-         
-         nb_100<-dnearneigh(coords,0,100, longlat=T)
-         summary(nb_100)
-         plot(nb_100, coords, pch=20, lwd=2)
-         
-         nb1_w<-nb2listw(nb, glist=NULL, style="W", zero.policy=T)
-         summary(nb1_w, zero.policy=TRUE)
-         plot(nb1_w, coords)
-
-         
-# Define the distance bands (note that each band is defined
-# by an annulus)
-start <- 0 # Starting distance in meters (the From)
-end <- 125000 # Ending distance in meters (the To)
-incr <- 10000 # Distance increment (which also defines the annulus width)
-incr.v <- seq(start, end, incr)
-
-
-# Define empty vector elements to store the I and p-values
-morI.mc <- vector()
-sign.mc <- vector()
-
-# Loop through each distance band
-for (i in (2:length(incr.v))) {
-  s.dist <- dnearneigh(s.coord, incr.v[i - 1], incr.v[i])
-  s.lw <- nb2listw(s.dist, style = "W", zero.policy=T)
-  s.mor <- moran.mc(s$Income, s.lw, nsim=599, zero.policy = TRUE)
-  sign.mc[i] <- s.mor$p.value
-  morI.mc[i] <- s.mor$statistic
-}
-
-# Modify p-value to reflect extremes at each end
-sign.mc <- ifelse(sign.mc > 0.5, 1 - sign.mc, sign.mc)
-         
-         
-         
-      
-         
-         
-         
-         
-      }, error = function(e) {
-        # Handle the case where Moran's I cannot be calculated
-        spmoran_df[row_id, c("global_moran", "p_value")] <- NA
-      })
-
-      row_id <- row_id + 1  # Update row_id for the next entry
-    
-      }
-    
-    out_list_distance[[length(out_list_distance) + 1]] <- spmoran_df
-    
-  }
-}
-
-```
-
+#### SAC_df: Read back in
 ```{r}
 SAC_df <- readRDS(paste0(out_path, "SAC_data.rds"))
 
-predictors_df4 <- full_join(predictors_df3, SAC_df)
+predictors_df4 <- full_join(predictors_df2, SAC_df)
 predictors_df4
 
 ```
@@ -597,15 +497,18 @@ poly_attr <- function(x, type = NULL) {
 }
 ```
 
+### Calculate Geometries: 
+
+This takes quite some time (~ 2 hours). Better read the objects back in below.
 ```{r, calculate geometries}
 
 geom_ls <- list()
 for (i in seq_along(grids)){
   
   test <- grids[[i]] %>% 
-    select(geom, cell_label)%>% 
+    select(geom, cell_label) %>%
     summarise() %>% 
-    vect()
+    terra::vect()
   
   Geom_attributes <- data_frame(dataset = atlas_names[i],
            NS = poly_attr(test, "ns"),
@@ -682,21 +585,23 @@ for (a in seq_along(presence_sf_list)){
 }
 
 Species_geom_attributes <- plyr::rbind.fill(atlas_all_sp_geom) 
-
-
 Geometries <- full_join(Species_geom_attributes, countries_geom_attributes)
-saveRDS(Geometries, paste0(out_path, "Geometries.rds"))
+COG_df <- plyr::rbind.fill(COG_all)
+Geometries <- full_join(Geometries, COG_df)
 
+saveRDS(Geometries, paste0(out_path, "Geometries.rds"))
+saveRDS(COG_all, paste0(out_path, "CenterOfGravity_list.rds"))
+
+```
+#### Geometries: Read back in
+```{r}
 
 
 Geometries <- readRDS(paste0(out_path, "Geometries.rds"))
 
 predictors_df5 <- full_join(Geometries, predictors_df4) 
-
-
-
-
 ```
+
 
 ## Co-Occurrence
 
@@ -783,7 +688,7 @@ saveRDS(Co_Occ_df_final, paste0(out_path, "Coocc_df_final.rds"))
 
 
 ```
-
+#### Co_Occ_df_final: Read back in 
 ```{r}
 
 Co_Occ_df_final <- readRDS(paste0(out_path, "Coocc_df_final.rds"))
@@ -791,28 +696,48 @@ Co_Occ_df_final <- readRDS(paste0(out_path, "Coocc_df_final.rds"))
 predictors_df6 <- full_join(Co_Occ_df_final, predictors_df5) 
 ```
 
+## AVONET Traits
+
+```{r}
+names(avonet)
+avonet <- avonet %>% 
+  select("Species3", "Family3", "Order3", "Hand-Wing.Index", "Mass", "Habitat", "Habitat.Density", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Range.Size") %>% 
+  rename("verbatim_name"= "Species3") %>%
+  mutate_at(vars("Range.Size"), as.numeric)
+
+predictors_df7 <- left_join(predictors_df6, avonet) %>% distinct()
+
+```
+
 #### Merging Atlas + Species predictors
 
 ```{r}
-all_predictors0 <- full_join(predictors_df6, atlas_predictors_df2)
+all_predictors0 <- full_join(predictors_df7, atlas_predictors_df2)
 str(all_predictors0)
 
+saveRDS(all_predictors0, paste0(out_path, "All_predictors.rds"))
+```
+
+## Correlation Analysis
+```{r}
 all_predictors <- all_predictors0 %>%
   select(-neighbor_method, -verbatim_name) %>%
   mutate_at(
-    c("dataset", "years", "tp"), as.factor
-  )
+    c("dataset", "years", "tp", "Order3", "grain", "Family3", "Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle"), as.factor
+  ) %>% 
+  st_drop_geometry() %>% select(-geom) %>% na.omit()
 
 summary(lm(log_R2_1 ~ .,data = all_predictors, na.action = "na.omit"))
 
 
 library(ggcorrplot)
-cor_df <- all_predictors
+cor_df <- all_predictors %>% select(-Order3, -grain, -years, -SampPeriodLength)
 
 p.mat <-  model.matrix(~0+., data=cor_df) %>% ggcorrplot::cor_pmat()
 
 model.matrix(~0+., data=cor_df) %>% 
-  cor(use="pairwise.complete.obs") %>% ggcorrplot(hc.order=T)
+  cor(use="pairwise.complete.obs") %>% ggcorrplot(tl.cex = 5, type = "lower",outline.color = "white")
+
   ggcorrplot( lab=TRUE, lab_size=2, hc.order=T, insig ="blank",p.mat = p.mat)
 
 ```

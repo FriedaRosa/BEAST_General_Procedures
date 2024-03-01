@@ -1,0 +1,249 @@
+---
+title: "0_2_Climate_Niche_prep"
+format: html
+editor: visual
+---
+
+## Libraries
+
+```{r, message = F}
+rm(list=ls())
+library(sf)
+library(terra)
+library(dplyr)
+```
+
+## Variables
+
+```{r}
+
+source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/")
+
+# folder path to output folder
+out_path <- c(paste0(source_Git, "out/"))
+source_predictors <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/PhD_Projects/StaticPredictors/Data/")
+CHELSA_path <- paste0(source_predictors, "Chelsa_Bio_PET/")
+
+all_predictors <- readRDS(paste0(out_path, "All_predictors.rds"))
+
+# List all the .tif files in the directory
+tif_files <- list.files(path=CHELSA_path, pattern = ".tif$")
+```
+
+## Read + Aggregate CHELSA
+
+19:47-19:52
+
+```{r}
+
+# Initialize an empty list to store raster objects
+raster_list <- list()
+
+# Read each .tif file into a raster object and add to the list
+for (file in tif_files) {
+  r <- rast(paste0(CHELSA_path, file))
+  
+  # Define the target resolution in meters
+  target_resolution <- c(110)  # 10x10km
+  
+  # Aggregate the raster stack to the target resolution
+  r_aggregated <- aggregate(r, fact = target_resolution, fun = mean)
+  
+  raster_list[[file]] <- r_aggregated
+  
+}
+saveRDS(raster_list, paste0(out_path, "CHELSA_raster_list.rds"))
+
+r_df_list <- list()
+for(i in seq_along(raster_list)){
+  r_temp <- raster_list[[i]]
+  r_df <- as.data.frame(r_temp , xy = TRUE)
+  r_df$id <- c(1:nrow(r_df))
+
+  r_df_list[[i]] <- r_df
+  }
+
+bio1 <- full_join(r_df_list[[1]], r_df_list[[2]])
+bio2 <- full_join(r_df_list[[3]], r_df_list[[4]])
+bio3 <- full_join(bio1, bio2)
+bio4 <- full_join(r_df_list[[5]], r_df_list[[6]])
+bio5 <- full_join(r_df_list[[7]], r_df_list[[8]])
+bio6 <- full_join(bio4, bio5)
+bio7 <- full_join(bio6, bio3)
+bio8 <- full_join(bio7, r_df_list[[9]])
+bio9 <- full_join(bio8, r_df_list[[10]])
+bio10 <- full_join(bio9, r_df_list[[11]])
+bio11 <- full_join(bio10, r_df_list[[12]] %>% select(-id))
+
+write.csv(bio11, paste0(out_path, "CHELSA_df.csv"))
+saveRDS(bio11, paste0(out_path, "CHELSA_df.rds"))
+
+```
+
+#### CHELSA: Read back in
+
+```{r}
+Chelsa_df <- readRDS(paste0(out_path, "CHELSA_df.rds"))
+Chelsa_sf <- st_as_sf(Chelsa_df, coords = c("x", "y"), crs = 4326)
+
+clim_matrix <- Chelsa_df %>% select(-"CHELSA_pet_penman_mean_1981-2010_V.2.1", -x, -y, -id) 
+
+# Now you can compute the principal components using this averaged matrix
+# Perform PCA on clim_matrix
+pca_result <- prcomp(clim_matrix, scale = T, center = T)
+PCAs <- as.data.frame(pca_result$x[,1:2])
+
+library(ggfortify) 
+autoplot(pca_result, data = clim_matrix) 
+autoplot(pca_result, data = PCAs)
+biplot(pca_result)
+
+library(factoextra)
+
+library(ggbiplot)
+g <- ggbiplot(pca_result,
+              obs.scale = 1,
+              var.scale = 1,
+              ellipse = TRUE,
+              circle = TRUE,
+              ellipse.prob = 0.68)
+
+g
+
+```
+
+## BirdLife International Rangemaps
+
+```{r}
+name_vector <- all_predictors %>% 
+  select(verbatim_name) %>% 
+  na.omit() %>% 
+  pull() %>% 
+  unique() %>% 
+  as.vector() 
+
+# The input file geodatabase from BirdLife International
+fgdb <-"c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Raw/Distributions/Birds_of_the_world/BOTW.gdb"
+
+
+All_sp <- st_read(fgdb, layer = "All_Species") # Takes ~ 30 minutes to read in
+# saveRDS(All_sp, paste0(out_path, "BOTW_All_species.rds"))
+
+All_sp <- readRDS(paste0(out_path, "BOTW_All_species.rds"))
+
+All_sp_red <- All_sp %>% 
+  filter(sci_name %in% name_vector) %>% 
+  select(sci_name, presence, origin, seasonal, Shape_Length, Shape_Area, Shape)
+
+Tax_sp <- st_read(fgdb, layer = "Taxonomic_checklist") # Global Red List status
+Tax_sp_red <- Tax_sp %>% 
+  filter(ScientificName %in% name_vector) %>% 
+  select(Subfamily, Tribe, ScientificName, RL_Category) %>% 
+  unique() %>% 
+  rename("sci_name" = "ScientificName")
+
+BirdLife <- full_join(All_sp_red, Tax_sp_red)
+saveRDS(BirdLife, paste0(out_path, "BirdLife_reduced.rds"))
+
+Climate_Birds <- st_join(Chelsa_sf, BirdLife)
+
+```
+
+### Species Niches
+
+```{r}
+# Load required libraries
+library(terra)
+library(sf)
+library(dplyr)
+sf_use_s2(FALSE)
+
+climate_stack <- rast(paste0(CHELSA_path, tif_files))
+# Define the target resolution in meters
+target_resolution <- c(110)  # 10x10km
+  
+# Aggregate the raster stack to the target resolution
+
+climate_stack_agg <- aggregate(climate_stack, ## This takes a couple of minutes.
+                               fact = target_resolution, 
+                               fun = mean)
+saveRDS(climate_stack_agg, paste0(out_path, "climate_stack_agg.rds"))
+# Perform PCA on climate variables
+pca_result <- prcomp(climate_stack_agg, scale.=T)
+
+# Load species distribution polygons as sf object
+species_sf <- readRDS(paste0(out_path, "BirdLife_reduced.rds")) # this takes a while
+#species_sf %>% group_by(sci_name) %>% summarise() # make sure that: sf_use_s2(FALSE)
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Function to extract climate niche for each species
+extract_niche <- function(species_polygon, pca_obj, climate_stack) {
+  # Extract coordinates of species polygon
+  species_coords <- st_coordinates(species_polygon)[,1:2]
+  # Match species coordinates to climate data
+  climate_values <- extract(climate_stack, species_coords)
+  # Perform PCA transformation
+  pca_values <- predict(pca_obj, newdata =climate_values)
+  return(pca_values)
+}
+
+
+
+
+
+
+sp_niches_list <- list()
+sp <- unique(species_sf$sci_name)
+for (i in seq_along(sp)){
+  
+  sp_sf <- species_sf %>% filter(sci_name == sp[i])
+  
+  # Extract coordinates of species polygon
+  species_coords <- st_coordinates(sp_sf)[,1:2]
+  # Match species coordinates to climate data
+  climate_values <- extract(climate_stack_agg, species_coords)
+  cv <- cbind(climate_values, species_coords)
+  sf_points <- st_as_sf(cv, coords = c("X", "Y"), crs = 4326)
+
+# Define raster template
+extent <- ext(climate_stack_agg)  # Replace with your desired extent
+res <- res(climate_stack_agg)  # Replace with your desired resolution
+r <- rast(extent=extent, crs="epsg:4326")
+
+# Create raster stack
+stack <- rast(ncols=ncol(r), nrows=nrow(r), xmin=extent[1], xmax=extent[2], ymin=extent[3], ymax=extent[4])
+
+# Extract values from dataframe columns to the raster stack
+values(stack) <- extract(cv, r)
+  
+  # Perform PCA transformation
+  pca_values <- predict(pca_result, newdata=stack)
+  
+  
+# Convert to data frame
+  species_niches_df <- do.call(rbind, species_niches)
+ 
+  sp_niches_list[[i]] <- species_niches_df
+}
+
+# Attach species IDs
+species_niches_df$species_id <- rep(species_sf$sci_name, sapply(species_niches, nrow))
+
+# Output
+head(species_niches_df)
+
+
+
+
+```
