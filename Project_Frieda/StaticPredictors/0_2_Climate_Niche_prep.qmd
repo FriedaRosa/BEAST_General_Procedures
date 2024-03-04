@@ -153,7 +153,7 @@ biplot(pca_result)
 
 ```
 
-### PCA #2: on raw climate data 
+### PCA #2: on raw climate data
 
 -   includes x and y into PCA
 

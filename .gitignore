@@ -49,3 +49,12 @@ po/*~
 rsconnect/
 *.RData
 *.tif
+Project_Frieda/StaticPredictors/.RDataTmp1
+Project_Frieda/StaticPredictors/.RDataTmp2
+Project_Frieda/StaticPredictors/.RDataTmp3
+Project_Frieda/StaticPredictors/.RDataTmp4
+Project_Frieda/StaticPredictors/out/SpeciesData_climateNiche/
+*.rds
+*.rds
+Project_Frieda/StaticPredictors/out/CHELSA_df.csv
+*.rds

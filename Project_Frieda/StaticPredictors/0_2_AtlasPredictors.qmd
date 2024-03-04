@@ -185,6 +185,11 @@ presence_data_all[[1]] <- presence_data_all[[1]] %>%
 tp_list <- list()
 for (i in seq_along(presence_data_all)){
   
+  # CZ = 1985-1989; 2001-2003
+  # NYS = 1980-1985; 2000-2004
+  # JP = 1997-2002; 2016-2021
+  # EU = 1972-1995; 2013-2017
+  
   time_periods_df <- presence_data_all[[i]] %>% ungroup() %>%
     select(dataset, start_year, end_year, tp) %>%
     mutate(SampPeriodLength = end_year-start_year) %>%
@@ -211,14 +216,6 @@ atlas_predictors_df1 <- big_tab %>%
       dataset == atlas_names[4] ~ "50"))
 
 atlas_predictors_df2 <- left_join(atlas_predictors_df1, tp_df)
-
-
-# CZ = 1985-1989; 2001-2003
-# NYS = 1980-1985; 2000-2004
-# JP = 1997-2002; 2016-2021
-# EU = 1972-1995; 2013-2017
-
-
 
 ```
 
@@ -308,10 +305,10 @@ saveRDS(Diversity_Effort, paste0(out_path, "Diversity_AvgEffort.rds"))
 ```
 
 #### Diversity_Effort: Read back in
-```{r}
 
+```{r}
 Diversity_Effort <- readRDS(paste0(out_path, "Diversity_AvgEffort.rds"))
-predictors_df2 <- full_join(predictors_df, Diversity_Effort)
+predictors_df2 <- full_join(predictors_df, Diversity_Effort); rm(Diversity_Effort)
 
 ```
 
@@ -329,7 +326,8 @@ atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japa
 
 ```
 
-This takes quite some time (~ 2.5h). Read the SAC_df back in instead of re-running the code.
+This takes quite some time (\~ 2.5h). Read the SAC_df back in instead of re-running the code.
+
 ```{r, eval = F}
 
 presence_sf_list <- list()
@@ -407,10 +405,11 @@ saveRDS(SAC_df, paste0(out_path, "SAC_data.rds"))
 ```
 
 #### SAC_df: Read back in
+
 ```{r}
 SAC_df <- readRDS(paste0(out_path, "SAC_data.rds"))
 
-predictors_df4 <- full_join(predictors_df2, SAC_df)
+predictors_df4 <- full_join(predictors_df2, SAC_df); rm(predictors_df2)
 predictors_df4
 
 ```
@@ -420,42 +419,59 @@ predictors_df4
 (Function by Dr. Gabriel Ortega: requires terra & tidyverse)
 
 ```{r, geometries function from Gabriel}
-pacman::p_load(terra, tidyverse, tidyterra)
+pacman::p_load(geosphere, geodata, terra, tidyverse, tidyterra)
+
 # Function to get the max elongation per polygon, north-south length or east-west length, circularity, etc...
 poly_attr <- function(x, type = NULL) {
   # Convert "sf" to SpatVector
   if (inherits(x, "sf") == T) {
     x <- vect(x)
   }
-  # Reproject to WGS84
+  # Reproject to WGS84. Currently, "terra" calculate distance in meters when given latitude and longitude points.
   x <- project(x, "epsg:4326")
-  # Get East-West terra::distance (longitudinal extension)
-  if (type == "ew") {
-    pol <- as.data.frame(crds(as.points(ext(x))))
-    sw <- pol %>%
-      summarise(x = min(x), y = min(y)) %>%
-      as.matrix()
-    se <- pol %>%
-      summarise(x = max(x), y = min(y)) %>%
-      as.matrix()
-    res <- terra::distance(sw, se, lonlat = T)[[1]]
+  # Get East-West distance (longitudinal extension)
+  if (type == "ewDist") {
+    vert <- crds(as.points(ext(x)), df = T)
+    dimNames <- list(c("point"),c("x","y"))
+    sw <- matrix(c(min(vert[["x"]]), min(vert[["y"]])), ncol = 2, dimnames = dimNames)
+    se <- matrix(c(max(vert[["x"]]), min(vert[["y"]])), ncol = 2, dimnames = dimNames)
+    res <- distance(sw, se, lonlat = T)[[1]]
   }
-  # Get South-North terra::distance (latitudinal extension)
-  if (type == "ns") {
-    pol <- as.data.frame(crds(as.points(ext(x))))
-    sw <- pol %>%
-      summarise(x = min(x), y = min(y)) %>%
-      as.matrix()
-    nw <- pol %>%
-      summarise(x = min(x), y = max(y)) %>%
-      as.matrix()
-    res <- terra::distance(sw, nw, lonlat = T)[[1]]
+  # Get South-North distance (latitudinal extension)
+  if (type == "nsDist") {
+    vert <- crds(as.points(ext(x)), df = T)
+    dimNames <- list(c("point"),c("x","y"))
+    sw <- matrix(c(min(vert[["x"]]), min(vert[["y"]])), ncol = 2, dimnames = dimNames)
+    nw <- matrix(c(min(vert[["x"]]), max(vert[["y"]])), ncol = 2, dimnames = dimNames)
+    res <- distance(sw, nw, lonlat = T)[[1]]
   }
-  # Get max terra::distance between oposite vertices
-  if (type == "max") {
-    pol <- crds(as.points(ext(x)))
-    res <- terra::distance(pol, lonlat = T) %>% max()
-    res <- res
+  # Get max distance between opposite vertices
+  if (type == "maxDist") {
+    vert <- crds(as.points(convHull(x)))
+    res <- distance(vert, lonlat = T) %>% max()
+  }
+  # Get elongation ratio along longest axis
+  if (type == "elonRatio") {
+    convexHull <- convHull(x)
+    vert <- crds(as.points(convexHull), df = T)
+    dist <- as.data.frame.table(as.matrix(distance(vert, lonlat = T)), responseName = "distance") %>%
+      slice_max(., distance)
+    axisPoints <- vert[c(dist[[1]][[1]],dist[[2]][[1]]),]
+    axisPoints <- arrange(axisPoints, desc(y))
+    rotation <- -1*bearing(axisPoints[2,],axisPoints[1,])
+    rotHull <- spin(convexHull, rotation)
+    ext <- ext(convexHull)
+    df <- as.vector(distance(crds(as.points(ext)), lonlat = T))
+    df <- sort(df)
+    length <- mean(df[[3]], df[[4]])
+    width <- mean(df[[1]], df[[2]])
+    res <- 1 - (width / length)
+    # res <- list()
+    # res[["vert"]] <- vert
+    # res[["dist"]] <- dist
+    # res[["axispoints"]] <- axisPoints
+    # res[["bearing"]] <- rotation
+    # res[["rotHull"]] <- rotHull
   }
   # Circularity
   if (type == "circ") {
@@ -464,67 +480,138 @@ poly_attr <- function(x, type = NULL) {
     res <- (perimeter^2) / area
   }
   # Normalized circularity
-  if (type == "circN") {
+  if (type == "circNorm") {
     perimeter <- perim(x)
     area <- expanse(x)
     res <- (perimeter^2) / (4 * pi * area)
   }
   # Major length of the minimum rectangle
-  if (type == "majElon") {
+  if (type == "lengthMinRect") {
     minRectangle <- minRect(x)
-    df <- as.vector(terra::distance(crds(as.points(minRectangle)), lonlat = T))
+    df <- as.vector(distance(crds(as.points(minRectangle), df = T), lonlat = T))
     df <- sort(df)
     res <- mean(df[[3]], df[[4]])
   }
   # Width of the minimum rectangle
-  if (type == "majWidth") {
+  if (type == "widthMinRect") {
     minRectangle <- minRect(x)
-    df <- as.vector(terra::distance(crds(as.points(minRectangle)), lonlat = T))
+    df <- as.vector(distance(crds(as.points(minRectangle), df = T), lonlat = T))
     df <- sort(df)
     res <- mean(df[[1]], df[[2]])
   }
-  # Elongation ratio (I AM NOT TOTALLY SURE IF THIS FITS THE DEFINITION OF ELONGATION)
-  if (type == "elon") {
+  # Elongation ratio of minimal encasing rectangle (from here: Dražić, S., Ralević, N., & Žunić, J. (2010). Shape elongation from optimal encasing rectangles. Computers & Mathematics with Applications, 60(7), 2035–2042. https://doi.org/10.1016/j.camwa.2010.07.043)
+  if (type == "elonMinRect") {
     minRectangle <- minRect(x)
-    df <- as.vector(terra::distance(crds(as.points(minRectangle)), lonlat = T))
+    df <- as.vector(distance(crds(as.points(minRectangle)), lonlat = T))
     df <- sort(df)
     length <- mean(df[[3]], df[[4]])
     width <- mean(df[[1]], df[[2]])
     res <- 1 - (width / length)
+  }
+  # Related circumscribing circle
+  if (type == "relCirc") {
+    circle <- minCircle(x)
+    areaCircle <- expanse(circle)
+    area <- expanse(x)
+    res <- 1-(area/areaCircle)
+  }
+  # Linearity index
+  if (type == "lin") {
+    hull <- convHull(x)
+    df <- crds(as.points(hull), df = T)
+    lm <- lm(y ~ x, data = df)
+    res <- summary(lm)$r.squared
+  }
+  # North bearing of the minimum rectangle
+  if (type == "bearingMinRect") {
+    minRectangle <- minRect(x)
+    df <- crds(as.points(minRectangle), df = T)
+    cor <- cor(df[["x"]],df[["y"]])
+    point1 <- slice_min(df, y)
+    if (cor > 0){
+      point2 <-slice_max(df, x)
+    } else{
+      point2 <-slice_min(df, x)
+    }
+    res <- bearing(point1, point2)
+  }
+    # Get bearing along longest axis
+  if (type == "bearing") {
+    convexHull <- convHull(x)
+    vert <- crds(as.points(convexHull), df = T)
+    dist <- as.data.frame.table(as.matrix(distance(vert, lonlat = T)), responseName = "distance") %>%
+      slice_max(., distance)
+    axisPoints <- vert[c(dist[[1]][[1]],dist[[2]][[1]]),]
+    axisPoints <- arrange(axisPoints, desc(y))
+    res <- bearing(axisPoints[2,],axisPoints[1,])
   }
   res <- as.numeric(res)
   return(res)
 }
 ```
 
-### Calculate Geometries: 
+# *-\> Read Workspace*
 
-This takes quite some time (~ 2 hours). Better read the objects back in below.
-```{r, calculate geometries}
+```{r}
+save.image(paste0(out_path, "Atlas_predictors.RData"))
 
+
+```
+
+### Calculate Geometries:
+
+This takes quite some time (\~). Better read the objects back in below.
+
+```         
+10311.01 sec elapsed
+```
+
+```{r, calculate geometries, message = F}
+tictoc::tic()
+
+
+# Atlas Geometries ==============================================================
 geom_ls <- list()
 for (i in seq_along(grids)){
   
-  test <- grids[[i]] %>% 
+  Atlas_Geom <- grids[[i]] %>% 
     select(geom, cell_label) %>%
     summarise() %>% 
     terra::vect()
   
   Geom_attributes <- data_frame(dataset = atlas_names[i],
-           NS = poly_attr(test, "ns"),
-           EW = poly_attr(test, "ew"),
-           MAX = poly_attr(test, "max"),
-           MajELON = poly_attr(test, "majElon"),
-           MajWIDTH = poly_attr(test, "majWidth"),
-           ELON = poly_attr(test, "elon"),
-           CIRC = poly_attr(test, "circ"),
-           CIRCN = poly_attr(test, "circN"))
+           nsDist = poly_attr(Atlas_Geom, "nsDist"),
+           ewDist = poly_attr(Atlas_Geom, "ewDist"),
+           maxDist = poly_attr(Atlas_Geom, "maxDist"),
+           lengthMinRect = poly_attr(Atlas_Geom, "lengthMinRect"),
+           widthMinRect = poly_attr(Atlas_Geom, "widthMinRect"),
+           elonMinRect = poly_attr(Atlas_Geom, "elonMinRect"),
+           elonRatio = poly_attr(Atlas_Geom, "elonRatio"),
+           circ = poly_attr(Atlas_Geom, "circ"),
+           circNorm = poly_attr(Atlas_Geom, "circNorm"),
+           relCirc = poly_attr(Atlas_Geom, "relCirc"),
+           lin = poly_attr(Atlas_Geom, "lin"),
+           bearingMinRect = poly_attr(Atlas_Geom, "bearingMinRect"), 
+           bearing = poly_attr(Atlas_Geom, "bearing"))
+           
   geom_ls[[i]] <- Geom_attributes
 }
+
 countries_geom_attributes <- plyr::rbind.fill(geom_ls) 
 
 
+# Transform country-borders to lines
+lines_l <- list()
+for (a in seq_along(grids)){
+  lines <- grids[[a]] %>% 
+    summarise() %>% 
+    vect() %>% 
+    as.lines()
+  lines_l[[a]] <- lines
+}
+
 ### For each species separately:
+tictoc::tic()
 species_geom <- list()
 year_species_geom <- list()
 atlas_all_sp_geom <-list()
@@ -532,57 +619,92 @@ COG_all <- list()
 
 for (a in seq_along(presence_sf_list)){
   atlas <- presence_sf_list[[a]]
-  COG <- atlas %>% summarise(CenterOfGravity_Atlas_long = mean(cell_long),
-                       CenterOfGravity_Atlas_lat = mean(cell_lat),
-                       dataset = unique(dataset))
-  COG_all[[a]] <- COG
   
   
   for (y in seq_along(time_periods)){
     atlas_y <- atlas %>% filter(tp == time_periods[y])
     sp <- unique(atlas_y$verbatim_name)
     
+    # Calculate Center of Gravity of all species per atlas
+    COG <- atlas_y %>% st_drop_geometry() %>% summarise(CenterOfGravity_Atlas_long = mean(cell_long),
+                                 CenterOfGravity_Atlas_lat = mean(cell_lat),
+                                 dataset = unique(dataset))
+    COG_all[[y]] <- COG
+
+    points_COG_atlas <- COG %>% 
+      dplyr::select(CenterOfGravity_Atlas_long, CenterOfGravity_Atlas_lat, dataset) %>%
+      rename("x" = "CenterOfGravity_Atlas_long", "y" = "CenterOfGravity_Atlas_lat") %>% 
+      na.omit() %>% 
+      distinct()
+    
+    points_atlas <- points_COG_atlas %>% vect(geom = c("x", "y"), crs = "epsg:4326")
+    
     for (s in seq_along(sp)){
+      print(paste(atlas_names[a], time_periods[y], sp[s]))
       atlas_sp <- atlas_y %>% filter(verbatim_name == sp[s])
-      ## Maybe I have to summarize here ! Not sure - let's try this and compare.
       
+ 
+      ## Maybe I have to summarize here ! Not sure - let's try this and compare.
+      COG_sp <- atlas_sp %>% 
+        select(cell_long, cell_lat, verbatim_name, dataset, tp) %>%
+        mutate(sp_COG_long = mean(cell_long), 
+               sp_COG_lat = mean(cell_lat)) %>% 
+        st_drop_geometry() %>% 
+        select(-cell_long, -cell_lat) %>% 
+        unique()
+      
+      points_COG_sp <- COG_sp %>%
+        group_by(dataset, tp, verbatim_name) %>% 
+        dplyr::select(sp_COG_long, sp_COG_lat, dataset, tp, verbatim_name) %>%
+        rename("x" = "sp_COG_long", "y" = "sp_COG_lat") %>% na.omit() %>% ungroup()
+
+      points2 <- points_COG_sp %>%
+        vect(geom = c("x", "y"), crs = "epsg:4326")
+            
       test <- atlas_sp %>% 
         select(geom, cell_label)%>% 
         summarise() %>% 
-        vect()
-       
-      ## Some plots
-      minRectangle <- minRect(test)
-      plet(minRectangle)
-
-      minCircle <- minCircle(test)
-      plet(minCircle)
-
-      convexHull <- convHull(test)
-      plet(convexHull)
-      ####
- 
- 
+        vect() 
+      
+      ## Calculate distance
+      atlas_lines <- lines_l[[a]]
+      Dist_toCOG <- terra::distance(crds(points2), crds(points_atlas), lonlat = T)
+      minDist_toBorder <- min(distance(crds(test), crds(atlas_lines), lonlat=T))
+      maxDist_toBorder <- max(distance(crds(test), crds(atlas_lines), lonlat=T))
+    
       Geom_attributes <- data_frame(dataset = atlas_names[a],
                                     tp = time_periods[y],
                                     verbatim_name = sp[s],
-                                    NS = poly_attr(test, "ns"),
-                                    EW = poly_attr(test, "ew"),
-                                    MAX = poly_attr(test, "max"),
-                                    MajELON = poly_attr(test, "majElon"),
-                                    MajWIDTH = poly_attr(test, "majWidth"),
-                                    ELON = poly_attr(test, "elon"),
-                                    CIRC = poly_attr(test, "circ"),
-                                    CIRCN = poly_attr(test, "circN"))
-
-  species_geom[[s]] <- Geom_attributes
-  }
-  species_geom_df <- plyr::rbind.fill(species_geom)  
-  year_species_geom[[y]] <- species_geom_df  
-  }
+                                    nsDist = poly_attr(test, "nsDist"),
+                                    ewDist = poly_attr(test, "ewDist"),
+                                    maxDist = poly_attr(test, "maxDist"),
+                                    lengthMinRect = poly_attr(test, "lengthMinRect"),
+                                    widthMinRect = poly_attr(test, "widthMinRect"),
+                                    elonMinRect = poly_attr(test, "elonMinRect"),
+                                    elonRatio = poly_attr(test, "elonRatio"),
+                                    circ = poly_attr(test, "circ"),
+                                    circNorm = poly_attr(test, "circNorm"),
+                                    relCirc = poly_attr(test, "relCirc"),
+                                    lin = poly_attr(test, "lin"),
+                                    bearingMinRect = poly_attr(test, "bearingMinRect"), 
+                                    bearing = poly_attr(test, "bearing"),
+                                    Dist_toCOD = Dist_toCOG,
+                                    minDist_toBorder = minDist_toBorder,
+                                    maxDist_toBorder = maxDist_toBorder)
+        
+        Geom_attributes2 <- full_join(Geom_attributes, COG_sp) %>% unique()
+        
+        species_geom[[s]] <- Geom_attributes2
+        }
+    
+    species_geom_df <- plyr::rbind.fill(species_geom)  
+    year_species_geom[[y]] <- species_geom_df  
+    }
+  
   year_species_geom_df <- plyr::rbind.fill(year_species_geom) 
   atlas_all_sp_geom[[a]] <- year_species_geom_df
-}
+  }
+tictoc::toc()
 
 Species_geom_attributes <- plyr::rbind.fill(atlas_all_sp_geom) 
 Geometries <- full_join(Species_geom_attributes, countries_geom_attributes)
@@ -592,16 +714,126 @@ Geometries <- full_join(Geometries, COG_df)
 saveRDS(Geometries, paste0(out_path, "Geometries.rds"))
 saveRDS(COG_all, paste0(out_path, "CenterOfGravity_list.rds"))
 
+tictoc::toc()
 ```
+
 #### Geometries: Read back in
+
+## Calculate distances
+
 ```{r}
+Geometries <- readRDS(paste0(out_path, "Geometries.rds")) %>% na.omit()
+grids # Atlases
+atlas_names
+time_periods
 
 
-Geometries <- readRDS(paste0(out_path, "Geometries.rds"))
+# Transform country-borders to lines
+lines_l <- list()
+for (a in seq_along(grids)){
+  lines <- grids[[a]] %>% 
+    summarise() %>% 
+    vect() %>% 
+    as.lines()
+  lines_l[[a]] <- lines
+}
 
-predictors_df5 <- full_join(Geometries, predictors_df4) 
+plot(lines_l[[1]])
+plot(lines_l[[2]])
+plot(lines_l[[3]])
+plot(lines_l[[4]])
+
+
+# Transform Geometry lat/long from CoG to points
+points_COG_atlas <- Geometries %>% 
+  group_by(dataset, tp) %>% 
+  dplyr::select(CenterOfGravity_Atlas_long, CenterOfGravity_Atlas_lat, dataset, tp) %>%
+  rename("x" = "CenterOfGravity_Atlas_long", "y" = "CenterOfGravity_Atlas_lat") %>% na.omit() %>% distinct()
+
+points_COG_sp <- Geometries %>% 
+  group_by(dataset, tp, verbatim_name) %>% 
+  dplyr::select(sp_COG_long, sp_COG_lat, dataset, tp, verbatim_name) %>%
+  rename("x" = "sp_COG_long", "y" = "sp_COG_lat") %>% na.omit() %>% ungroup()
+
+### Calculate Distances =========================================
+sp <- unique(points_COG_sp$verbatim_name)
+times <- as.numeric(c(1,2))
+atlas <- unique(points_COG_sp$dataset)
+
+
+
+
+dist_list_sp <- list()
+dist_list_y <- list()
+dist_list_a <- list()
+for (a in seq_along(atlas_names)) {
+  df1 <- points_COG_sp %>%
+    filter(dataset == atlas_names[a]) %>%
+    dplyr::select(-dataset)
+
+  df1_atlas <- points_COG_atlas %>%
+    filter(dataset == atlas_names[a])
+
+
+  for (y in seq_along(time_periods)) {
+    df_tp1 <- df1 %>% filter(tp == 1)
+    df_tp2 <- df1 %>% filter(tp == 2)
+    dfs <- list(df_tp1, df_tp2)
+
+    df2_atlas1 <- df1_atlas %>% filter(tp == 1)
+    df2_atlas2 <- df1_atlas %>% filter(tp == 2)
+    dfs_atlas <- list(df2_atlas1, df2_atlas2)
+
+
+    sp <- unique(dfs[[y]]$verbatim_name)
+
+
+    for (s in seq_along(sp)) {
+      temp_df <- dfs[[y]] %>%
+        filter(verbatim_name == sp[i])
+
+      points2 <- temp_df %>%
+        vect(geom = c("x", "y"), crs = "epsg:4326")
+
+      points_atlas <- dfs_atlas[[y]] %>%
+        vect(geom = c("x", "y"), crs = "epsg:4326")
+
+
+      ## Calculate distance
+      atlas_lines <- lines_l[[a]]
+      minDist_toBorder <- min(terra::distance(crds(atlas_lines), crds(points2), lonlat = T))
+      Dist_toCOG <- terra::distance(crds(points2), crds(points_atlas), lonlat = T)
+
+      Distance_df <- data.frame(
+        verbatim_name = sp[s],
+        dataset = atlas_names[a],
+        tp = time_periods[y],
+        minDist_toBorder = minDist_toBorder,
+        Dist_toCOG = Dist_toCOG
+      )
+
+      dist_list_sp[[s]] <- Distance_df
+    }
+
+    dist_df_sp <- plyr::rbind.fill(dist_list_sp)
+    dist_list_y[[y]] <- dist_df_sp
+  }
+  dist_df_y <- plyr::rbind.fill(dist_list_y)
+  dist_list_a[[a]] <- dist_df_y
+}
+
+dist_df_a <- plyr::rbind.fill(dist_list_a)
+
+table(dist_df_a$dataset)
+
+Geometries_final <- full_join(Geometries, dist_df_a) %>% distinct()
+
+
+plet(points2)
+
+predictors_df5 <- full_join(Geometries_final, predictors_df4) 
+
 ```
-
 
 ## Co-Occurrence
 
@@ -688,7 +920,9 @@ saveRDS(Co_Occ_df_final, paste0(out_path, "Coocc_df_final.rds"))
 
 
 ```
-#### Co_Occ_df_final: Read back in 
+
+#### Co_Occ_df_final: Read back in
+
 ```{r}
 
 Co_Occ_df_final <- readRDS(paste0(out_path, "Coocc_df_final.rds"))
@@ -719,6 +953,7 @@ saveRDS(all_predictors0, paste0(out_path, "All_predictors.rds"))
 ```
 
 ## Correlation Analysis
+
 ```{r}
 all_predictors <- all_predictors0 %>%
   select(-neighbor_method, -verbatim_name) %>%
