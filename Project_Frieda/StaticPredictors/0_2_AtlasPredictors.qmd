@@ -18,7 +18,9 @@ We would expect that if a larger extent or a different scale is studied, tempora
 \
 In a similar manner, we would expect that the geometrical properties of our study area can determine the results that our models are able to predict. One example would be the distribution of the species range inside the country. Where the spread of a species across the 'arena' (i.e., study area) naturally limits the species range inside the arena by arbitrary (country) borders which might not match with ecological borders. In addition, solely due to geometrical constraints, more species can move northward with climate in a country that follows an elongated East-West direction compared to one that is North-South elongated. We suggest that the borders of the study area introduce a 'veil' to the actual underlying temporal change processes that are happening, thereby masking the true temporal change dynamics. However, since species assessments take place on a country scale, it may be possible to use the predictive strength of geometry and characteristics of the arena to enhance our predictive capacity on national scales.
 
-#### Part 1: Predicting future change: can data from the 80s predict the temporal change that took place between the 80s and 00s? Part 2: Predicting past change: can data from the 00s predict the temporal change that took place between the 80s and 00s?
+#### Part 1: Predicting future change: can data from the 80s predict the temporal change that took place between the 80s and 00s?
+
+#### Part 2: Predicting past change: can data from the 00s predict the temporal change that took place between the 80s and 00s?
 
 ## Libraries
 
@@ -65,6 +67,7 @@ source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_Ge
 out_path <- c(paste0(source_Git, "out/"))
 
 
+
 # folder path to atlas data
 source_paths <- c(paste0(source_atlas, "Birds_Atlas_Czechia/"), 
                   paste0(source_atlas, "Birds_Atlas_New_York/"), 
@@ -88,10 +91,6 @@ atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japa
 desired_levels <- factor(c("1", "2","4", "8", "16", "32", "64", "128"), ordered = T,  
                          levels = c("1", "2","4", "8", "16", "32", "64", "128")) 
 
-
-```
-
-```{r}
 grid_paths # list of atlas grids
 data_paths # list of beast occ data
 
@@ -100,7 +99,11 @@ tree_path <- paste0(source_predictors, "Weeks_et_at_2022/singe_bird_phylo.tre")
 traits_path <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET3_BirdTree.xlsx")
 sac_path <- paste0(out_path, "SAC_data.csv") # Created in this script (code runs a long time ~ 2h, so here is the object)
 AVONET_path <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET3_BirdTree.xlsx")
+tree_path <- paste0(source_predictors, "Weeks_et_at_2022/singe_bird_phylo.tre")
 
+```
+
+```{r}
 
 ############## Read Processed Data from 0_1_Atlas_prep.qmd script:
 
@@ -109,13 +112,16 @@ presence_sf_list <- readRDS(paste0(out_path, "presence_sf_list.rds"))
 big_tab <- read.csv(file=paste0(out_path, "Big_table_CZ_JP_NY.csv")) %>% 
   reorder_levels(cell_grouping, desired_levels)
 avonet <- read_excel(AVONET_path, sheet = 2)
-
+Predictors_df <- readRDS(paste0(out_path, "all_predictors_niches.rds"))
 ```
 
 ## The Data
 
 ```{r, read and process data}
 ## We need the highest resolution data = cell_grouping = 1
+
+# phylogenetic tree --------------------------------------------------------------------------- #
+tree <- ladderize(read.tree(tree_path))
 
 # grid data
 grids <- list()
@@ -254,8 +260,7 @@ species_data_bigtable <- big_tab
 # Make dataframe with predictors ======================
 names(species_data_bigtable)
 
-predictors_df <- species_data_bigtable %>% 
-  filter(cell_grouping == 1) %>%
+predictors_df <- Predictors_df%>% 
   select(
     verbatim_name, dataset, tp, # Grouping variables
     log_R2_1, Telfer_1_2, # Response variables
@@ -264,8 +269,8 @@ predictors_df <- species_data_bigtable %>%
     m_AOO_s, # slope of OAR1
     m_relOcc_s, # slope of OAR2
     D_AOO_s, # D of AOO
-    D_relOcc_s # D of rel. Occupancy
-    )
+    D_relOcc_s, # D of rel. Occupancy
+    PC1, PC2) # ClimateNiche Breadth
 
 ```
 
@@ -550,7 +555,7 @@ poly_attr <- function(x, type = NULL) {
 }
 ```
 
-# *-\> Read Workspace*
+# *Read Workspace*
 
 ```{r}
 save.image(paste0(out_path, "Atlas_predictors.RData"))
@@ -560,7 +565,7 @@ save.image(paste0(out_path, "Atlas_predictors.RData"))
 
 ### Calculate Geometries:
 
-This takes quite some time (\~). Better read the objects back in below.
+This takes quite some time (\~3-4h). Better read the objects back in below.
 
 ```         
 10311.01 sec elapsed
@@ -579,22 +584,34 @@ for (i in seq_along(grids)){
     summarise() %>% 
     terra::vect()
   
-  Geom_attributes <- data_frame(dataset = atlas_names[i],
-           nsDist = poly_attr(Atlas_Geom, "nsDist"),
-           ewDist = poly_attr(Atlas_Geom, "ewDist"),
-           maxDist = poly_attr(Atlas_Geom, "maxDist"),
-           lengthMinRect = poly_attr(Atlas_Geom, "lengthMinRect"),
-           widthMinRect = poly_attr(Atlas_Geom, "widthMinRect"),
-           elonMinRect = poly_attr(Atlas_Geom, "elonMinRect"),
-           elonRatio = poly_attr(Atlas_Geom, "elonRatio"),
-           circ = poly_attr(Atlas_Geom, "circ"),
-           circNorm = poly_attr(Atlas_Geom, "circNorm"),
-           relCirc = poly_attr(Atlas_Geom, "relCirc"),
-           lin = poly_attr(Atlas_Geom, "lin"),
-           bearingMinRect = poly_attr(Atlas_Geom, "bearingMinRect"), 
-           bearing = poly_attr(Atlas_Geom, "bearing"))
+  Geom_attributes_atlas <- data_frame(dataset = atlas_names[i],
+           atlas_nsDist = poly_attr(Atlas_Geom, "nsDist"),
+           atlas_ewDist = poly_attr(Atlas_Geom, "ewDist"),
+           atlas_maxDist = poly_attr(Atlas_Geom, "maxDist"),
+           atlas_lengthMinRect = poly_attr(Atlas_Geom, "lengthMinRect"),
+           atlas_widthMinRect = poly_attr(Atlas_Geom, "widthMinRect"),
+           atlas_elonMinRect = poly_attr(Atlas_Geom, "elonMinRect"),
+           atlas_elonRatio = poly_attr(Atlas_Geom, "elonRatio"),
+           atlas_circ = poly_attr(Atlas_Geom, "circ"),
+           atlas_circNorm = poly_attr(Atlas_Geom, "circNorm"),
+           atlas_relCirc = poly_attr(Atlas_Geom, "relCirc"),
+           atlas_lin = poly_attr(Atlas_Geom, "lin"),
+           atlas_bearingMinRect = poly_attr(Atlas_Geom, "bearingMinRect"), 
+           atlas_bearing = poly_attr(Atlas_Geom, "bearing"))
            
-  geom_ls[[i]] <- Geom_attributes
+  ## Southernness/Westernness
+  atlas_xmin <- st_bbox(Atlas_Geom)[1]
+  atlas_ymin <- st_bbox(Atlas_Geom)[2]
+  atlas_xmax <- st_bbox(Atlas_Geom)[3]
+  atlas_ymax <- st_bbox(Atlas_Geom)[4]
+  atlas_xhalf <- atlas_xmax+(atlas_xmin-atlas_xmax)/2
+  atlas_yhalf <- atlas_ymax+(atlas_ymin-atlas_ymax)/2
+  
+  atlas_bbox <- data.frame(atlas_xmin, atlas_xmax, atlas_xhalf, atlas_ymin, atlas_ymax, atlas_yhalf)
+  atlas_bbox$dataset <- atlas_names[i] 
+  
+  geom_ls[[i]] <- full_join(atlas_bbox, Geom_attributes_atlas)
+  
 }
 
 countries_geom_attributes <- plyr::rbind.fill(geom_ls) 
@@ -616,7 +633,7 @@ species_geom <- list()
 year_species_geom <- list()
 atlas_all_sp_geom <-list()
 COG_all <- list()
-
+COG_a <- list()
 for (a in seq_along(presence_sf_list)){
   atlas <- presence_sf_list[[a]]
   
@@ -666,7 +683,7 @@ for (a in seq_along(presence_sf_list)){
         summarise() %>% 
         vect() 
       
-      ## Calculate distance
+      ## Calculate distance 
       atlas_lines <- lines_l[[a]]
       Dist_toCOG <- terra::distance(crds(points2), crds(points_atlas), lonlat = T)
       minDist_toBorder <- min(distance(crds(test), crds(atlas_lines), lonlat=T))
@@ -700,136 +717,49 @@ for (a in seq_along(presence_sf_list)){
     species_geom_df <- plyr::rbind.fill(species_geom)  
     year_species_geom[[y]] <- species_geom_df  
     }
-  
+  COG_a[[a]] <- plyr::rbind.fill(COG_all)
   year_species_geom_df <- plyr::rbind.fill(year_species_geom) 
   atlas_all_sp_geom[[a]] <- year_species_geom_df
   }
 tictoc::toc()
 
+COG_df <- plyr::rbind.fill(COG_a)
 Species_geom_attributes <- plyr::rbind.fill(atlas_all_sp_geom) 
-Geometries <- full_join(Species_geom_attributes, countries_geom_attributes)
-COG_df <- plyr::rbind.fill(COG_all)
-Geometries <- full_join(Geometries, COG_df)
+
+Atlas_geom <- full_join(countries_geom_attributes, COG_df) %>% group_by(dataset) %>% distinct(dataset, .keep_all=T)
+Geometries <- full_join(Species_geom_attributes, Atlas_geom, relationship = "many-to-many") %>% distinct()
+
 
 saveRDS(Geometries, paste0(out_path, "Geometries.rds"))
-saveRDS(COG_all, paste0(out_path, "CenterOfGravity_list.rds"))
 
-tictoc::toc()
+
+
+
+## Summary Stats ========================================
+
+Geometries %>% group_by(dataset, tp) %>% 
+  rstatix::get_summary_stats(type="common")
+
+Geometries %>% mutate_at(c('dataset', 'tp', 'verbatim_name'), as.factor)%>% group_by(dataset, tp) %>% 
+  rstatix::get_summary_stats(type="common")
+
+
 ```
 
 #### Geometries: Read back in
 
-## Calculate distances
+## Calculate Southernness&Westernness
 
 ```{r}
-Geometries <- readRDS(paste0(out_path, "Geometries.rds")) %>% na.omit()
-grids # Atlases
-atlas_names
-time_periods
-
-
-# Transform country-borders to lines
-lines_l <- list()
-for (a in seq_along(grids)){
-  lines <- grids[[a]] %>% 
-    summarise() %>% 
-    vect() %>% 
-    as.lines()
-  lines_l[[a]] <- lines
-}
-
-plot(lines_l[[1]])
-plot(lines_l[[2]])
-plot(lines_l[[3]])
-plot(lines_l[[4]])
-
-
-# Transform Geometry lat/long from CoG to points
-points_COG_atlas <- Geometries %>% 
-  group_by(dataset, tp) %>% 
-  dplyr::select(CenterOfGravity_Atlas_long, CenterOfGravity_Atlas_lat, dataset, tp) %>%
-  rename("x" = "CenterOfGravity_Atlas_long", "y" = "CenterOfGravity_Atlas_lat") %>% na.omit() %>% distinct()
-
-points_COG_sp <- Geometries %>% 
+Geometries <- readRDS( paste0(out_path, "Geometries.rds"))
+Southernness_Westernness <- Geometries %>% 
   group_by(dataset, tp, verbatim_name) %>% 
-  dplyr::select(sp_COG_long, sp_COG_lat, dataset, tp, verbatim_name) %>%
-  rename("x" = "sp_COG_long", "y" = "sp_COG_lat") %>% na.omit() %>% ungroup()
+  select(dataset, tp, verbatim_name, sp_COG_long, sp_COG_lat, atlas_xmin, atlas_xmax, atlas_xhalf, atlas_ymin, atlas_ymax, atlas_yhalf) %>% 
+  unique() %>%
+  summarize(Southernness = 1-((sp_COG_lat - atlas_ymin)/((atlas_ymax -atlas_ymin))),
+            Westernness = 1-((sp_COG_long - atlas_xmin)/((atlas_xmax-atlas_xmin)))) %>% ungroup() 
 
-### Calculate Distances =========================================
-sp <- unique(points_COG_sp$verbatim_name)
-times <- as.numeric(c(1,2))
-atlas <- unique(points_COG_sp$dataset)
-
-
-
-
-dist_list_sp <- list()
-dist_list_y <- list()
-dist_list_a <- list()
-for (a in seq_along(atlas_names)) {
-  df1 <- points_COG_sp %>%
-    filter(dataset == atlas_names[a]) %>%
-    dplyr::select(-dataset)
-
-  df1_atlas <- points_COG_atlas %>%
-    filter(dataset == atlas_names[a])
-
-
-  for (y in seq_along(time_periods)) {
-    df_tp1 <- df1 %>% filter(tp == 1)
-    df_tp2 <- df1 %>% filter(tp == 2)
-    dfs <- list(df_tp1, df_tp2)
-
-    df2_atlas1 <- df1_atlas %>% filter(tp == 1)
-    df2_atlas2 <- df1_atlas %>% filter(tp == 2)
-    dfs_atlas <- list(df2_atlas1, df2_atlas2)
-
-
-    sp <- unique(dfs[[y]]$verbatim_name)
-
-
-    for (s in seq_along(sp)) {
-      temp_df <- dfs[[y]] %>%
-        filter(verbatim_name == sp[i])
-
-      points2 <- temp_df %>%
-        vect(geom = c("x", "y"), crs = "epsg:4326")
-
-      points_atlas <- dfs_atlas[[y]] %>%
-        vect(geom = c("x", "y"), crs = "epsg:4326")
-
-
-      ## Calculate distance
-      atlas_lines <- lines_l[[a]]
-      minDist_toBorder <- min(terra::distance(crds(atlas_lines), crds(points2), lonlat = T))
-      Dist_toCOG <- terra::distance(crds(points2), crds(points_atlas), lonlat = T)
-
-      Distance_df <- data.frame(
-        verbatim_name = sp[s],
-        dataset = atlas_names[a],
-        tp = time_periods[y],
-        minDist_toBorder = minDist_toBorder,
-        Dist_toCOG = Dist_toCOG
-      )
-
-      dist_list_sp[[s]] <- Distance_df
-    }
-
-    dist_df_sp <- plyr::rbind.fill(dist_list_sp)
-    dist_list_y[[y]] <- dist_df_sp
-  }
-  dist_df_y <- plyr::rbind.fill(dist_list_y)
-  dist_list_a[[a]] <- dist_df_y
-}
-
-dist_df_a <- plyr::rbind.fill(dist_list_a)
-
-table(dist_df_a$dataset)
-
-Geometries_final <- full_join(Geometries, dist_df_a) %>% distinct()
-
-
-plet(points2)
+Geometries_final <- left_join(Geometries, Southernness_Westernness, relationship = "many-to-many") %>% distinct(dataset, tp, verbatim_name, .keep_all = T)
 
 predictors_df5 <- full_join(Geometries_final, predictors_df4) 
 
@@ -905,7 +835,7 @@ for (a in seq_along(atlas_names)){
 }
  
 Co_Occ_df_final <- plyr::rbind.fill(co_occ_list2)
-saveRDS(Co_Occ_df_final, paste0(out_path, "Coocc_df_final.rds"))
+#saveRDS(Co_Occ_df_final, paste0(out_path, "Coocc_df_final.rds"))
 
 
 # Some summaries -------------------------------------------------------- #
@@ -928,6 +858,8 @@ saveRDS(Co_Occ_df_final, paste0(out_path, "Coocc_df_final.rds"))
 Co_Occ_df_final <- readRDS(paste0(out_path, "Coocc_df_final.rds"))
 
 predictors_df6 <- full_join(Co_Occ_df_final, predictors_df5) 
+predictors_df6
+
 ```
 
 ## AVONET Traits
@@ -939,28 +871,53 @@ avonet <- avonet %>%
   rename("verbatim_name"= "Species3") %>%
   mutate_at(vars("Range.Size"), as.numeric)
 
-predictors_df7 <- left_join(predictors_df6, avonet) %>% distinct()
+predictors_df7 <- left_join(predictors_df6, avonet) %>% unique()
+predictors_df7
 
+
+```
+
+## Phylogenetic Distinctness
+
+```{r}
+predictors_df7$tip.label <- gsub(" ", "_", predictors_df7$verbatim_name)
+
+FP <- phyloregion::evol_distinct(tree, "fair.proportion") # add column with phylogenetic distinctness (Isaac et al., 2007).
+FP <- data.frame(FP)
+FP$tip.label <- rownames(FP)
+rownames(FP) <- NULL
+
+predictors_df8 <- left_join(predictors_df7, FP) %>% select(-tip.label)
 ```
 
 #### Merging Atlas + Species predictors
 
 ```{r}
-all_predictors0 <- full_join(predictors_df7, atlas_predictors_df2)
+all_predictors0 <- full_join(predictors_df8, atlas_predictors_df2) 
 str(all_predictors0)
 
+rownames(all_predictors0) <- NULL
+all_predictors0 <- unique(all_predictors0)
+
 saveRDS(all_predictors0, paste0(out_path, "All_predictors.rds"))
+
 ```
 
 ## Correlation Analysis
 
 ```{r}
-all_predictors <- all_predictors0 %>%
-  select(-neighbor_method, -verbatim_name) %>%
+
+## Chech out Atlas predictors:
+Atl_pred <- all_predictors0 %>% rename("atlas_Total_area" = "Total_area") %>%
+    select(matches("atlas_", ignore.case=T), dataset, tp) %>% distinct() %>% na.omit()
+
+all_predictors <- all_predictors0 %>% rename("atlas_Total_area" = "Total_area") %>%
+  select(!matches("atlas_", ignore.case=T)) %>%
+  select(-neighbor_method) %>%
   mutate_at(
-    c("dataset", "years", "tp", "Order3", "grain", "Family3", "Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle"), as.factor
+    c("dataset", "years", "tp", "Order3", "grain", "Family3", "Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Habitat.Density"), as.factor
   ) %>% 
-  st_drop_geometry() %>% select(-geom) %>% na.omit()
+  st_drop_geometry() %>% na.omit()
 
 summary(lm(log_R2_1 ~ .,data = all_predictors, na.action = "na.omit"))
 
@@ -968,11 +925,17 @@ summary(lm(log_R2_1 ~ .,data = all_predictors, na.action = "na.omit"))
 library(ggcorrplot)
 cor_df <- all_predictors %>% select(-Order3, -grain, -years, -SampPeriodLength)
 
-p.mat <-  model.matrix(~0+., data=cor_df) %>% ggcorrplot::cor_pmat()
-
 model.matrix(~0+., data=cor_df) %>% 
-  cor(use="pairwise.complete.obs") %>% ggcorrplot(tl.cex = 5, type = "lower",outline.color = "white")
+  cor(use="pairwise.complete.obs") %>% 
+  ggcorrplot(tl.cex = 5, type = "upper",outline.color = "white")
 
-  ggcorrplot( lab=TRUE, lab_size=2, hc.order=T, insig ="blank",p.mat = p.mat)
 
+```
+
+```{r}
+
+
+
+save.image("~/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/out/Atlas_predictors_all_Server.RData")
+load("~/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/out/Atlas_predictors_all_Server.RData")
 ```
