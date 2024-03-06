@@ -100,26 +100,31 @@ H3_Diversity_df2 <- H3_Diversity_df  %>% filter(tp==2) %>% select(-tp, -verbatim
 
 ```{r}
 ## Full Model: Future Change
-m0_f <- randomForest(log_R2_1 ~ ., data=df_red1, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit, localImp = TRUE) 
+m0_f <- randomForest(log_R2_1 ~ ., data=df_red1, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
 # H1
-m1_f <- randomForest(log_R2_1 ~ ., data=H1_Geometry_df1, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit, localImp = TRUE) 
+m1_f <- randomForest(log_R2_1 ~ ., data=H1_Geometry_df1, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
 # H2
-m2_f <- randomForest(log_R2_1 ~ ., data=H2_Traits_df1, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit, localImp = TRUE) 
+m2_f <- randomForest(log_R2_1 ~ ., data=H2_Traits_df1, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
 # H3
-m3_f <- randomForest(log_R2_1 ~ ., data=H3_Diversity_df1, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit, localImp = TRUE) 
+m3_f <- randomForest(log_R2_1 ~ ., data=H3_Diversity_df1, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
+
+m0_f;m1_f;m2_f;m3_f
 
 
 
 ## Full Model: Past Change
-m0_p <- randomForest(log_R2_1 ~ ., data=df_red2, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit, localImp = TRUE) 
+m0_p <- randomForest(log_R2_1 ~ ., data=df_red2, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
 # H1
-m1_p <- randomForest(log_R2_1 ~ ., data=H1_Geometry_df2, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit, localImp = TRUE) 
+m1_p <- randomForest(log_R2_1 ~ ., data=H1_Geometry_df2, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
 # H2
-m2_p <- randomForest(log_R2_1 ~ ., data=H2_Traits_df2, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit, localImp = TRUE) 
+m2_p <- randomForest(log_R2_1 ~ ., data=H2_Traits_df2, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
 # H3
-m3_p <- randomForest(log_R2_1 ~ ., data=H3_Diversity_df2, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit, localImp = TRUE) 
+m3_p <- randomForest(log_R2_1 ~ ., data=H3_Diversity_df2, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
 
+m0_p;m1_p;m2_p;m3_p
 
+rf <- list(m0_f, m1_f, m2_f, m3_f, m0_p, m1_p, m2_p, m3_p)
+saveRDS(rf, paste0(out_path, "rf_models_f_p.rds"))
 ```
 
 
@@ -169,7 +174,7 @@ test_ss <- model_df2[-samp_ss,];dim(test_ss)
 
 # --------------------------------------------------------------------------------- #
 ## Control Model with Telfer as Response:
-sp.rf_ss <- randomForest(Telfer_1_2 ~ ., data=train_ss, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit, localImp = TRUE) 
+sp.rf_ss <- randomForest(Telfer_1_2 ~ ., data=train_ss, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit) 
 sp.rf_ss 
 
 # Call:

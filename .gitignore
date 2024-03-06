@@ -58,3 +58,4 @@ Project_Frieda/StaticPredictors/out/SpeciesData_climateNiche/
 *.rds
 Project_Frieda/StaticPredictors/out/CHELSA_df.csv
 *.rds
+Project_Frieda/StaticPredictors/out/randomForest_model.rds
