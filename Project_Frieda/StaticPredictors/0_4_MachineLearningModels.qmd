@@ -5,7 +5,6 @@ format: html
 editor: visual
 ---
 
-
 ```{r, message = F}
 # install.packages("drat", repos="https://cran.rstudio.com")
 # drat:::addRepo("dmlc")
@@ -25,7 +24,6 @@ library(pdp)
 library(dplyr)
 ```
 
-
 ```{r}
 rm(list=ls())
 
@@ -36,11 +34,9 @@ out_path <- c(paste0(source_Git, "out/"))
 
 df <- readRDS("out/All_predictors.rds") %>% select(-p_value) %>% unique() %>% select(-neighbor_method) %>%   
   mutate_at(
-    c("dataset", "years", "tp", "Order3", "grain","Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Habitat.Density"), as.factor) %>% rename("HWI" = "Hand-Wing.Index") 
+    c("dataset", "years", "tp", "grain","Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Habitat.Density"), as.factor) %>% rename("HWI" = "Hand-Wing.Index") 
 rownames(df) <- NULL
 
-
-df
 
 
 names(df)
@@ -53,9 +49,15 @@ df_red <- df %>% select(tp, dataset, verbatim_name, log_R2_1,
                                 atlas_nsDist, atlas_ewDist, atlas_maxDist, atlas_lengthMinRect, atlas_widthMinRect, atlas_elonMinRect,
                                 atlas_elonRatio, atlas_circ, atlas_circNorm, atlas_relCirc, atlas_lin, atlas_bearingMinRect, atlas_bearing,
                                 Total_area, CenterOfGravity_Atlas_long, CenterOfGravity_Atlas_lat, grain, 
-                                global_moran,HWI, FP, Family3, Order3, PC1, PC2, 
+                                global_moran, HWI, FP, Genus.name, Family, Order, sd_PC1, sd_PC2, var_PC1, var_PC2, 
                                 Mass, Migration, Trophic.Level, Trophic.Niche, Habitat.Density, Range.Size, Primary.Lifestyle, 
-                                AlphaSR_sp, BetaSR_sp, GammaSR, mean_prob_cooccur)%>% distinct(tp, dataset, verbatim_name, .keep_all = T)
+                                AlphaSR_sp, BetaSR_sp, GammaSR, mean_prob_cooccur)%>% 
+                distinct(tp, dataset, verbatim_name, .keep_all = T) %>%
+                filter(!is.na(log_R2_1))
+pred <- df_red %>% select(-log_R2_1)
+resp <- df_red %>% select(log_R2_1)
+#imputed_df <- rfImpute(x = pred, y = resp, iter = 5, ntree = 50000)
+
 
 df_red1 <- df_red %>% filter(tp == 1) %>% select(-tp, -verbatim_name) 
 df_red2 <- df_red %>% filter(tp == 2) %>% select(-tp, -verbatim_name) 
@@ -64,7 +66,7 @@ df_red2 <- df_red %>% filter(tp == 2) %>% select(-tp, -verbatim_name)
 H1_Geometry_df <- df_red %>% select(tp, dataset, verbatim_name, log_R2_1,
                                 relative_occupancy_Ncells,
                                 nsDist, ewDist, maxDist, lengthMinRect, widthMinRect, elonMinRect, elonRatio, 
-                                circ, circNorm, relCirc, lin, bearingMinRect, bearing, Dist_toCOD, minDist_toBorder, 
+                                circ, circNorm, relCirc, lin, bearingMinRect, bearing, minDist_toBorder, 
                                 maxDist_toBorder, sp_COG_long, sp_COG_long, Southernness, Westernness,
                                 atlas_nsDist, atlas_ewDist, atlas_maxDist, atlas_lengthMinRect, atlas_widthMinRect, atlas_elonMinRect,
                                 atlas_elonRatio, atlas_circ, atlas_circNorm, atlas_relCirc, atlas_lin, atlas_bearingMinRect, atlas_bearing,
@@ -79,8 +81,8 @@ H1_Geometry_df2 <- H1_Geometry_df %>% filter(tp==2) %>% select(-tp, -verbatim_na
 
 
 H2_Traits_df <- df_red %>% select(tp, dataset, verbatim_name, log_R2_1,
-                              HWI, FP, Family3, Order3, PC1, PC2, 
-                              Mass, Migration, Trophic.Level, Trophic.Niche, Habitat.Density, Range.Size, Primary.Lifestyle)%>% 
+                              HWI, FP, Genus.name, Family, Order, sd_PC1, sd_PC2, var_PC1, var_PC2, 
+                                Mass, Migration, Trophic.Level, Trophic.Niche, Habitat.Density, Range.Size, Primary.Lifestyle)%>% 
   distinct(tp, dataset, verbatim_name, .keep_all = T)
 H2_Traits_df1 <-  H2_Traits_df %>% filter(tp==1) %>% select(-tp, -verbatim_name) 
 H2_Traits_df2 <-  H2_Traits_df %>% filter(tp==2) %>% select(-tp, -verbatim_name) 
@@ -90,46 +92,79 @@ H2_Traits_df2 <-  H2_Traits_df %>% filter(tp==2) %>% select(-tp, -verbatim_name)
 
 
 H3_Diversity_df <- df_red %>% select(tp, dataset, verbatim_name, log_R2_1,
-                                 AlphaSR_sp, BetaSR_sp, GammaSR, mean_prob_cooccur)%>% 
+                                 AlphaSR_sp, BetaSR_sp, GammaSR, mean_prob_cooccur,  Dist_toCOD)%>% 
   distinct(tp, dataset, verbatim_name, .keep_all = T)
 H3_Diversity_df1 <- H3_Diversity_df  %>% filter(tp==1) %>% select(-tp, -verbatim_name)  
 H3_Diversity_df2 <- H3_Diversity_df  %>% filter(tp==2) %>% select(-tp, -verbatim_name)  
 
+# save in list #
+dfs_list <- list(df_red1, H1_Geometry_df1, H2_Traits_df1, H3_Diversity_df1, df_red2, H1_Geometry_df2, H2_Traits_df2, H3_Diversity_df2)
+names(dfs_list) <- c("df_red1", "H1_Geometry_df1", "H2_Traits_df1", "H3_Diversity_df1", "df_red2", "H1_Geometry_df2", "H2_Traits_df2", "H3_Diversity_df2")
+# clear environment #
+rm(df_red1, H1_Geometry_df1, H2_Traits_df1, H3_Diversity_df1, df_red2, H1_Geometry_df2, H2_Traits_df2, H3_Diversity_df2)
 ```
-
 
 ```{r}
-## Full Model: Future Change
-m0_f <- randomForest(log_R2_1 ~ ., data=df_red1, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
-# H1
-m1_f <- randomForest(log_R2_1 ~ ., data=H1_Geometry_df1, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
-# H2
-m2_f <- randomForest(log_R2_1 ~ ., data=H2_Traits_df1, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
-# H3
-m3_f <- randomForest(log_R2_1 ~ ., data=H3_Diversity_df1, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
-
-m0_f;m1_f;m2_f;m3_f
 
 
+models_list <- list()
+models_res_list <-list()
+pred_list <- list()
 
-## Full Model: Past Change
-m0_p <- randomForest(log_R2_1 ~ ., data=df_red2, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
-# H1
-m1_p <- randomForest(log_R2_1 ~ ., data=H1_Geometry_df2, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
-# H2
-m2_p <- randomForest(log_R2_1 ~ ., data=H2_Traits_df2, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
-# H3
-m3_p <- randomForest(log_R2_1 ~ ., data=H3_Diversity_df2, ntree=50000, mtry=5, importance=TRUE, proximity=TRUE, na.action = na.omit) 
 
-m0_p;m1_p;m2_p;m3_p
+for (df in seq_along(dfs_list)){
 
-rf <- list(m0_f, m1_f, m2_f, m3_f, m0_p, m1_p, m2_p, m3_p)
-saveRDS(rf, paste0(out_path, "rf_models_f_p.rds"))
+  
+  model_df <- dfs_list[[df]]
+  
+  # split into test and train #
+  set.seed(123)
+  samp <- sample(nrow(model_df), 0.8 * nrow(model_df))
+  train <- model_df[samp, ]; dim(train) 
+  test <- model_df[-samp, ]; dim(test) 
+  
+  # build models # 
+    
+  ## mtry = number of predictors sampled for spliting at each node. (higher values give higher R2?)
+  ## ntree = number of trees grown
+  ## importance = first column is the mean decrease in accuracy and the second the mean decrease in MSE
+  
+  model <- randomForest(log_R2_1 ~ ., data = train, ntree=50000, mtry=9, importance=TRUE, na.action = "na.omit")
+  models_list[[df]] <- model
+  
+  # extract model results # 
+  imp <- as.data.frame(model$importance[,1])
+  names(imp) <- c("Importance")
+  imp$var <- rownames(imp)
+  imp2 <- imp %>% pivot_wider(names_from = var,
+                      values_from = Importance)
+
+  model_res <- data.frame(
+    df = names(dfs_list)[[df]],
+    mean_pseudo_R2 = mean(model$rsq),
+    mean_mse = mean(model$mse),
+    imp2)
+  models_res_list[[df]] <- model_res
+  
+  
+  # Prediction #
+  data_pred <- data.frame(Predicted = predict(model, newdata = test),
+                          Observed = test$log_R2_1)
+ 
+  pred_list[[df]] <- data_pred
+  
+}
+
+
+saveRDS(models_list, paste0(out_path, "models_list.rds"))
+saveRDS(models_res_list, paste0(out_path, "models_res_list.rds"))
+saveRDS(pred_list, paste0(out_path, "pred_list.rds"))
+
+
 ```
 
-
-
 ## 
+
 ## Random Forest models
 
 -   Explanation minimum depth =\
@@ -167,7 +202,9 @@ test_ss <- model_df2[-samp_ss,];dim(test_ss)
 
 
 ```
-- Start: 11:08h, 05.03.24
+
+-   Start: 11:08h, 05.03.24
+
 ```{r, randomForest package}
 # --------------------------------------------------------------------------------- #
 # Model 1 using randomForest package ====
@@ -372,5 +409,3 @@ save.image(paste0(out_path, "MachineLearning.RData"))
 ```{r}
 
 ```
-
-

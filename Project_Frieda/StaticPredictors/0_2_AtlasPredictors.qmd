@@ -69,50 +69,131 @@ out_path <- c(paste0(source_Git, "out/"))
 
 
 # folder path to atlas data
-source_paths <- c(paste0(source_atlas, "Birds_Atlas_Czechia/"), 
-                  paste0(source_atlas, "Birds_Atlas_New_York/"), 
-                  paste0(source_atlas, "Birds_atlas_Japan/"), 
-                  paste0(source_atlas, "Birds_atlas_EBBA/"))
+source_paths <- c(
+  paste0(source_atlas, "Birds_Atlas_Czechia/"),
+  paste0(source_atlas, "Birds_Atlas_New_York/"),
+  paste0(source_atlas, "Birds_atlas_Japan/"),
+  paste0(source_atlas, "Birds_atlas_EBBA/")
+)
 
 # create path to read in data and grids from variables
-data_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_beast_data.rds"), 
-                paste0(source_paths[2], "Birds_Atlas_New_York_beast_data.rds"), 
-                paste0(source_paths[3], "Birds_atlas_Japan_beast_data.rds"),
-                paste0(source_paths[4], "Birds_atlas_EBBA_beast_data.rds"))
+data_paths <- c(
+  paste0(source_paths[1], "Birds_Atlas_Czechia_beast_data.rds"),
+  paste0(source_paths[2], "Birds_Atlas_New_York_beast_data.rds"),
+  paste0(source_paths[3], "Birds_atlas_Japan_beast_data.rds"),
+  paste0(source_paths[4], "Birds_atlas_EBBA_beast_data.rds")
+)
 
-grid_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_grid.gpkg"), 
-                paste0(source_paths[2], "Birds_Atlas_New_York_grid.gpkg"), 
-                paste0(source_paths[3], "Birds_atlas_Japan_grid.gpkg"),
-                paste0(source_paths[4], "Birds_atlas_EBBA_grid.gpkg"))
+grid_paths <- c(
+  paste0(source_paths[1], "Birds_Atlas_Czechia_grid.gpkg"),
+  paste0(source_paths[2], "Birds_Atlas_New_York_grid.gpkg"),
+  paste0(source_paths[3], "Birds_atlas_Japan_grid.gpkg"),
+  paste0(source_paths[4], "Birds_atlas_EBBA_grid.gpkg")
+)
 
-atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japan", "Birds_atlas_EBBA")
+atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York", "Birds_atlas_Japan", "Birds_atlas_EBBA")
 
 # Define the desired order of factor levels
-desired_levels <- factor(c("1", "2","4", "8", "16", "32", "64", "128"), ordered = T,  
-                         levels = c("1", "2","4", "8", "16", "32", "64", "128")) 
+desired_levels <- factor(c("1", "2", "4", "8", "16", "32", "64", "128"),
+  ordered = T,
+  levels = c("1", "2", "4", "8", "16", "32", "64", "128")
+)
 
-grid_paths # list of atlas grids
-data_paths # list of beast occ data
+# grid_paths # list of atlas grids
+# data_paths # list of beast occ data
 
 big_tab_path <- paste0(out_path, "Big_table_CZ_JP_NY.csv") # Created in 0_1_Atlas_prep.qmd
 tree_path <- paste0(source_predictors, "Weeks_et_at_2022/singe_bird_phylo.tre")
 traits_path <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET3_BirdTree.xlsx")
 sac_path <- paste0(out_path, "SAC_data.csv") # Created in this script (code runs a long time ~ 2h, so here is the object)
-AVONET_path <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET3_BirdTree.xlsx")
+AVONET_path_raw <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET_Raw_Data.csv")
 tree_path <- paste0(source_predictors, "Weeks_et_at_2022/singe_bird_phylo.tre")
+avonet_birdlife <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET1_Birdlife.csv")
+
 
 ```
 
 ```{r}
 
-############## Read Processed Data from 0_1_Atlas_prep.qmd script:
+## Read Processed Data from 0_1_Atlas_prep.qmd script =========================================== ##
 
-pres_dat_final <- readRDS(paste0(out_path, "pres_dat_final")) # species data per cell  
+pres_dat_final <- readRDS(paste0(out_path, "pres_dat_final")) # species data per cell
 presence_sf_list <- readRDS(paste0(out_path, "presence_sf_list.rds"))
-big_tab <- read.csv(file=paste0(out_path, "Big_table_CZ_JP_NY.csv")) %>% 
+big_tab <- read.csv(file = paste0(out_path, "Big_table_CZ_JP_NY.csv")) %>%
   reorder_levels(cell_grouping, desired_levels)
-avonet <- read_excel(AVONET_path, sheet = 2)
-Predictors_df <- readRDS(paste0(out_path, "all_predictors_niches.rds"))
+avonet_raw <- read.csv(AVONET_path_raw)
+avonet <- read_excel(traits_path, sheet = 2)
+avonet_bl <- read.csv(avonet_birdlife)
+Niches_df <- readRDS(paste0(out_path, "Niches_df.rds"))
+
+
+```
+
+## Taxonomic Homogenization
+
+```{r, taxonomic lookup frame}
+
+sp_names_atlas <- unique(pres_dat_final$verbatim_name)
+taxonomy_BirdLife <- read.csv(paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET_Extant_Species_list.csv"))
+tree <- ladderize(read.tree(tree_path))
+sp_names_BirdTree <- gsub("_", " ", tree$tip.label)
+
+
+
+tax_frame_avonet <- avonet_raw %>%
+  select(Species1_BirdLife, Species2_eBird, eBird.species.group, Species3_BirdTree) %>%
+  rename("sp_BirdLife" = "Species1_BirdLife") %>% distinct(.)
+
+tax_frame_avonet2 <- left_join(tax_frame_avonet, taxonomy_BirdLife, by=join_by("sp_BirdLife" == "Species.name")) %>% distinct(.)
+
+
+
+length(sp_names_atlas) # 844 species
+setdiff(sp_names_atlas, sp_names_BirdTree) %>% length()
+setdiff(sp_names_atlas, taxonomy_BirdLife$Species.name) %>% length()
+
+labs <- setdiff(sp_names_atlas, unique(taxonomy_BirdLife$Species.name))
+
+# 9 species in data not in taxonomy (Snyonyms)
+## 1. "Delichon urbica"  == "Delichon urbicum"
+## 2. "Regulus ignicapillus" == "Regulus ignicapilla"
+## 3. "Saxicola torquata" == "Saxicola torquatus"
+## 4. "Hydropogne caspia" == "Hydroprogne caspia"
+## 5. "Egretta intermedia" == "Ardea intermedia"
+## 6. "Luscinia akahige" == "Larvivora akahige"
+## 7. "Luscinia komadori" == "Larvivora komadori"
+## 8. "Poecile varius" == "Sittiparus varius"
+## 9. "Sapheopipo noguchii" == "Dendrocopos noguchii"
+
+## Taxon Lookup frame:
+tax_frame <- as.data.frame(sp_names_atlas)
+
+tax_frame2 <- tax_frame %>%
+  mutate(
+    sp_BirdLife = case_when(
+      sp_names_atlas == "Delichon urbica" ~ "Delichon urbicum",
+      sp_names_atlas == "Regulus ignicapillus" ~ "Regulus ignicapilla",
+      sp_names_atlas == "Saxicola torquata" ~ "Saxicola torquatus",
+      sp_names_atlas == "Hydropogne caspia" ~ "Hydroprogne caspia",
+      sp_names_atlas == "Egretta intermedia" ~ "Ardea intermedia",
+      sp_names_atlas == "Luscinia akahige" ~ "Larvivora akahige",
+      sp_names_atlas == "Luscinia komadori" ~ "Larvivora komadori",
+      sp_names_atlas == "Poecile varius" ~ "Sittiparus varius",
+      sp_names_atlas == "Sapheopipo noguchii" ~ "Dendrocopos noguchii",
+      .default = sp_names_atlas
+    )
+  )
+
+tax_frame3 <- left_join(tax_frame2, tax_frame_avonet2) %>%
+  unique() %>%
+  rename("sp_BirdTree" = "Species3_BirdTree", 
+         "sp_eBird" = "Species2_eBird", 
+         "sp_atlas" = "sp_names_atlas") %>% distinct(.) #select(sp_atlas, Genus.name, Family.name, Order.name) %>% unique()
+
+write.csv(tax_frame3, paste0(out_path, "Tax_lookup_BirdLife_eBird_BirdTree_Atlas.csv"))
+
+rm(sp_names_atlas, taxonomy_BirdLife, tree, sp_names_BirdTree, tax_frame_avonet, labs, tax_frame, tax_frame2)
+
 ```
 
 ## The Data
@@ -254,13 +335,31 @@ atlas_predictors_df2 <- left_join(atlas_predictors_df1, tp_df)
 # Topology/Elevation ?
 
 
+tax_frame3
+species_data_bigtable <- big_tab %>% 
+  filter(cell_grouping == 1) %>% 
+  select(-cell_grouping, -X, -scale)
 
-species_data_bigtable <- big_tab
+
+
+setdiff(Niches_df$verbatim_name, species_data_bigtable$verbatim_name) %>% length()
+setdiff(species_data_bigtable$verbatim_name,Niches_df$verbatim_name) %>% length()
+
+unique(species_data_bigtable$verbatim_name) %>% length()
+unique(Niches_df$verbatim_name) %>% length()
+
+species_data_bigtable <- species_data_bigtable %>% filter_at(vars(log_R2_1), any_vars(!is.na(.)))
+
+sp_df_big <- full_join(species_data_bigtable, Niches_df)
+
+
+
+
 
 # Make dataframe with predictors ======================
 names(species_data_bigtable)
 
-predictors_df <- Predictors_df%>% 
+predictors_df <- sp_df_big%>% 
   select(
     verbatim_name, dataset, tp, # Grouping variables
     log_R2_1, Telfer_1_2, # Response variables
@@ -268,11 +367,19 @@ predictors_df <- Predictors_df%>%
     relative_occupancy_Ncells, # Relative Occupancy
     m_AOO_s, # slope of OAR1
     m_relOcc_s, # slope of OAR2
-    D_AOO_s, # D of AOO
-    D_relOcc_s, # D of rel. Occupancy
-    PC1, PC2) # ClimateNiche Breadth
+    D_AOO_s, # D of AOO based on scale
+    D_relOcc_s, # D of rel. Occupancy based on scale
+    D_AOO_a, # D of AOO based on area
+    D_relOcc_a, # D of rel. Occupancy based on area
+    total_SR_atlas, #GammaRichness of Atlas
+    sd_PC1, sd_PC2,
+    var_PC1, var_PC2) # ClimateNiche Breadth
+
+
 
 ```
+
+================ RUN COMPLETELY UNTIL HERE AND THEN ONLY RUN CHUNKS WHERE OBJECTS ARE READ BACK IN ======================
 
 ## Diversity Metrics
 
@@ -293,8 +400,6 @@ GammaAlphaBeta_Species <- GammaAlphaBeta_Atlas %>%
   mutate(AlphaSR_sp = mean(AlphaSR)) %>%
   mutate(BetaSR_sp = GammaSR/AlphaSR_sp) %>%
   select(dataset, tp, verbatim_name, AlphaSR_sp, BetaSR_sp, GammaSR) %>% distinct()
-
-# predictors_df2 <- merge(predictors_df, GammaAlphaBeta_Species, by=c("dataset", "tp", "verbatim_name"), all = T)
 
 ## Calculate Mean Sampling Effort  ======================
 AvgEffort <- pres_dat_final %>%
@@ -762,12 +867,12 @@ Southernness_Westernness <- Geometries %>%
 Geometries_final <- left_join(Geometries, Southernness_Westernness, relationship = "many-to-many") %>% distinct(dataset, tp, verbatim_name, .keep_all = T)
 
 predictors_df5 <- full_join(Geometries_final, predictors_df4) 
-
+predictors_df5 %>% filter_all(any_vars(is.na(.)))
 ```
 
 ## Co-Occurrence
 
-```{r}
+```{r, eval = F}
 
 species_data <- pres_dat_final %>% filter(cell_grouping == 1) %>% select(dataset, tp, verbatim_name, cell_label) %>% distinct()
 
@@ -865,14 +970,50 @@ predictors_df6
 ## AVONET Traits
 
 ```{r}
-names(avonet)
-avonet <- avonet %>% 
-  select("Species3", "Family3", "Order3", "Hand-Wing.Index", "Mass", "Habitat", "Habitat.Density", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Range.Size") %>% 
-  rename("verbatim_name"= "Species3") %>%
+
+tax_frame4 <- tax_frame3 %>% 
+  rename("verbatim_name" = "sp_atlas") %>% 
+  distinct(verbatim_name, sp_BirdLife, sp_BirdTree, .keep_all = T)
+
+#-------------------------------------------------------------------------------------------------------------#
+avonet2 <- avonet %>% 
+  select("Species3", "Family3", "Order3", 
+         "Hand-Wing.Index", "Mass", "Habitat", "Habitat.Density", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Range.Size") %>% 
+  rename("sp_BirdTree"= "Species3") %>%
   mutate_at(vars("Range.Size"), as.numeric)
 
-predictors_df7 <- left_join(predictors_df6, avonet) %>% unique()
+merged_df1 <- left_join(tax_frame4, avonet2)
+
+avonet_bl2 <- avonet_bl %>% #BirdLife
+    select("Species1", "Family1", "Order1", 
+           "Hand.Wing.Index", "Mass", "Habitat", "Habitat.Density", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Range.Size") %>% 
+  rename("sp_BirdLife"= "Species1") %>%
+  mutate_at(vars("Range.Size"), as.numeric)
+
+
+
+
+merged_df2 <- left_join(merged_df1, avonet_bl2)
+
+
+
+setdiff(tax_frame3$sp_BirdLife, avonet_bl2$sp_BirdLife) #80
+merged_df1$Habitat.Density <- as.integer(merged_df1$Habitat.Density)
+merged_df1$Migration <- as.integer(merged_df1$Migration)
+
+str(avonet2)
+str(avonet_bl2)
+merged_df2 <- left_join(merged_df1, avonet_bl2, by = join_by(sp_BirdLife, Mass, Habitat, Habitat.Density, Migration, Trophic.Level, Trophic.Niche, Primary.Lifestyle, Range.Size, "Hand-Wing.Index" == "Hand.Wing.Index"))
+
+predictors_df7 <- left_join(predictors_df6, merged_df2) %>% 
+   mutate(Family = coalesce(Family3, Family1, Family.name), 
+          Order = coalesce(Order3, Order1, Order.name)) %>% 
+  select(-Family1, -Family3, -Order1, -Order3, -Family.name, -Order.name) %>%
+  distinct(sp_BirdTree, tp, dataset, .keep_all=T) 
 predictors_df7
+
+predictors_df7 %>% filter_all(any_vars(is.na(.)))
+
 
 
 ```
@@ -887,7 +1028,9 @@ FP <- data.frame(FP)
 FP$tip.label <- rownames(FP)
 rownames(FP) <- NULL
 
-predictors_df8 <- left_join(predictors_df7, FP) %>% select(-tip.label)
+predictors_df8 <- left_join(predictors_df7, FP) %>% select(-tip.label, -sp_BirdLife, -sp_eBird, -eBird.species.group, -sp_BirdTree, -Taxonomy)
+
+
 ```
 
 #### Merging Atlas + Species predictors
@@ -897,7 +1040,9 @@ all_predictors0 <- full_join(predictors_df8, atlas_predictors_df2)
 str(all_predictors0)
 
 rownames(all_predictors0) <- NULL
-all_predictors0 <- unique(all_predictors0)
+all_predictors0 <- all_predictors0 %>% distinct(verbatim_name, tp, dataset, .keep_all = T) %>%  filter(!is.na(verbatim_name))
+
+
 
 saveRDS(all_predictors0, paste0(out_path, "All_predictors.rds"))
 
@@ -915,7 +1060,7 @@ all_predictors <- all_predictors0 %>% rename("atlas_Total_area" = "Total_area") 
   select(!matches("atlas_", ignore.case=T)) %>%
   select(-neighbor_method) %>%
   mutate_at(
-    c("dataset", "years", "tp", "Order3", "grain", "Family3", "Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Habitat.Density"), as.factor
+    c("dataset", "years", "tp", "Order", "grain", "Family", "Genus.name", "Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Habitat.Density"), as.factor
   ) %>% 
   st_drop_geometry() %>% na.omit()
 
@@ -923,19 +1068,12 @@ summary(lm(log_R2_1 ~ .,data = all_predictors, na.action = "na.omit"))
 
 
 library(ggcorrplot)
-cor_df <- all_predictors %>% select(-Order3, -grain, -years, -SampPeriodLength)
+cor_df <- all_predictors %>% select(-Order, -verbatim_name, -Genus.name, -Family) %>% na.omit()
+p.mat <- model.matrix(~0+., data=cor_df) %>% cor_pmat()
 
-model.matrix(~0+., data=cor_df) %>% 
+model.matrix(~0+., data=cor_df) %>%
   cor(use="pairwise.complete.obs") %>% 
-  ggcorrplot(tl.cex = 5, type = "upper",outline.color = "white")
+  ggcorrplot(tl.cex = 5,outline.color = "white", p.mat=p.mat, insig="blank", type="lower")
 
 
-```
-
-```{r}
-
-
-
-save.image("~/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/out/Atlas_predictors_all_Server.RData")
-load("~/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/out/Atlas_predictors_all_Server.RData")
 ```
