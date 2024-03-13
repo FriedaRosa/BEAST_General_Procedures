@@ -47,6 +47,8 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Large Objects (rds)
 *.RData
 *.tif
 Project_Frieda/StaticPredictors/.RDataTmp1
@@ -54,13 +56,11 @@ Project_Frieda/StaticPredictors/.RDataTmp2
 Project_Frieda/StaticPredictors/.RDataTmp3
 Project_Frieda/StaticPredictors/.RDataTmp4
 Project_Frieda/StaticPredictors/out/SpeciesData_climateNiche/
-*.rds
-*.rds
-Project_Frieda/StaticPredictors/out/CHELSA_df.csv
-*.rds
+Project_Frieda/StaticPredictors/out/*.rds
 Project_Frieda/StaticPredictors/out/randomForest_model.rds
 Project_Frieda/StaticPredictors/out/All_predictors.rds
 Project_Frieda/StaticPredictors/out/all_predictors_niches.rds
 Project_Frieda/StaticPredictors/out/climate_stack_agg.rds
 Project_Frieda/StaticPredictors/out/Niches_df.rds
 Project_Frieda/StaticPredictors/out/pca_all.rds
+
