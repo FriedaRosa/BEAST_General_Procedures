@@ -5,6 +5,8 @@ format: html
 editor: visual
 ---
 
+## Libraries
+
 ```{r, message = F}
 # install.packages("drat", repos="https://cran.rstudio.com")
 # drat:::addRepo("dmlc")
@@ -22,7 +24,10 @@ library(pdp)
 
 
 library(dplyr)
+
 ```
+
+## Variables
 
 ```{r}
 rm(list=ls())
@@ -32,46 +37,112 @@ source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_Ge
 # folder path to output folder
 out_path <- c(paste0(source_Git, "out/"))
 
-df <- readRDS("out/All_predictors.rds") %>% select(-p_value) %>% unique() %>% select(-neighbor_method) %>%   
+```
+
+## Create model dataframes
+
+```{r}
+df <- readRDS("out/All_predictors.rds") %>% 
+  select(-p_value, -neighbor_method) %>% unique() %>% 
   mutate_at(
-    c("dataset", "years", "tp", "grain","Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Habitat.Density"), as.factor) %>% rename("HWI" = "Hand-Wing.Index") 
+    c("dataset", "years", "tp", "grain","Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Habitat.Density"), as.factor) %>% 
+  rename("HWI" = "Hand-Wing.Index") 
 rownames(df) <- NULL
-
-
-
 names(df)
 
-df_red <- df %>% select(tp, dataset, verbatim_name, log_R2_1,
-                                relative_occupancy_Ncells, D_AOO_s,
-                                nsDist, ewDist, maxDist, lengthMinRect, widthMinRect, elonMinRect, elonRatio, 
-                                circ, circNorm, relCirc, lin, bearingMinRect, bearing, Dist_toCOD, minDist_toBorder, 
-                                maxDist_toBorder, sp_COG_long, sp_COG_long, Southernness, Westernness,
-                                atlas_nsDist, atlas_ewDist, atlas_maxDist, atlas_lengthMinRect, atlas_widthMinRect, atlas_elonMinRect,
-                                atlas_elonRatio, atlas_circ, atlas_circNorm, atlas_relCirc, atlas_lin, atlas_bearingMinRect, atlas_bearing,
-                                Total_area, CenterOfGravity_Atlas_long, CenterOfGravity_Atlas_lat, grain, 
-                                global_moran, HWI, FP, Genus.name, Family, Order, sd_PC1, sd_PC2, var_PC1, var_PC2, 
-                                Mass, Migration, Trophic.Level, Trophic.Niche, Habitat.Density, Range.Size, Primary.Lifestyle, 
-                                AlphaSR_sp, BetaSR_sp, GammaSR, mean_prob_cooccur)%>% 
-                distinct(tp, dataset, verbatim_name, .keep_all = T) %>%
-                filter(!is.na(log_R2_1))
-pred <- df_red %>% select(-log_R2_1)
-resp <- df_red %>% select(log_R2_1)
-#imputed_df <- rfImpute(x = pred, y = resp, iter = 5, ntree = 50000)
+
+# quick correlation double check:
+cor_df <- df %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% as.data.frame()
+df %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% 
+  ggcorrplot::ggcorrplot(insig="blank")
+write.csv(cor_df, paste0(out_path, "csv/correlation.csv"))
 
 
-df_red1 <- df_red %>% filter(tp == 1) %>% select(-tp, -verbatim_name) 
-df_red2 <- df_red %>% filter(tp == 2) %>% select(-tp, -verbatim_name) 
+# Main analysis: Log Ratio of AOO change
+
+cols_all <-  c("tp", "dataset", "verbatim_name", "log_R2_1", # General ID cols
+               # Geometry
+               "relative_occupancy_Ncells", "D_AOO_s",
+               "nsDist", "ewDist",
+               "circNorm", "relCirc", "minDist_toBorder", 
+               "maxDist_toBorder", "sp_COG_long", "sp_COG_lat", "Southernness", "Westernness", "Dist_toCOD", 
+               "atlas_nsDist", "atlas_ewDist", "atlas_relCirc",
+               "Total_area", "CenterOfGravity_Atlas_long", "CenterOfGravity_Atlas_lat", "grain",
+               # Traits
+               "global_moran", "HWI", "FP", "Genus.name", "Family", "Order", "sd_PC1", "sd_PC2",
+               "Mass", "Migration", "Trophic.Level", "Trophic.Niche", "Habitat.Density", "Range.Size", "Primary.Lifestyle",
+               # Diversity
+               "AlphaSR_sp", "BetaSR_sp", "GammaSR", "mean_prob_cooccur", "Dist_toCOD")
+               
+
+# Geometry
+cols_H1 <- c("tp", "dataset", "verbatim_name", "log_R2_1", "relative_occupancy_Ncells", "D_AOO_s", 
+             "nsDist", "ewDist",
+             "circNorm", "relCirc", "minDist_toBorder", 
+             "maxDist_toBorder", "sp_COG_long", "sp_COG_lat", "Southernness", "Westernness", "Dist_toCOD",
+             "atlas_nsDist", "atlas_ewDist","atlas_relCirc",
+             "Total_area", "CenterOfGravity_Atlas_long", "CenterOfGravity_Atlas_lat", "grain")
+
+df %>% select(all_of(cols_H1)) %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% 
+  ggcorrplot::ggcorrplot(insig="blank", hc.order=T, lab=T, lab_size = 2, pch.cex = 1,p.mat = cor_pmat(.))
 
 
-H1_Geometry_df <- df_red %>% select(tp, dataset, verbatim_name, log_R2_1,
-                                relative_occupancy_Ncells,
-                                nsDist, ewDist, maxDist, lengthMinRect, widthMinRect, elonMinRect, elonRatio, 
-                                circ, circNorm, relCirc, lin, bearingMinRect, bearing, minDist_toBorder, 
-                                maxDist_toBorder, sp_COG_long, sp_COG_long, Southernness, Westernness,
-                                atlas_nsDist, atlas_ewDist, atlas_maxDist, atlas_lengthMinRect, atlas_widthMinRect, atlas_elonMinRect,
-                                atlas_elonRatio, atlas_circ, atlas_circNorm, atlas_relCirc, atlas_lin, atlas_bearingMinRect, atlas_bearing,
-                                Total_area, CenterOfGravity_Atlas_long, CenterOfGravity_Atlas_lat, grain, 
-                                global_moran) %>% 
+# Traits
+cols_H2 <- c("tp", "dataset", "verbatim_name", "log_R2_1",
+             "global_moran", "HWI", "FP", "Genus.name", "Family", "Order", "sd_PC1", "sd_PC2", 
+              "Mass", "Migration", "Trophic.Level", "Trophic.Niche", "Habitat.Density", "Range.Size", "Primary.Lifestyle")
+
+df %>% select(all_of(cols_H2)) %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% 
+  ggcorrplot::ggcorrplot(insig="blank", hc.order=T, lab=T, lab_size = 2, pch.cex = 1,p.mat = cor_pmat(.))
+
+
+# Diversity
+cols_H3 <- c("tp", "dataset", "verbatim_name", "log_R2_1", 
+             "AlphaSR_sp", "BetaSR_sp", "GammaSR", "mean_prob_cooccur", "Dist_toCOD")
+
+df %>% select(all_of(cols_H3)) %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% 
+  ggcorrplot::ggcorrplot(insig="blank", hc.order=T, lab=T, lab_size = 2, pch.cex = 1,p.mat = cor_pmat(.))
+
+
+# Sensitivity
+cols_Telfer <- c("tp", "dataset", "verbatim_name", "Telfer_1_2", # General ID cols
+               # Geometry
+               "relative_occupancy_Ncells", "D_AOO_s",
+               "nsDist", "ewDist",
+               "circNorm", "relCirc", "minDist_toBorder", 
+               "maxDist_toBorder", "sp_COG_long", "sp_COG_lat", "Southernness", "Westernness", "Dist_toCOD", 
+               "atlas_nsDist", "atlas_ewDist", "atlas_relCirc",
+               "Total_area", "CenterOfGravity_Atlas_long", "CenterOfGravity_Atlas_lat", "grain",
+               # Traits
+               "global_moran", "HWI", "FP", "Genus.name", "Family", "Order", "sd_PC1", "sd_PC2",
+               "Mass", "Migration", "Trophic.Level", "Trophic.Niche", "Habitat.Density", "Range.Size", "Primary.Lifestyle",
+               # Diversity
+               "AlphaSR_sp", "BetaSR_sp", "GammaSR", "mean_prob_cooccur", "Dist_toCOD")
+
+
+
+# Full Data #
+# (42 predictors)
+df_red <- df %>% 
+  select(all_of(cols_all)) %>%
+  distinct(tp, dataset, verbatim_name, .keep_all = T) %>%
+  filter(!is.na(log_R2_1))
+
+df_red1 <- df_red %>% filter(tp == 1) %>% select(-tp, -verbatim_name) # Future Change
+df_red2 <- df_red %>% filter(tp == 2) %>% select(-tp, -verbatim_name) # Past Change
+
+
+#Telfer
+df_telfer <- df %>% 
+  select(all_of(cols_Telfer)) %>%
+  distinct(tp, dataset, verbatim_name, .keep_all = T) %>%
+  filter(!is.na(Telfer_1_2))
+
+df_telfer1 <- df_telfer %>% filter(tp == 1) %>% select(-tp, -verbatim_name) # Future Change
+df_telfer2 <- df_telfer %>% filter(tp == 2) %>% select(-tp, -verbatim_name) # Past Change
+
+# H1: Geometry
+H1_Geometry_df <- df_red %>% select(all_of(cols_H1)) %>% 
   distinct(tp, dataset, verbatim_name, .keep_all = T)
 H1_Geometry_df1 <- H1_Geometry_df %>% filter(tp==1) %>% select(-tp, -verbatim_name)     
 H1_Geometry_df2 <- H1_Geometry_df %>% filter(tp==2) %>% select(-tp, -verbatim_name)     
@@ -79,10 +150,8 @@ H1_Geometry_df2 <- H1_Geometry_df %>% filter(tp==2) %>% select(-tp, -verbatim_na
 
 
 
-
-H2_Traits_df <- df_red %>% select(tp, dataset, verbatim_name, log_R2_1,
-                              HWI, FP, Genus.name, Family, Order, sd_PC1, sd_PC2, var_PC1, var_PC2, 
-                                Mass, Migration, Trophic.Level, Trophic.Niche, Habitat.Density, Range.Size, Primary.Lifestyle)%>% 
+# H2: Traits
+H2_Traits_df <- df_red %>% select(all_of(cols_H2))%>% 
   distinct(tp, dataset, verbatim_name, .keep_all = T)
 H2_Traits_df1 <-  H2_Traits_df %>% filter(tp==1) %>% select(-tp, -verbatim_name) 
 H2_Traits_df2 <-  H2_Traits_df %>% filter(tp==2) %>% select(-tp, -verbatim_name) 
@@ -90,18 +159,23 @@ H2_Traits_df2 <-  H2_Traits_df %>% filter(tp==2) %>% select(-tp, -verbatim_name)
 
 
 
-
-H3_Diversity_df <- df_red %>% select(tp, dataset, verbatim_name, log_R2_1,
-                                 AlphaSR_sp, BetaSR_sp, GammaSR, mean_prob_cooccur,  Dist_toCOD)%>% 
+# H3 Diversity:
+H3_Diversity_df <- df_red %>% select(all_of(cols_H3))%>% 
   distinct(tp, dataset, verbatim_name, .keep_all = T)
 H3_Diversity_df1 <- H3_Diversity_df  %>% filter(tp==1) %>% select(-tp, -verbatim_name)  
 H3_Diversity_df2 <- H3_Diversity_df  %>% filter(tp==2) %>% select(-tp, -verbatim_name)  
 
+
+
+
 # save in list #
-dfs_list <- list(df_red1, H1_Geometry_df1, H2_Traits_df1, H3_Diversity_df1, df_red2, H1_Geometry_df2, H2_Traits_df2, H3_Diversity_df2)
+dfs_list <- list(df_red1, df_telfer1, H1_Geometry_df1, H2_Traits_df1, H3_Diversity_df1, df_red2, df_telfer2, H1_Geometry_df2, H2_Traits_df2, H3_Diversity_df2)
 names(dfs_list) <- c("df_red1", "H1_Geometry_df1", "H2_Traits_df1", "H3_Diversity_df1", "df_red2", "H1_Geometry_df2", "H2_Traits_df2", "H3_Diversity_df2")
+
+
 # clear environment #
-rm(df_red1, H1_Geometry_df1, H2_Traits_df1, H3_Diversity_df1, df_red2, H1_Geometry_df2, H2_Traits_df2, H3_Diversity_df2)
+rm(df_red1, H1_Geometry_df1, H2_Traits_df1, H3_Diversity_df1, df_red2, H1_Geometry_df2, H2_Traits_df2, H3_Diversity_df2, df_telfer1, df_telfer2)
+
 ```
 
 ```{r}
@@ -112,10 +186,10 @@ models_res_list <-list()
 pred_list <- list()
 
 
-for (df in seq_along(dfs_list)){
+for (dd in seq_along(dfs_list)){
 
   
-  model_df <- dfs_list[[df]]
+  model_df <- dfs_list[[dd]]
   
   # split into test and train #
   set.seed(123)
@@ -130,7 +204,7 @@ for (df in seq_along(dfs_list)){
   ## importance = first column is the mean decrease in accuracy and the second the mean decrease in MSE
   
   model <- randomForest(log_R2_1 ~ ., data = train, ntree=50000, mtry=9, importance=TRUE, na.action = "na.omit")
-  models_list[[df]] <- model
+  models_list[[dd]] <- model
   
   # extract model results # 
   imp <- as.data.frame(model$importance[,1])
@@ -140,11 +214,11 @@ for (df in seq_along(dfs_list)){
                       values_from = Importance)
 
   model_res <- data.frame(
-    df = names(dfs_list)[[df]],
+    df = names(dfs_list)[[dd]],
     mean_pseudo_R2 = mean(model$rsq),
     mean_mse = mean(model$mse),
     imp2)
-  models_res_list[[df]] <- model_res
+  models_res_list[[dd]] <- model_res
   
   
   # Prediction #
@@ -154,12 +228,15 @@ for (df in seq_along(dfs_list)){
   pred_list[[df]] <- data_pred
   
 }
-
+names(models_list) <- names(dfs_list)
+names(models_res_list) <- names(dfs_list)
+names(pred_list) <- names(dfs_list)
 
 saveRDS(models_list, paste0(out_path, "models_list.rds"))
 saveRDS(models_res_list, paste0(out_path, "models_res_list.rds"))
 saveRDS(pred_list, paste0(out_path, "pred_list.rds"))
 
+plyr::rbind.fill(models_res_list) %>% mutate_if(is.numeric, round,2)
 
 ```
 
