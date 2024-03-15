@@ -51,11 +51,19 @@ rownames(df) <- NULL
 names(df)
 
 
+
+highly_correlated <- findCorrelation(cor(df %>% na.omit() %>% select_if(is.numeric) %>% select(-atlas_xhalf, -atlas_yhalf), use="pairwise.complete.obs"), cutoff = 0.9, names = T)
+
+
+df_red_clean <- df %>% na.omit() %>% select_if(is.numeric) %>% select(-atlas_xhalf, -atlas_yhalf)
+df_red_clean <- df_red_clean %>% select(-all_of(highly_correlated))
+
+
 # quick correlation double check:
-cor_df <- df %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% as.data.frame()
-df %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% 
-  ggcorrplot::ggcorrplot(insig="blank")
-write.csv(cor_df, paste0(out_path, "csv/correlation.csv"))
+# cor_df <- df %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% as.data.frame()
+# df %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% 
+#   ggcorrplot::ggcorrplot(insig="blank")
+# #write.csv(cor_df, paste0(out_path, "csv/correlation.csv"))
 
 
 # Main analysis: Log Ratio of AOO change
@@ -63,28 +71,30 @@ write.csv(cor_df, paste0(out_path, "csv/correlation.csv"))
 cols_all <-  c("tp", "dataset", "verbatim_name", "log_R2_1", # General ID cols
                # Geometry
                "relative_occupancy_Ncells", "D_AOO_s",
-               "nsDist", "ewDist",
+               "nsDist",
                "circNorm", "relCirc", "minDist_toBorder", 
-               "maxDist_toBorder", "sp_COG_long", "sp_COG_lat", "Southernness", "Westernness", "Dist_toCOD", 
-               "atlas_nsDist", "atlas_ewDist", "atlas_relCirc",
-               "Total_area", "CenterOfGravity_Atlas_long", "CenterOfGravity_Atlas_lat", "grain",
+              "sp_COG_long", "sp_COG_lat", "Southernness", "Westernness", "Dist_toCOD", 
+              "atlas_relCirc",
+               "Total_area", "CenterOfGravity_Atlas_lat", "grain",
                # Traits
                "global_moran", "HWI", "FP", "Genus.name", "Family", "Order", "sd_PC1", "sd_PC2",
                "Mass", "Migration", "Trophic.Level", "Trophic.Niche", "Habitat.Density", "Range.Size", "Primary.Lifestyle",
                # Diversity
                "AlphaSR_sp", "BetaSR_sp", "GammaSR", "mean_prob_cooccur", "Dist_toCOD")
-               
+ df %>% select(all_of(cols_all)) %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% 
+  ggcorrplot::ggcorrplot(insig="blank", hc.order=T, lab=T, lab_size = 2, pch.cex = 1,p.mat = ggcorrplot::cor_pmat(.))              
 
 # Geometry
 cols_H1 <- c("tp", "dataset", "verbatim_name", "log_R2_1", "relative_occupancy_Ncells", "D_AOO_s", 
-             "nsDist", "ewDist",
-             "circNorm", "relCirc", "minDist_toBorder", 
-             "maxDist_toBorder", "sp_COG_long", "sp_COG_lat", "Southernness", "Westernness", "Dist_toCOD",
-             "atlas_nsDist", "atlas_ewDist","atlas_relCirc",
-             "Total_area", "CenterOfGravity_Atlas_long", "CenterOfGravity_Atlas_lat", "grain")
+             "relative_occupancy_Ncells", "D_AOO_s",
+               "nsDist",
+               "circNorm", "relCirc", "minDist_toBorder", 
+              "sp_COG_long", "sp_COG_lat", "Southernness", "Westernness", "Dist_toCOD", 
+              "atlas_relCirc",
+               "Total_area", "CenterOfGravity_Atlas_lat", "grain")
 
 df %>% select(all_of(cols_H1)) %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% 
-  ggcorrplot::ggcorrplot(insig="blank", hc.order=T, lab=T, lab_size = 2, pch.cex = 1,p.mat = cor_pmat(.))
+  ggcorrplot::ggcorrplot(insig="blank", hc.order=T, lab=T, lab_size = 2, pch.cex = 1,p.mat = ggcorrplot::cor_pmat(.))
 
 
 # Traits
@@ -93,7 +103,7 @@ cols_H2 <- c("tp", "dataset", "verbatim_name", "log_R2_1",
               "Mass", "Migration", "Trophic.Level", "Trophic.Niche", "Habitat.Density", "Range.Size", "Primary.Lifestyle")
 
 df %>% select(all_of(cols_H2)) %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% 
-  ggcorrplot::ggcorrplot(insig="blank", hc.order=T, lab=T, lab_size = 2, pch.cex = 1,p.mat = cor_pmat(.))
+  ggcorrplot::ggcorrplot(insig="blank", hc.order=T, lab=T, lab_size = 2, pch.cex = 1,p.mat = ggcorrplot::cor_pmat(.))
 
 
 # Diversity
@@ -101,18 +111,18 @@ cols_H3 <- c("tp", "dataset", "verbatim_name", "log_R2_1",
              "AlphaSR_sp", "BetaSR_sp", "GammaSR", "mean_prob_cooccur", "Dist_toCOD")
 
 df %>% select(all_of(cols_H3)) %>% select_if(is.numeric) %>% na.omit() %>% cor() %>% round(2) %>% 
-  ggcorrplot::ggcorrplot(insig="blank", hc.order=T, lab=T, lab_size = 2, pch.cex = 1,p.mat = cor_pmat(.))
+  ggcorrplot::ggcorrplot(insig="blank", hc.order=T, lab=T, lab_size = 2, pch.cex = 1,p.mat = ggcorrplot::cor_pmat(.))
 
 
 # Sensitivity
 cols_Telfer <- c("tp", "dataset", "verbatim_name", "Telfer_1_2", # General ID cols
                # Geometry
                "relative_occupancy_Ncells", "D_AOO_s",
-               "nsDist", "ewDist",
+               "nsDist",
                "circNorm", "relCirc", "minDist_toBorder", 
-               "maxDist_toBorder", "sp_COG_long", "sp_COG_lat", "Southernness", "Westernness", "Dist_toCOD", 
-               "atlas_nsDist", "atlas_ewDist", "atlas_relCirc",
-               "Total_area", "CenterOfGravity_Atlas_long", "CenterOfGravity_Atlas_lat", "grain",
+              "sp_COG_long", "sp_COG_lat", "Southernness", "Westernness", "Dist_toCOD", 
+              "atlas_relCirc",
+               "Total_area", "CenterOfGravity_Atlas_lat", "grain",
                # Traits
                "global_moran", "HWI", "FP", "Genus.name", "Family", "Order", "sd_PC1", "sd_PC2",
                "Mass", "Migration", "Trophic.Level", "Trophic.Niche", "Habitat.Density", "Range.Size", "Primary.Lifestyle",
@@ -170,7 +180,7 @@ H3_Diversity_df2 <- H3_Diversity_df  %>% filter(tp==2) %>% select(-tp, -verbatim
 
 # save in list #
 dfs_list <- list(df_red1, df_telfer1, H1_Geometry_df1, H2_Traits_df1, H3_Diversity_df1, df_red2, df_telfer2, H1_Geometry_df2, H2_Traits_df2, H3_Diversity_df2)
-names(dfs_list) <- c("df_red1", "H1_Geometry_df1", "H2_Traits_df1", "H3_Diversity_df1", "df_red2", "H1_Geometry_df2", "H2_Traits_df2", "H3_Diversity_df2")
+names(dfs_list) <- c("df_red1", "df_telfer1","H1_Geometry_df1", "H2_Traits_df1", "H3_Diversity_df1", "df_red2", "df_telfer2","H1_Geometry_df2", "H2_Traits_df2", "H3_Diversity_df2")
 
 
 # clear environment #
@@ -197,37 +207,59 @@ for (dd in seq_along(dfs_list)){
   train <- model_df[samp, ]; dim(train) 
   test <- model_df[-samp, ]; dim(test) 
   
+    # create response variable
+  response_var <- if ("log_R2_1" %in% names(train)) "log_R2_1" else if ("Telfer_1_2" %in% names(train)) "Telfer_1_2" 
+
   # build models # 
     
   ## mtry = number of predictors sampled for spliting at each node. (higher values give higher R2?)
   ## ntree = number of trees grown
   ## importance = first column is the mean decrease in accuracy and the second the mean decrease in MSE
+  model <- randomForest(as.formula(paste(response_var, "~ .")), data = train, nperm=5,
+                         ntree=150, importance=TRUE, na.action = "na.omit")
+  data_pred <- data.frame(Predicted = predict(model, newdata = test), Observed = test[[response_var]])
+ 
+  models_list[[dd]] <- model    
+  pred_list[[dd]] <- data_pred
+
+
+  n_vars <- length(model$forest$xlevels)
+  min_depth <- min_depth_distribution(model)
+  impt_frame <- measure_importance(model)
+  #explain_forest(model, interactions = T, path = paste0(out_path))
   
-  model <- randomForest(log_R2_1 ~ ., data = train, ntree=50000, mtry=9, importance=TRUE, na.action = "na.omit")
-  models_list[[dd]] <- model
+  
+  pdf(file = paste0(out_path, "Fig_", dd, ".pdf"), paper="a4", onefile = T)
+    # Some Figures
+    print(plot_min_depth_distribution(min_depth, k = n_vars))
+    print(varImpPlot(model, n.var = n_vars, type=1))
+    print(plot_multi_way_importance(impt_frame, size_measure = "no_of_nodes"))
+
+    print(ggplot(data_pred, aes(x = Predicted, y = Observed)) +
+        geom_point() +
+        geom_abline(intercept = 0,
+                    slope = 1,
+                    color = "red",
+                    lwd = 0.7))
+  dev.off()
   
   # extract model results # 
   imp <- as.data.frame(model$importance[,1])
   names(imp) <- c("Importance")
   imp$var <- rownames(imp)
-  imp2 <- imp %>% pivot_wider(names_from = var,
+  imp2 <- imp %>% tidyr::pivot_wider(names_from = var,
                       values_from = Importance)
 
   model_res <- data.frame(
-    df = names(dfs_list)[[dd]],
+    df = names(dfs_list)[dd],
     mean_pseudo_R2 = mean(model$rsq),
     mean_mse = mean(model$mse),
     imp2)
   models_res_list[[dd]] <- model_res
   
   
-  # Prediction #
-  data_pred <- data.frame(Predicted = predict(model, newdata = test),
-                          Observed = test$log_R2_1)
- 
-  pred_list[[df]] <- data_pred
-  
 }
+
 names(models_list) <- names(dfs_list)
 names(models_res_list) <- names(dfs_list)
 names(pred_list) <- names(dfs_list)
@@ -249,89 +281,19 @@ plyr::rbind.fill(models_res_list) %>% mutate_if(is.numeric, round,2)
 
 -   The `randomForestSRC` package in R provides a variable selection approach based on a tree-based concept called **minimal depth**. [This approach captures the essence of variable importance measures, but because it involves no randomization, and is simpler to calculate, it can be used as a theoretical basis for variable selection and for speedier calculations for large data ^2^](https://www.randomforestsrc.org/articles/minidep.html).
 
-```{r, make model dfs}
+```{r, randomForest visualizations}
 
-
-
-# Create model dataframe --------------------------------------------------------------------- #
-model_df <- df %>%
-  ungroup() %>%
-  distinct(.)
-
-model_df1 <- model_df  %>% filter(tp == 1) %>% select(-Telfer_1_2, -tp, -verbatim_name) # Predicting Future Change
-model_df1_past <- model_df %>% filter(tp == 2)  %>% select(-Telfer_1_2, -tp) # Predicting Past Change
-
-model_df2 <- model_df %>% select(-log_R2_1) %>% filter(tp == 1) # Future Change
-model_df2_past <- model_df %>% select(-log_R2_1) %>% filter(tp == 2) # Past Change
-# --------------------------------------------------------------------------------- #
-# Data partitioning =====
-set.seed(123)
-
-samp <- sample(nrow(model_df1), 0.8 * nrow(model_df1))
-train <- model_df1[samp, ]; dim(train) # 1842 species
-test <- model_df1[-samp, ]; dim(test) # 461 species
-
-
-## Sensitivity: Telfer
-samp_ss <- sample(nrow(model_df2), 0.8 * nrow(model_df2))
-train_ss <- model_df2[samp_ss,];dim(train_ss)
-test_ss <- model_df2[-samp_ss,];dim(test_ss)
-
-
-```
-
--   Start: 11:08h, 05.03.24
-
-```{r, randomForest package}
-# --------------------------------------------------------------------------------- #
-# Model 1 using randomForest package ====
-
-# --------------------------------------------------------------------------------- #
-## Control Model with Telfer as Response:
-sp.rf_ss <- randomForest(Telfer_1_2 ~ ., data=train_ss, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit) 
-sp.rf_ss 
-
-# Call:
-#  randomForest(formula = Telfer_1_2 ~ ., data = train_ss, ntree = 50000,      mtry = 8, importance = TRUE, proximity = TRUE, localImp = TRUE,      na.action = na.omit) 
-#                Type of random forest: regression
-#                      Number of trees: 50000
-# No. of variables tried at each split: 8
-# 
-#           Mean of squared residuals: 0.790031
-#                     % Var explained: 22.23
-
-# --------------------------------------------------------------------------------- #
-## mtry
-## number of observations in the terminal group = number of splits (check default: 5-10) Do not get finer
-
-sp.rf <- randomForest(log_R2_1 ~ ., data=train, ntree=50000, mtry=8, importance=TRUE, proximity=TRUE, na.action = na.omit, localImp = TRUE) 
-sp.rf 
-saveRDS(sp.rf, paste0(out_path, "randomForest_model.rds"))
-
-# RESULT: OUTPUT:
-# Mean of squared residuals: 0.1297556
-# % Var explained: 61.21
-# saveRDS(sp.rf, paste0(out_path, "randomForest_model.rds"))
-
-min_depth_frame <- min_depth_distribution(sp.rf)
-plot_min_depth_distribution(min_depth_frame)
+min_depth <- lapply(models_list, min_depth_distribution)
+plot_min_depth_distribution(min_depth[[1]])
 
 # Variable importance =====
-round(sp.rf$importance,3)
-varImpPlot(sp.rf)
+round(models_list[[1]]$importance,3)
+varImpPlot(models_list[[1]])
 
-impt_frame <- measure_importance(sp.rf)
+impt_frame <- measure_importance(models_list[[1]])
 plot_multi_way_importance(impt_frame)
 
-# Prediction ====
-prediction <- predict(sp.rf, newdata = test)
-# table(prediction, test$log_R2_1)
-# prediction
-# ---------------------------------------------------------------------------- #
-data_mod <- data.frame(Predicted = predict(sp.rf, newdata = test),  # Create data for ggplot2
-                       Observed = test$log_R2_1)
-
-ggplot(data_mod, aes(x = Predicted, y = Observed)) +
+ggplot(pred_list[[1]], aes(x = Predicted, y = Observed)) +
   geom_point() +
   geom_abline(intercept = 0,
               slope = 1,
@@ -339,6 +301,8 @@ ggplot(data_mod, aes(x = Predicted, y = Observed)) +
               lwd = 0.7)
 
 ```
+
+https://www.css.cornell.edu/faculty/dgr2/\_static/files/R_html/CompareRandomForestPackages.html
 
 ```{r, ranger package}
 # ----------------------------------- #
@@ -376,39 +340,22 @@ library(caretEnsemble)
 library(ranger)
 library(vip)
 library(lmerTest)
+models_list_all <- list()
+for (dd in seq_along(dfs_list)){
+
+  model_df <- dfs_list[[dd]] %>% filter(complete.cases(.))
+  
+  # split into test and train #
+  set.seed(123)
+  samp <- sample(nrow(model_df), 0.8 * nrow(model_df))
+  train <- model_df[samp, ]; dim(train) 
+  test <- model_df[-samp, ]; dim(test) 
+  
+  
+ if ("log_R2_1" %in% names(train)){
 
 
-names_v <- names(train)
-names_v <- names_v[-21]
-
-
-
-#traindata <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
-
-
-
-train$RS_scaled <- scales::rescale(train$Range.Size, to = c(0, 1))
-#train$AOO_scaled <- scales::rescale(train$, to = c(0, 1))
-#train$occu_Ncells_scaled <- scales::rescale(train$occupancy_Ncells, to = c(0, 1))
-train$mean_area_scaled <- scales::rescale(train$mean_area, to = c(0, 1))
-train$mean_area_cropped_scaled <- scales::rescale(train$mean_area_cropped, to = c(0, 1))
-#train$mean_effort_scaled <- scales::rescale(train$mean_effort, to = c(0, 1))
-
-
-
-
-lmer_model <- lmerTest::lmer(log_R2_1 ~.+ 
-                           (1 | Order3 / Family3), 
-                         data = train)
-
-summary(lmer_model)
-
-round(summary(lmer_model)$coefficient,3)
-
-
-# ------------------------------------------------------------ #
-
-model_list_tp1 <-
+   model_list <-
   caretList(
     log_R2_1 ~ ., 
     data = train,
@@ -416,6 +363,8 @@ model_list_tp1 <-
     metric = "RMSE",
     tuneList = list(
       rf =  caretModelSpec(method = "ranger", 
+                           num.trees = 500,
+                           na.action = "na.omit",
                            importance = "permutation",
                            tuneGrid = data.frame(mtry = ceiling((ncol(model_df)-1)/3),
                                                                     splitrule = "variance",
@@ -437,39 +386,96 @@ model_list_tp1 <-
                                                      subsample = 1))
     )
   )
+   
+   
+    
+    
+   }  else if ("Telfer_1_2" %in% names(train)) {
+     
+         model_list <-
+  caretList(
+    Telfer_1_2 ~ ., 
+    data = train,
+    #trControl = traindata,
+    metric = "RMSE",
+    tuneList = list(
+      rf =  caretModelSpec(method = "ranger", 
+                           num.trees = 500,
+                           na.action = "na.omit",
+                           importance = "permutation",
+                           tuneGrid = data.frame(mtry = ceiling((ncol(model_df)-1)/3),
+                                                                    splitrule = "variance",
+                                                                    min.node.size = 5)),
+      gbm = caretModelSpec(method = "gbm",
+                           distribution = "gaussian",
+                           # keep.data = TRUE,
+                           tuneGrid = data.frame(n.trees = 500,
+                                                 interaction.depth = 1,
+                                                 shrinkage = 0.1,
+                                                 n.minobsinnode = 5)),
+      xgboost = caretModelSpec(method = "xgbTree",
+                               tuneGrid = expand.grid(nrounds = 500,
+                                                     max_depth = 5,
+                                                     eta = 0.1,
+                                                     gamma = 0,
+                                                     colsample_bytree = 1,
+                                                     min_child_weight = 1,
+                                                     subsample = 1))))
+   
+   }
+  
+  models_list_all[[dd]] <- model_list
+  
+
+vip::vip(model_list[[1]], geom = "point", num_features = 25)
+vip::vip(model_list[[3]], geom = "point", num_features = 25)
 
 
-vip(model_list_tp1[[1]], geom = "point", num_features = 25)
-vip(model_list_tp1[[3]], geom = "point", num_features = 25)
-saveRDS(model_list_tp1, paste0(out_path, "model_list_tp1.rds"))
+}
+saveRDS(models_list_all, paste0(out_path, "rds/model_list_all.rds"))
 
+
+models_list_all[[2]]$xgboost$results
 
 ```
 
 ```{r}
 
 library(pdp)
+plots_list1 <- list()
+plots_list2 <- list()
+
+for (i in seq_along(models_list_all)) {
+  
+dat <- models_list_all[[i]]$rf 
 
 
-# Figure 2 (right)
-model_list_tp1[[1]] %>% # the %>% operator is read as "and then"
-partial(pred.var = "m_AOO") %>%
-plotPartial(smooth = TRUE, lwd = 2, ylab = "average predicted temporal change")
+cols <- names(dat$trainingData)[c(-1)]
+
+if ("Dist_toCOD" %in% cols) {
+  cols <- cols[!names(cols) %in% "Dist_toCOD"]
+}
 
 
-model_list_tp1[[3]] %>% # the %>% operator is read as "and then"
-partial(pred.var = "FP") %>%
-plotPartial(smooth = TRUE, lwd = 2, ylab = "average predicted temporal change")
+tryCatch({
+  
+  
 
-pp1 <- partial(model_list_tp1[[1]], pred.var = c(names_v[1:3]), plot=F)
-pp2 <- partial(model_list_tp1[[1]], pred.var = c(names_v[4:6]), plot=F)
-pp3 <- partial(model_list_tp1[[1]], pred.var = c(names_v[7:9]), plot=F)
-pp4 <- partial(model_list_tp1[[1]], pred.var = c(names_v[10:12]), plot=F)
-pp5 <- partial(model_list_tp1[[1]], pred.var = c(names_v[13:15]), plot=F)
-pp6 <- partial(model_list_tp1[[1]], pred.var = c(names_v[16:18]), plot=F)
-pp7 <- partial(model_list_tp1[[1]], pred.var = c(names_v[19:21]), plot=F)
+for (y in seq_along(cols)){
+  plot <- dat %>%  
+    partial(pred.var = cols[y]) %>%
+    plotPartial(smooth = TRUE, lwd = 2, ylab = "average predicted temporal change")
+  plots_list1[[y]] <- plot
+}
+  })
+plots_list2[[i]] <- plots_list1 
 
-partialPlotlist <- list(pp1,pp2,pp3,pp4,pp5,pp6,pp7)
+}
+
+
+pdf(file = paste0(out_path, "pp.pdf"), onefile =T)
+plots_list2
+dev.off()
 
 ```
 

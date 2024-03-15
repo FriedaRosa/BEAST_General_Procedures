@@ -64,3 +64,5 @@ Project_Frieda/StaticPredictors/out/climate_stack_agg.rds
 Project_Frieda/StaticPredictors/out/Niches_df.rds
 Project_Frieda/StaticPredictors/out/pca_all.rds
 
+*.rds
+*.rds
