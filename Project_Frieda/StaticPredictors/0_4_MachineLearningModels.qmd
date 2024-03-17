@@ -34,18 +34,16 @@ out_path <- c(paste0(source_Git, "out/"))
 ## Create model dataframes
 
 ```{r}
-df <- readRDS("out/All_predictors.rds") %>% 
-  select(-p_value, -neighbor_method) %>% unique() %>% 
+df <- readRDS(paste0(out_path, "rds/All_predictors.rds"))%>% unique() %>% 
   mutate_at(
-    c("dataset", "years", "tp", "grain","Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Habitat.Density"), as.factor) %>% 
-  rename("HWI" = "Hand-Wing.Index") 
+    c("dataset", "tp", "grain","Habitat", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", "Habitat.Density", "Order", "Family"), as.factor) 
 
 rownames(df) <- NULL
 
 
 
 
-highly_correlated <- findCorrelation(cor(df %>% na.omit() %>% select_if(is.numeric) %>% select(-atlas_xhalf, -atlas_yhalf), use="pairwise.complete.obs"), cutoff = 0.9, names = T)
+highly_correlated <- caret::findCorrelation(cor(df %>% na.omit() %>% select_if(is.numeric) %>% select(-atlas_xhalf, -atlas_yhalf), use="pairwise.complete.obs"), cutoff = 0.9, names = T)
 
 
 df_red_clean <- df %>% na.omit() %>% select_if(is.numeric) %>% select(-atlas_xhalf, -atlas_yhalf)

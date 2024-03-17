@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.450">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Friederike Wölke">
+<meta name="dcterms.date" content="2024-03-15">
+
+<title>Atlas Data Prep</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="0_1_Atlas_prep_clean_files/libs/clipboard/clipboard.min.js"></script>
+<script src="0_1_Atlas_prep_clean_files/libs/quarto-html/quarto.js"></script>
+<script src="0_1_Atlas_prep_clean_files/libs/quarto-html/popper.min.js"></script>
+<script src="0_1_Atlas_prep_clean_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="0_1_Atlas_prep_clean_files/libs/quarto-html/anchor.min.js"></script>
+<link href="0_1_Atlas_prep_clean_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="0_1_Atlas_prep_clean_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="0_1_Atlas_prep_clean_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="0_1_Atlas_prep_clean_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="0_1_Atlas_prep_clean_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#predicting-temporal-change-from-static-patterns" id="toc-predicting-temporal-change-from-static-patterns" class="nav-link active" data-scroll-target="#predicting-temporal-change-from-static-patterns"><span class="header-section-number">1</span> <strong><em>Predicting temporal change from static patterns</em></strong></a></li>
+  <li><a href="#libraries" id="toc-libraries" class="nav-link" data-scroll-target="#libraries"><span class="header-section-number">2</span> Libraries</a></li>
+  <li><a href="#data-paths" id="toc-data-paths" class="nav-link" data-scroll-target="#data-paths"><span class="header-section-number">3</span> Data Paths</a></li>
+  <li><a href="#read-process-data" id="toc-read-process-data" class="nav-link" data-scroll-target="#read-process-data"><span class="header-section-number">4</span> Read &amp; Process Data</a>
+  <ul class="collapse">
+  <li><a href="#reduce-biases" id="toc-reduce-biases" class="nav-link" data-scroll-target="#reduce-biases"><span class="header-section-number">4.1</span> Reduce biases</a></li>
+  </ul></li>
+  <li><a href="#read-process-grids" id="toc-read-process-grids" class="nav-link" data-scroll-target="#read-process-grids"><span class="header-section-number">5</span> Read &amp; Process Grids</a></li>
+  <li><a href="#calculate-variables" id="toc-calculate-variables" class="nav-link" data-scroll-target="#calculate-variables"><span class="header-section-number">6</span> Calculate variables</a>
+  <ul class="collapse">
+  <li><a href="#calculate-occupancy-aoo" id="toc-calculate-occupancy-aoo" class="nav-link" data-scroll-target="#calculate-occupancy-aoo"><span class="header-section-number">6.1</span> Calculate occupancy (AOO)</a></li>
+  <li><a href="#occupancy-area-relationship-oar-d" id="toc-occupancy-area-relationship-oar-d" class="nav-link" data-scroll-target="#occupancy-area-relationship-oar-d"><span class="header-section-number">6.2</span> Occupancy-Area Relationship (OAR, D)</a></li>
+  <li><a href="#telfer-index-of-change-not-static" id="toc-telfer-index-of-change-not-static" class="nav-link" data-scroll-target="#telfer-index-of-change-not-static"><span class="header-section-number">6.3</span> Telfer Index of change (not static)</a></li>
+  <li><a href="#log-ratio-temporal-change-response" id="toc-log-ratio-temporal-change-response" class="nav-link" data-scroll-target="#log-ratio-temporal-change-response"><span class="header-section-number">6.4</span> Log Ratio (Temporal Change = Response)</a>
+  <ul class="collapse">
+  <li><a href="#make-wide-format" id="toc-make-wide-format" class="nav-link" data-scroll-target="#make-wide-format"><span class="header-section-number">6.4.1</span> Make wide-format</a></li>
+  <li><a href="#calculate-log-ratio" id="toc-calculate-log-ratio" class="nav-link" data-scroll-target="#calculate-log-ratio"><span class="header-section-number">6.4.2</span> Calculate Log Ratio</a></li>
+  </ul></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Atlas Data Prep</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Friederike Wölke </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">March 15, 2024</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="predicting-temporal-change-from-static-patterns" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> <strong><em>Predicting temporal change from static patterns</em></strong></h1>
+<p>This first script is dedicated to work the atlas data and calculate AOO, OAR/D, Log response ratio, Telfer Index. In parallel, the data is iteratively checked at each step to exclude errors in data processing (Script: <em><code>0_0_Double_Checking_DataProcessing.R</code></em>)</p>
+</section>
+<section id="libraries" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Libraries</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(<span class="at">list=</span><span class="fu">ls</span>())</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          used (Mb) gc trigger (Mb) max used (Mb)
+Ncells  577175 30.9    1318861 70.5   660420 35.3
+Vcells 1054472  8.1    8388608 64.0  1770231 13.6</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Spatial:</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf) </span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sf_use_s2</span>(<span class="cn">FALSE</span>) <span class="co"># switch spherical geometry off</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Data handling:</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rstatix)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr) </span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr) </span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co"># library(plyr) </span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="do">## plyr is required but produces some issues with dplyr. Thus it will be called in each function individually and is not required to load here.</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Telfer calculation:</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="do">## sparta is not on CRAN and cannot be updated as usual because there is another package called sparta from CRAN but we don't want this.</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co"># library(devtools)</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co"># install_github('biologicalrecordscentre/sparta')</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sparta) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="data-paths" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Data Paths</h1>
+<p>This includes the folders to Git, the external predictor data and the atlases. We also set the desired order for the spatial grains so that they are in order from the smallest grain to the largest grain.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Folders</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>source_atlas <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/"</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>source_predictors <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/PhD_Projects/StaticPredictors/Data/"</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>source_Git <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/"</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Folder paths to atlas data</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>source_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_Atlas_Czechia/"</span>), </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_Atlas_New_York/"</span>), </span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_atlas_Japan/"</span>), </span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_atlas_EBBA/"</span>))</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Folder path to output folder</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>out_path <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_Git, <span class="st">"out/"</span>))</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Paths to data &amp; grids</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>data_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_paths[<span class="dv">1</span>],<span class="st">"Birds_Atlas_Czechia_beast_data.rds"</span>), </span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">2</span>], <span class="st">"Birds_Atlas_New_York_beast_data.rds"</span>), </span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">3</span>], <span class="st">"Birds_atlas_Japan_beast_data.rds"</span>),</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">4</span>], <span class="st">"Birds_atlas_EBBA_beast_data.rds"</span>))</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>grid_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_paths[<span class="dv">1</span>],<span class="st">"Birds_Atlas_Czechia_grid.gpkg"</span>), </span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">2</span>], <span class="st">"Birds_Atlas_New_York_grid.gpkg"</span>), </span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">3</span>], <span class="st">"Birds_atlas_Japan_grid.gpkg"</span>),</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">4</span>], <span class="st">"Birds_atlas_EBBA_grid.gpkg"</span>))</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Vectors for loops:</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>atlas_names <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Birds_Atlas_Czechia"</span>, <span class="st">"Birds_Atlas_New_York"</span>,<span class="st">"Birds_atlas_Japan"</span>, <span class="st">"Birds_atlas_EBBA"</span>)</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>time_periods <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the desired order of factor levels</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>desired_levels <span class="ot">&lt;-</span> <span class="fu">factor</span>(<span class="fu">c</span>(<span class="st">"1"</span>, <span class="st">"2"</span>,<span class="st">"4"</span>, <span class="st">"8"</span>, <span class="st">"16"</span>, <span class="st">"32"</span>, <span class="st">"64"</span>, <span class="st">"128"</span>), <span class="at">ordered =</span> T,  </span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>                         <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"1"</span>, <span class="st">"2"</span>,<span class="st">"4"</span>, <span class="st">"8"</span>, <span class="st">"16"</span>, <span class="st">"32"</span>, <span class="st">"64"</span>, <span class="st">"128"</span>)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="read-process-data" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Read &amp; Process Data</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Species data  =====================</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>presence_data <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(data_paths)){</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  pres_dat <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(data_paths[i])</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  sy <span class="ot">&lt;-</span> <span class="fu">sort</span>(<span class="fu">unique</span>(pres_dat<span class="sc">$</span>start_year))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="do">## Add time-period column </span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  pres_dat2 <span class="ot">&lt;-</span> pres_dat <span class="sc">%&gt;%</span> </span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">tp =</span> <span class="fu">case_when</span>(start_year <span class="sc">==</span> sy[<span class="dv">1</span>] <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>                          start_year <span class="sc">==</span> sy[<span class="dv">2</span>] <span class="sc">~</span> <span class="dv">2</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(tp <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">reorder_levels</span>(cell_grouping, <span class="at">order=</span>desired_levels)</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  presence_data[[i]] <span class="ot">&lt;-</span> pres_dat2</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge list together</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>presence_data2 <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(presence_data, <span class="at">fill=</span>T) <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>repeated)</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(presence_data2, <span class="fu">paste0</span>(out_path, <span class="st">"rds/presence_data_raw.rds"</span>))</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(pres_dat, sy, pres_dat2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="reduce-biases" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="reduce-biases"><span class="header-section-number">4.1</span> Reduce biases</h2>
+<ul>
+<li><p>remove cells that were only sampled once</p></li>
+<li><p>remove species that were only sampled once in the cells that were sampled twice (because we don’t have change data for them anyway).</p></li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="do">## Cells sampled twice </span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>common_cells <span class="ot">&lt;-</span> presence_data2 <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, cell_grouping, cell_label) <span class="sc">%&gt;%</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">num_periods_cells =</span> <span class="fu">n_distinct</span>(tp)) <span class="sc">%&gt;%</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">repeated =</span> <span class="fu">case_when</span>(</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    num_periods_cells <span class="sc">==</span> <span class="dv">2</span> <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    num_periods_cells <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>) <span class="sc">~</span> <span class="dv">0</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(dataset) <span class="sc">%&gt;%</span> </span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dataset, cell_grouping, cell_label, num_periods_cells, repeated) <span class="sc">%&gt;%</span> <span class="fu">unique</span>()</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>presence_data_rep <span class="ot">&lt;-</span> <span class="fu">full_join</span>(presence_data2, common_cells)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(dataset, cell_grouping, cell_label)`</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Species sampled twice in the remaining cells</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>common_sp <span class="ot">&lt;-</span> presence_data_rep <span class="sc">%&gt;%</span> <span class="fu">filter</span>(repeated <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(dataset, verbatim_name) <span class="sc">%&gt;%</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">num_periods_sp =</span> <span class="fu">n_distinct</span>(tp)) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(dataset, num_periods_sp)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`summarise()` has grouped output by 'dataset'. You can override using the
+`.groups` argument.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>presence_data3 <span class="ot">&lt;-</span> <span class="fu">full_join</span>(presence_data_rep, common_sp) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(dataset, verbatim_name)`</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(presence_data3, <span class="fu">paste0</span>(out_path, <span class="st">"rds/presence_data_reduced.rds"</span>))</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>presence_data3_red <span class="ot">&lt;-</span> presence_data3 <span class="sc">%&gt;%</span> <span class="fu">filter</span>(repeated <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> num_periods_sp <span class="sc">==</span> <span class="dv">2</span>)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(common_cells, common_sp, presence_data_rep, presence_data2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="read-process-grids" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Read &amp; Process Grids</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># make list with names of layers so we can read them in below</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>layers_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(grid_paths)){</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  layers <span class="ot">&lt;-</span> <span class="fu">st_layers</span>(grid_paths[i])<span class="sc">$</span>name</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  layers_list[[i]] <span class="ot">&lt;-</span> layers</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(layers_list) <span class="ot">&lt;-</span> atlas_names</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="co"># read grids to list</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>grid_list2 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(grid_paths)) {</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    grid_list <span class="ot">&lt;-</span> <span class="fu">sapply</span>(layers_list[[a]], <span class="cf">function</span>(i) {</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">st_read</span>(grid_paths[[a]], <span class="fu">paste</span>(i), <span class="at">quiet =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>        <span class="fu">st_transform</span>(<span class="at">crs =</span> <span class="dv">4326</span>) <span class="sc">%&gt;%</span> <span class="fu">reorder_levels</span>( cell_grouping, <span class="at">order=</span>desired_levels)</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>      }, <span class="at">simplify =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>    grid_list2[[a]] <span class="ot">&lt;-</span> grid_list</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a><span class="co"># clear space</span></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(grid_list, a, layers, layers_list)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="calculate-variables" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> Calculate variables</h1>
+<section id="calculate-occupancy-aoo" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="calculate-occupancy-aoo"><span class="header-section-number">6.1</span> Calculate occupancy (AOO)</h2>
+<p>Here we calculate several predictors for the atlases:</p>
+<ul>
+<li><p>total sampled area per time period</p></li>
+<li><p>total number of sampled cells per time period</p></li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>pres_dat_full1 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>pres_dat_full3 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (n_atlas <span class="cf">in</span> <span class="fu">seq_along</span>(atlas_names)){</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  atlas_name <span class="ot">&lt;-</span> atlas_names[n_atlas] <span class="co"># set variable for current run of the loop</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  atlas <span class="ot">&lt;-</span> grid_list2[[n_atlas]]<span class="co"># subset list of atlases to one</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (grain <span class="cf">in</span> <span class="fu">seq_along</span>(atlas)){</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    <span class="co"># set some variables for current run of the loop</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    grain_a <span class="ot">&lt;-</span> <span class="fu">names</span>(atlas)[grain]</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    grain_d <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">gsub</span>(<span class="st">"</span><span class="sc">\\</span><span class="st">D"</span>, <span class="st">""</span>, grain_a)) <span class="co"># "\\D" = remove all non-numbers</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># subset atlas to one grain</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>    atlas_1scale <span class="ot">&lt;-</span> atlas[[grain]] <span class="sc">%&gt;%</span> </span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(cell_grouping, cell_label, area, cell_long, cell_lat) <span class="sc">%&gt;%</span></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>      <span class="fu">st_drop_geometry</span>()</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate total sampled area per time period:</span></span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>    atlas_1scale <span class="ot">&lt;-</span> atlas_1scale <span class="sc">%&gt;%</span> </span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>      <span class="fu">group_by</span>(cell_grouping) <span class="sc">%&gt;%</span></span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(<span class="at">Total_area =</span> <span class="fu">sum</span>(atlas_1scale<span class="sc">$</span>area))</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate total number of total cells sampled:</span></span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>    Total_Ncells_samp <span class="ot">&lt;-</span> presence_data3_red <span class="sc">%&gt;%</span> <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_name <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> grain_d) <span class="sc">%&gt;%</span></span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(dataset, cell_grouping, cell_label) <span class="sc">%&gt;%</span> <span class="fu">unique</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>      <span class="fu">group_by</span>(dataset, cell_grouping) <span class="sc">%&gt;%</span> <span class="fu">summarise</span>(<span class="at">n_cells =</span> <span class="fu">n_distinct</span>(cell_label)) <span class="sc">%&gt;%</span> </span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pull</span>(n_cells) <span class="sc">%&gt;%</span> <span class="fu">unique</span>()</span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate total number of total cells per atlas:</span></span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>    Total_Ncells_atlas <span class="ot">&lt;-</span> atlas_1scale <span class="sc">%&gt;%</span></span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>      <span class="fu">group_by</span>(cell_grouping) <span class="sc">%&gt;%</span></span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(<span class="at">Total_Ncells =</span> <span class="fu">length</span>(<span class="fu">unique</span>(cell_label))) <span class="sc">%&gt;%</span></span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pull</span>(Total_Ncells) <span class="sc">%&gt;%</span></span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a>      <span class="fu">unique</span>()</span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a>    atlas_1scale<span class="sc">$</span>Total_Ncells_samp <span class="ot">&lt;-</span> Total_Ncells_samp</span>
+<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a>    atlas_1scale<span class="sc">$</span>Total_Ncells_atlas <span class="ot">&lt;-</span> Total_Ncells_atlas</span>
+<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a>    map_atlas_1scale <span class="ot">&lt;-</span> atlas_1scale</span>
+<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a>    <span class="co"># subset the presence/absence data to the current spatial grain:</span></span>
+<span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a>    pres_data_1atlas <span class="ot">&lt;-</span> presence_data3_red <span class="sc">%&gt;%</span> </span>
+<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>      <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_name) <span class="sc">%&gt;%</span></span>
+<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a>      <span class="fu">filter</span>(cell_grouping <span class="sc">==</span> grain_d) <span class="sc">%&gt;%</span></span>
+<span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(dataset, tp, verbatim_name, samp_effort_type, effort, cell_label, cell_grouping, repeated)</span>
+<span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-46"><a href="#cb14-46" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Merge sampled and unsampled cells for calculations:</span></span>
+<span id="cb14-47"><a href="#cb14-47" aria-hidden="true" tabindex="-1"></a>    pres_data_full_1atlas <span class="ot">&lt;-</span> <span class="fu">left_join</span>(map_atlas_1scale, pres_data_1atlas)</span>
+<span id="cb14-48"><a href="#cb14-48" aria-hidden="true" tabindex="-1"></a>    pres_data_full_1atlas <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(verbatim_name))</span>
+<span id="cb14-49"><a href="#cb14-49" aria-hidden="true" tabindex="-1"></a>    pres_data_full_1atlas<span class="sc">$</span>dataset <span class="ot">&lt;-</span> atlas_names[n_atlas]</span>
+<span id="cb14-50"><a href="#cb14-50" aria-hidden="true" tabindex="-1"></a>    pres_dat_full1[[grain]] <span class="ot">&lt;-</span> pres_data_full_1atlas <span class="sc">%&gt;%</span> <span class="fu">unique</span>() <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(verbatim_name))</span>
+<span id="cb14-51"><a href="#cb14-51" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-52"><a href="#cb14-52" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb14-53"><a href="#cb14-53" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-54"><a href="#cb14-54" aria-hidden="true" tabindex="-1"></a>  pres_dat_full2 <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(pres_dat_full1, <span class="at">fill=</span>T)</span>
+<span id="cb14-55"><a href="#cb14-55" aria-hidden="true" tabindex="-1"></a>  pres_dat_full3[[n_atlas]] <span class="ot">&lt;-</span> pres_dat_full2</span>
+<span id="cb14-56"><a href="#cb14-56" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-57"><a href="#cb14-57" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb14-58"><a href="#cb14-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-59"><a href="#cb14-59" aria-hidden="true" tabindex="-1"></a>pres_dat_full4 <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(pres_dat_full3, <span class="at">fill=</span>T)</span>
+<span id="cb14-60"><a href="#cb14-60" aria-hidden="true" tabindex="-1"></a>pres_dat_full4[pres_dat_full4 <span class="sc">==</span> <span class="st">"&lt;NA&gt;"</span>] <span class="ot">=</span> <span class="cn">NA</span> <span class="co">#Fix NA issues in the data (takes a while.)</span></span>
+<span id="cb14-61"><a href="#cb14-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-62"><a href="#cb14-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-63"><a href="#cb14-63" aria-hidden="true" tabindex="-1"></a>pres_dat_final <span class="ot">&lt;-</span> pres_dat_full4 <span class="sc">%&gt;%</span>  </span>
+<span id="cb14-64"><a href="#cb14-64" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">cell_grouping =</span> <span class="fu">factor</span>(cell_grouping,<span class="at">levels =</span> desired_levels),</span>
+<span id="cb14-65"><a href="#cb14-65" aria-hidden="true" tabindex="-1"></a>        <span class="at">grain =</span> <span class="fu">case_when</span>(</span>
+<span id="cb14-66"><a href="#cb14-66" aria-hidden="true" tabindex="-1"></a>          dataset <span class="sc">==</span> atlas_names[<span class="dv">1</span>] <span class="sc">~</span> <span class="st">"10"</span>,</span>
+<span id="cb14-67"><a href="#cb14-67" aria-hidden="true" tabindex="-1"></a>          dataset <span class="sc">==</span> atlas_names[<span class="dv">2</span>] <span class="sc">~</span> <span class="st">"5"</span>,</span>
+<span id="cb14-68"><a href="#cb14-68" aria-hidden="true" tabindex="-1"></a>          dataset <span class="sc">==</span> atlas_names[<span class="dv">3</span>] <span class="sc">~</span> <span class="st">"20"</span>, </span>
+<span id="cb14-69"><a href="#cb14-69" aria-hidden="true" tabindex="-1"></a>          dataset <span class="sc">==</span> atlas_names[<span class="dv">4</span>] <span class="sc">~</span> <span class="st">"50"</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb14-70"><a href="#cb14-70" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(verbatim_name))</span>
+<span id="cb14-71"><a href="#cb14-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-72"><a href="#cb14-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-73"><a href="#cb14-73" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(pres_dat_final, <span class="fu">paste0</span>(out_path, <span class="st">"rds/presence_data_final.rds"</span>))</span>
+<span id="cb14-74"><a href="#cb14-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-75"><a href="#cb14-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-76"><a href="#cb14-76" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span>
+<span id="cb14-77"><a href="#cb14-77" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(pres_dat_full1, pres_dat_full2, pres_dat_full3, pres_dat_full4, pres_data_1atlas, pres_data_full_1atlas, map_atlas_1scale)</span>
+<span id="cb14-78"><a href="#cb14-78" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span>
+<span id="cb14-79"><a href="#cb14-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-80"><a href="#cb14-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-81"><a href="#cb14-81" aria-hidden="true" tabindex="-1"></a>occ_data <span class="ot">&lt;-</span> pres_dat_final <span class="sc">%&gt;%</span></span>
+<span id="cb14-82"><a href="#cb14-82" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb14-83"><a href="#cb14-83" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, tp, cell_grouping, verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb14-84"><a href="#cb14-84" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate Occupancy:</span></span>
+<span id="cb14-85"><a href="#cb14-85" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">occupancy_area =</span> <span class="fu">sum</span>(area),</span>
+<span id="cb14-86"><a href="#cb14-86" aria-hidden="true" tabindex="-1"></a>         <span class="at">mean_area =</span> <span class="fu">mean</span>(area)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-87"><a href="#cb14-87" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">occupancy_Ncells =</span> <span class="fu">n_distinct</span>(cell_label)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-88"><a href="#cb14-88" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate AOO:</span></span>
+<span id="cb14-89"><a href="#cb14-89" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">AOO =</span> occupancy_Ncells <span class="sc">*</span> <span class="fu">mean</span>(area)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-90"><a href="#cb14-90" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate relative Occupancy:</span></span>
+<span id="cb14-91"><a href="#cb14-91" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">relative_occupancy_area =</span> occupancy_area<span class="sc">/</span>Total_area) <span class="sc">%&gt;%</span></span>
+<span id="cb14-92"><a href="#cb14-92" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">relative_occupancy_Ncells =</span> occupancy_Ncells<span class="sc">/</span>Total_Ncells_samp) <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb14-93"><a href="#cb14-93" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, tp, cell_grouping) <span class="sc">%&gt;%</span></span>
+<span id="cb14-94"><a href="#cb14-94" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">total_SR_atlas =</span> <span class="fu">n_distinct</span>(verbatim_name)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-95"><a href="#cb14-95" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove duplicated rows:</span></span>
+<span id="cb14-96"><a href="#cb14-96" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>() </span>
+<span id="cb14-97"><a href="#cb14-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-98"><a href="#cb14-98" aria-hidden="true" tabindex="-1"></a>occ_data<span class="sc">$</span>cell_grouping2 <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">as.character</span>(occ_data<span class="sc">$</span>cell_grouping))</span>
+<span id="cb14-99"><a href="#cb14-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-100"><a href="#cb14-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-101"><a href="#cb14-101" aria-hidden="true" tabindex="-1"></a><span class="co"># create scale column as a fraction of the full country:</span></span>
+<span id="cb14-102"><a href="#cb14-102" aria-hidden="true" tabindex="-1"></a>occ_data_final <span class="ot">&lt;-</span> occ_data <span class="sc">%&gt;%</span> </span>
+<span id="cb14-103"><a href="#cb14-103" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb14-104"><a href="#cb14-104" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset) <span class="sc">%&gt;%</span></span>
+<span id="cb14-105"><a href="#cb14-105" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">1</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"1"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">64</span>, <span class="cn">NA</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-106"><a href="#cb14-106" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">1</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"2"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">32</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-107"><a href="#cb14-107" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">1</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"4"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">16</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-108"><a href="#cb14-108" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">1</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"8"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">8</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-109"><a href="#cb14-109" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">1</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"16"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">4</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-110"><a href="#cb14-110" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">1</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"32"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">2</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-111"><a href="#cb14-111" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">1</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"64"</span>, <span class="dv">1</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-112"><a href="#cb14-112" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"1"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">128</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-113"><a href="#cb14-113" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"2"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">16</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-114"><a href="#cb14-114" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"4"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">32</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-115"><a href="#cb14-115" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"8"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">16</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-116"><a href="#cb14-116" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"16"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">8</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-117"><a href="#cb14-117" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"32"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">4</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-118"><a href="#cb14-118" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"64"</span>, <span class="dv">1</span><span class="sc">/</span><span class="dv">2</span>, scale)) <span class="sc">%&gt;%</span></span>
+<span id="cb14-119"><a href="#cb14-119" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scale =</span> <span class="fu">ifelse</span>(dataset <span class="sc">%in%</span> <span class="fu">c</span>(atlas_names[<span class="dv">2</span><span class="sc">:</span><span class="dv">4</span>]) <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="st">"128"</span>, <span class="dv">1</span>, scale))</span>
+<span id="cb14-120"><a href="#cb14-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-121"><a href="#cb14-121" aria-hidden="true" tabindex="-1"></a>occ_data_final <span class="sc">%&gt;%</span> <span class="fu">filter_all</span>(<span class="fu">any_vars</span>(<span class="fu">is.na</span>(.))) <span class="co"># NAs in effort columns</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 244,889 × 24
+# Groups:   dataset [3]
+   cell_grouping cell_label  area cell_long cell_lat Total_area
+   &lt;fct&gt;              &lt;dbl&gt; &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;      &lt;dbl&gt;
+ 1 1                     14  24.9     -79.7     42.3    133412.
+ 2 1                     14  24.9     -79.7     42.3    133412.
+ 3 1                     14  24.9     -79.7     42.3    133412.
+ 4 1                     14  24.9     -79.7     42.3    133412.
+ 5 1                     14  24.9     -79.7     42.3    133412.
+ 6 1                     14  24.9     -79.7     42.3    133412.
+ 7 1                     14  24.9     -79.7     42.3    133412.
+ 8 1                     14  24.9     -79.7     42.3    133412.
+ 9 1                     14  24.9     -79.7     42.3    133412.
+10 1                     14  24.9     -79.7     42.3    133412.
+# ℹ 244,879 more rows
+# ℹ 18 more variables: Total_Ncells_samp &lt;int&gt;, Total_Ncells_atlas &lt;int&gt;,
+#   dataset &lt;chr&gt;, tp &lt;dbl&gt;, verbatim_name &lt;chr&gt;, samp_effort_type &lt;chr&gt;,
+#   effort &lt;dbl&gt;, repeated &lt;dbl&gt;, grain &lt;chr&gt;, occupancy_area &lt;dbl&gt;,
+#   mean_area &lt;dbl&gt;, occupancy_Ncells &lt;int&gt;, AOO &lt;dbl&gt;,
+#   relative_occupancy_area &lt;dbl&gt;, relative_occupancy_Ncells &lt;dbl&gt;,
+#   total_SR_atlas &lt;int&gt;, cell_grouping2 &lt;dbl&gt;, scale &lt;dbl&gt;</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(occ_data)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="co"># save reduced version of this to file:</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>species_data <span class="ot">&lt;-</span> occ_data_final <span class="sc">%&gt;%</span> </span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dataset, tp, cell_grouping, scale, verbatim_name, Total_area, Total_Ncells_atlas, Total_Ncells_samp, </span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>         occupancy_area, occupancy_Ncells, AOO, relative_occupancy_area, relative_occupancy_Ncells, mean_area, total_SR_atlas, grain) <span class="sc">%&gt;%</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>() </span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>species_data <span class="sc">%&gt;%</span> <span class="fu">write.csv</span>(<span class="fu">paste0</span>(out_path, <span class="st">"csv/Occupancy_table.csv"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="occupancy-area-relationship-oar-d" class="level2" data-number="6.2">
+<h2 data-number="6.2" class="anchored" data-anchor-id="occupancy-area-relationship-oar-d"><span class="header-section-number">6.2</span> Occupancy-Area Relationship (OAR, D)</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop to prune species completely with less than 2 scales without saturation</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>atlas_names <span class="ot">&lt;-</span> <span class="fu">unique</span>(species_data<span class="sc">$</span>dataset)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>time_periods <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>list_sp <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>list_tp <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>list_a <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(atlas_names)){</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>  temp_df <span class="ot">&lt;-</span> species_data <span class="sc">%&gt;%</span> <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_names[a])</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (t <span class="cf">in</span> <span class="fu">seq_along</span>(time_periods)) {</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>    temp_df_t <span class="ot">&lt;-</span> temp_df <span class="sc">%&gt;%</span> <span class="fu">filter</span>(tp <span class="sc">==</span> time_periods[t])</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>    species_names <span class="ot">&lt;-</span> <span class="fu">unique</span>(temp_df_t<span class="sc">$</span>verbatim_name)</span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (s <span class="cf">in</span> <span class="fu">seq_along</span>(species_names)){</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>      temp_df_s <span class="ot">&lt;-</span> temp_df_t <span class="sc">%&gt;%</span> <span class="fu">filter</span>(verbatim_name <span class="sc">==</span> species_names[s])</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Exclude saturated scales</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>      temp_df_red <span class="ot">&lt;-</span> temp_df_s <span class="sc">%&gt;%</span> <span class="fu">filter</span>(relative_occupancy_Ncells <span class="sc">&lt;</span> <span class="dv">1</span>)</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> (<span class="fu">nrow</span>(temp_df_red) <span class="sc">&lt;</span> <span class="dv">2</span>) {</span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>        out_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">verbatim_name =</span> species_names[s],</span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>                             <span class="at">dataset =</span> atlas_names[a],</span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>                             <span class="at">tp =</span> time_periods[t],</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>                             <span class="at">exclude =</span> <span class="dv">1</span>,</span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>                             <span class="at">available_scales =</span> <span class="fu">nrow</span>(temp_df_red),</span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a>                             <span class="at">mean_relOcc =</span> <span class="fu">mean</span>(temp_df_red<span class="sc">$</span>relative_occupancy_Ncells))</span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a>      } <span class="cf">else</span> <span class="cf">if</span> (<span class="fu">nrow</span>(temp_df_red) <span class="sc">&gt;=</span> <span class="dv">2</span>) {</span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a>        out_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">verbatim_name =</span> species_names[s],</span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a>                             <span class="at">dataset =</span> atlas_names[a],</span>
+<span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a>                             <span class="at">tp =</span> time_periods[t],</span>
+<span id="cb17-31"><a href="#cb17-31" aria-hidden="true" tabindex="-1"></a>                             <span class="at">exclude =</span> <span class="dv">0</span>,</span>
+<span id="cb17-32"><a href="#cb17-32" aria-hidden="true" tabindex="-1"></a>                             <span class="at">available_scales =</span> <span class="fu">nrow</span>(temp_df_red),</span>
+<span id="cb17-33"><a href="#cb17-33" aria-hidden="true" tabindex="-1"></a>                             <span class="at">mean_relOcc =</span> <span class="fu">mean</span>(temp_df_red<span class="sc">$</span>relative_occupancy_Ncells))</span>
+<span id="cb17-34"><a href="#cb17-34" aria-hidden="true" tabindex="-1"></a>      } <span class="cf">else</span> {</span>
+<span id="cb17-35"><a href="#cb17-35" aria-hidden="true" tabindex="-1"></a>                out_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">verbatim_name =</span> species_names[s],</span>
+<span id="cb17-36"><a href="#cb17-36" aria-hidden="true" tabindex="-1"></a>                             <span class="at">dataset =</span> atlas_names[a],</span>
+<span id="cb17-37"><a href="#cb17-37" aria-hidden="true" tabindex="-1"></a>                             <span class="at">tp =</span> time_periods[t],</span>
+<span id="cb17-38"><a href="#cb17-38" aria-hidden="true" tabindex="-1"></a>                             <span class="at">exclude =</span> <span class="cn">NA</span>,</span>
+<span id="cb17-39"><a href="#cb17-39" aria-hidden="true" tabindex="-1"></a>                             <span class="at">available_scales =</span> <span class="fu">nrow</span>(temp_df_red),</span>
+<span id="cb17-40"><a href="#cb17-40" aria-hidden="true" tabindex="-1"></a>                             <span class="at">mean_relOcc =</span> <span class="fu">mean</span>(temp_df_red<span class="sc">$</span>relative_occupancy_Ncells))</span>
+<span id="cb17-41"><a href="#cb17-41" aria-hidden="true" tabindex="-1"></a>                }</span>
+<span id="cb17-42"><a href="#cb17-42" aria-hidden="true" tabindex="-1"></a>      list_sp[[s]] <span class="ot">&lt;-</span> out_df</span>
+<span id="cb17-43"><a href="#cb17-43" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb17-44"><a href="#cb17-44" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb17-45"><a href="#cb17-45" aria-hidden="true" tabindex="-1"></a>    sp_df <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(list_sp)</span>
+<span id="cb17-46"><a href="#cb17-46" aria-hidden="true" tabindex="-1"></a>    list_tp[[t]] <span class="ot">&lt;-</span> sp_df</span>
+<span id="cb17-47"><a href="#cb17-47" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb17-48"><a href="#cb17-48" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb17-49"><a href="#cb17-49" aria-hidden="true" tabindex="-1"></a>  tp_df <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(list_tp)</span>
+<span id="cb17-50"><a href="#cb17-50" aria-hidden="true" tabindex="-1"></a>  list_a[[a]] <span class="ot">&lt;-</span> tp_df</span>
+<span id="cb17-51"><a href="#cb17-51" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb17-52"><a href="#cb17-52" aria-hidden="true" tabindex="-1"></a>atlas_df <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(list_a)</span>
+<span id="cb17-53"><a href="#cb17-53" aria-hidden="true" tabindex="-1"></a>sp_data_new <span class="ot">&lt;-</span> <span class="fu">full_join</span>(species_data, atlas_df)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(dataset, tp, verbatim_name)`</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in full_join(species_data, atlas_df): Detected an unexpected many-to-many relationship between `x` and `y`.
+ℹ Row 3216 of `x` matches multiple rows in `y`.
+ℹ Row 1 of `y` matches multiple rows in `x`.
+ℹ If a many-to-many relationship is expected, set `relationship =
+  "many-to-many"` to silence this warning.</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>dd <span class="ot">&lt;-</span> sp_data_new <span class="sc">%&gt;%</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(exclude <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(relative_occupancy_Ncells <span class="sc">&lt;</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> <span class="co"># exclude saturated scales</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unique</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter_at</span>(<span class="fu">vars</span>(<span class="fu">c</span>(</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>      cell_grouping, scale,</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>      AOO, occupancy_Ncells,</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>      relative_occupancy_Ncells, mean_area)), <span class="fu">any_vars</span>(<span class="sc">!</span><span class="fu">is.na</span>(.)))</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a><span class="do">## Variables:</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>atlas_names <span class="ot">&lt;-</span> <span class="fu">unique</span>(dd<span class="sc">$</span>dataset)</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>period <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>OAR_list_sp <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>OAR_list_sp_tp <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>OAR_list_sp_tp_atlas <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a><span class="do">## Loop:</span></span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (n_atlas <span class="cf">in</span> <span class="fu">seq_along</span>(atlas_names)){</span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>  atlas_name <span class="ot">&lt;-</span> atlas_names[n_atlas]</span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a>  atlas <span class="ot">&lt;-</span> dd <span class="sc">%&gt;%</span> <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_name)</span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (time <span class="cf">in</span> <span class="fu">seq_along</span>(period)){</span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>    period_nr <span class="ot">&lt;-</span> period[time]</span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>    atlas_1time <span class="ot">&lt;-</span> atlas <span class="sc">%&gt;%</span> <span class="fu">filter</span>(tp <span class="sc">==</span> period_nr) </span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a>    sp <span class="ot">&lt;-</span> <span class="fu">unique</span>(atlas_1time<span class="sc">$</span>verbatim_name)</span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span>(spec <span class="cf">in</span> <span class="fu">seq_along</span>(sp)){</span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a>      species <span class="ot">&lt;-</span> sp[spec]</span>
+<span id="cb20-27"><a href="#cb20-27" aria-hidden="true" tabindex="-1"></a>      model_df <span class="ot">&lt;-</span> atlas_1time <span class="sc">%&gt;%</span> <span class="fu">filter</span>(verbatim_name <span class="sc">==</span> species) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>()</span>
+<span id="cb20-28"><a href="#cb20-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-29"><a href="#cb20-29" aria-hidden="true" tabindex="-1"></a>      OAR <span class="ot">&lt;-</span> <span class="fu">lm</span>(<span class="fu">log</span>(AOO) <span class="sc">~</span> <span class="fu">log</span>(mean_area), <span class="at">data =</span> model_df)</span>
+<span id="cb20-30"><a href="#cb20-30" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb20-31"><a href="#cb20-31" aria-hidden="true" tabindex="-1"></a>      OAR_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb20-32"><a href="#cb20-32" aria-hidden="true" tabindex="-1"></a>        <span class="at">verbatim_name =</span> species,</span>
+<span id="cb20-33"><a href="#cb20-33" aria-hidden="true" tabindex="-1"></a>        <span class="at">dataset =</span> atlas_name,</span>
+<span id="cb20-34"><a href="#cb20-34" aria-hidden="true" tabindex="-1"></a>        <span class="at">tp =</span> period_nr,</span>
+<span id="cb20-35"><a href="#cb20-35" aria-hidden="true" tabindex="-1"></a>        <span class="at">m_AOO_a =</span> OAR<span class="sc">$</span>coefficients[<span class="dv">2</span>],</span>
+<span id="cb20-36"><a href="#cb20-36" aria-hidden="true" tabindex="-1"></a>        <span class="at">b_AOO_a =</span> OAR<span class="sc">$</span>coefficients[<span class="dv">1</span>])</span>
+<span id="cb20-37"><a href="#cb20-37" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb20-38"><a href="#cb20-38" aria-hidden="true" tabindex="-1"></a>      OAR_df<span class="sc">$</span>D_AOO_a <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">2</span><span class="sc">*</span>OAR_df<span class="sc">$</span>m_AOO_a<span class="sc">+</span><span class="dv">2</span></span>
+<span id="cb20-39"><a href="#cb20-39" aria-hidden="true" tabindex="-1"></a>      OAR_df<span class="sc">$</span>dataset <span class="ot">&lt;-</span> <span class="fu">as.factor</span>(OAR_df<span class="sc">$</span>dataset)</span>
+<span id="cb20-40"><a href="#cb20-40" aria-hidden="true" tabindex="-1"></a>      OAR_list_sp[[spec]] <span class="ot">&lt;-</span> OAR_df</span>
+<span id="cb20-41"><a href="#cb20-41" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb20-42"><a href="#cb20-42" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb20-43"><a href="#cb20-43" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb20-44"><a href="#cb20-44" aria-hidden="true" tabindex="-1"></a>    OAR_df_sp <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(OAR_list_sp, <span class="at">fill =</span> T)</span>
+<span id="cb20-45"><a href="#cb20-45" aria-hidden="true" tabindex="-1"></a>    OAR_list_sp_tp[[time]] <span class="ot">&lt;-</span> OAR_df_sp</span>
+<span id="cb20-46"><a href="#cb20-46" aria-hidden="true" tabindex="-1"></a>     </span>
+<span id="cb20-47"><a href="#cb20-47" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb20-48"><a href="#cb20-48" aria-hidden="true" tabindex="-1"></a>  OAR_df_sp_tp <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(OAR_list_sp_tp, <span class="at">fill =</span> T)   </span>
+<span id="cb20-49"><a href="#cb20-49" aria-hidden="true" tabindex="-1"></a>  OAR_list_sp_tp_atlas[[n_atlas]] <span class="ot">&lt;-</span> OAR_df_sp_tp</span>
+<span id="cb20-50"><a href="#cb20-50" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb20-51"><a href="#cb20-51" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb20-52"><a href="#cb20-52" aria-hidden="true" tabindex="-1"></a>OAR_final <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(OAR_list_sp_tp_atlas, <span class="at">fill =</span> T) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>()</span>
+<span id="cb20-53"><a href="#cb20-53" aria-hidden="true" tabindex="-1"></a>OAR_final <span class="sc">%&gt;%</span> <span class="fu">filter_all</span>(<span class="fu">any_vars</span>(<span class="fu">is.na</span>(.))) <span class="co"># None !#</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] verbatim_name dataset       tp            m_AOO_a       b_AOO_a      
+[6] D_AOO_a      
+&lt;0 Zeilen&gt; (oder row.names mit Länge 0)</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>species_data_new <span class="ot">&lt;-</span> <span class="fu">merge</span>(sp_data_new, </span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>                          OAR_final, </span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>                          <span class="at">by=</span><span class="fu">c</span>(<span class="fu">intersect</span>(<span class="fu">names</span>(species_data), <span class="fu">names</span>(OAR_final))), <span class="at">all =</span> T) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>()</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(dd, OAR_list_sp_tp_atlas, OAR_list_sp_tp, OAR_df_sp_tp, OAR_list_sp, OAR_df_sp, OAR_df, sp, atlas_1time, model_df )</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="telfer-index-of-change-not-static" class="level2" data-number="6.3">
+<h2 data-number="6.3" class="anchored" data-anchor-id="telfer-index-of-change-not-static"><span class="header-section-number">6.3</span> Telfer Index of change (not static)</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Telfer:</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>telfer_res <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(atlas_names)){</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> pres_dat_final <span class="sc">%&gt;%</span> <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_names[i]) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>()</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  telfer <span class="ot">&lt;-</span> sparta<span class="sc">::</span><span class="fu">telfer</span>(<span class="at">taxa =</span> df<span class="sc">$</span>verbatim_name,</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>                         <span class="at">site =</span> df<span class="sc">$</span>cell_label,</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>                         <span class="at">time_period =</span> df<span class="sc">$</span>tp,</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>                         <span class="at">minSite =</span> <span class="dv">1</span>)</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>telfer<span class="sc">$</span>dataset <span class="ot">&lt;-</span> atlas_names[i]</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>telfer_res[[i]] <span class="ot">&lt;-</span> telfer</span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in errorChecks(taxa = taxa, site = site, time_period = time_period, :
+50096 out of 205245 observations will be removed as duplicates</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in errorChecks(taxa = taxa, site = site, time_period = time_period, :
+247907 out of 1151694 observations will be removed as duplicates</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in errorChecks(taxa = taxa, site = site, time_period = time_period, :
+21056 out of 131398 observations will be removed as duplicates</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in errorChecks(taxa = taxa, site = site, time_period = time_period, :
+216762 out of 1275131 observations will be removed as duplicates</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>telfer_res_df <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(telfer_res, <span class="at">fill =</span> T) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(taxa, Telfer_1_2, dataset) <span class="sc">%&gt;%</span> </span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">verbatim_name =</span> taxa)<span class="sc">%&gt;%</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">reorder_levels</span>(dataset, <span class="at">order =</span> atlas_names)</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>species_data_new2 <span class="ot">&lt;-</span> <span class="fu">left_join</span>(species_data_new, telfer_res_df)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(dataset, verbatim_name)`</code></pre>
+</div>
+</div>
+</section>
+<section id="log-ratio-temporal-change-response" class="level2" data-number="6.4">
+<h2 data-number="6.4" class="anchored" data-anchor-id="log-ratio-temporal-change-response"><span class="header-section-number">6.4</span> Log Ratio (Temporal Change = Response)</h2>
+<section id="make-wide-format" class="level3" data-number="6.4.1">
+<h3 data-number="6.4.1" class="anchored" data-anchor-id="make-wide-format"><span class="header-section-number">6.4.1</span> Make wide-format</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-formating the data.. there is probably a smoother way to do it..</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>species_data_wide1 <span class="ot">&lt;-</span> species_data_new2 <span class="sc">%&gt;%</span> </span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(verbatim_name, tp, cell_grouping, </span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>         D_AOO_a, m_AOO_a,</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>         AOO, </span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>         Total_Ncells_samp, mean_area,</span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>          occupancy_Ncells, </span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>         relative_occupancy_Ncells, dataset) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, verbatim_name, tp) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(tp <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(<span class="fu">paste0</span>(<span class="st">'tp1_'</span>, <span class="fu">names</span>(.))) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span><span class="fu">c</span>(tp1_tp)) <span class="sc">%&gt;%</span></span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">verbatim_name =</span> tp1_verbatim_name,</span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a>         <span class="at">cell_grouping =</span> tp1_cell_grouping, </span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>         <span class="at">dataset =</span> tp1_dataset)</span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a>species_data_wide2 <span class="ot">&lt;-</span> species_data_new2 <span class="sc">%&gt;%</span> </span>
+<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(verbatim_name, tp, cell_grouping, </span>
+<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a>         D_AOO_a, m_AOO_a,</span>
+<span id="cb30-22"><a href="#cb30-22" aria-hidden="true" tabindex="-1"></a>         AOO, </span>
+<span id="cb30-23"><a href="#cb30-23" aria-hidden="true" tabindex="-1"></a>         Total_Ncells_samp, mean_area,</span>
+<span id="cb30-24"><a href="#cb30-24" aria-hidden="true" tabindex="-1"></a>          occupancy_Ncells, </span>
+<span id="cb30-25"><a href="#cb30-25" aria-hidden="true" tabindex="-1"></a>         relative_occupancy_Ncells, dataset) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-26"><a href="#cb30-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, verbatim_name, tp) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-27"><a href="#cb30-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb30-28"><a href="#cb30-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(tp <span class="sc">==</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-29"><a href="#cb30-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(<span class="fu">paste0</span>(<span class="st">'tp2_'</span>, <span class="fu">names</span>(.))) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-30"><a href="#cb30-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb30-31"><a href="#cb30-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span><span class="fu">c</span>(tp2_tp)) <span class="sc">%&gt;%</span></span>
+<span id="cb30-32"><a href="#cb30-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">verbatim_name =</span> tp2_verbatim_name,</span>
+<span id="cb30-33"><a href="#cb30-33" aria-hidden="true" tabindex="-1"></a>         <span class="at">cell_grouping =</span> tp2_cell_grouping, </span>
+<span id="cb30-34"><a href="#cb30-34" aria-hidden="true" tabindex="-1"></a>         <span class="at">dataset =</span> tp2_dataset)</span>
+<span id="cb30-35"><a href="#cb30-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-36"><a href="#cb30-36" aria-hidden="true" tabindex="-1"></a><span class="co"># merge back together:</span></span>
+<span id="cb30-37"><a href="#cb30-37" aria-hidden="true" tabindex="-1"></a>temp <span class="ot">&lt;-</span> <span class="fu">merge</span>(species_data_wide1, species_data_wide2, </span>
+<span id="cb30-38"><a href="#cb30-38" aria-hidden="true" tabindex="-1"></a>              <span class="at">by=</span><span class="fu">intersect</span>(<span class="fu">names</span>(species_data_wide1), <span class="fu">names</span>(species_data_wide2)), <span class="at">all =</span> T)</span>
+<span id="cb30-39"><a href="#cb30-39" aria-hidden="true" tabindex="-1"></a>names_v <span class="ot">&lt;-</span> <span class="fu">names</span>(temp)[<span class="sc">-</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>)] <span class="co"># remove verbatim_name, cell_grouping and dataset columns</span></span>
+<span id="cb30-40"><a href="#cb30-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-41"><a href="#cb30-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Transform to wide format by cell_grouping</span></span>
+<span id="cb30-42"><a href="#cb30-42" aria-hidden="true" tabindex="-1"></a>species_data_wide <span class="ot">&lt;-</span> temp <span class="sc">%&gt;%</span> </span>
+<span id="cb30-43"><a href="#cb30-43" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> cell_grouping,</span>
+<span id="cb30-44"><a href="#cb30-44" aria-hidden="true" tabindex="-1"></a>              <span class="at">values_from =</span> <span class="fu">all_of</span>(names_v)) <span class="sc">%&gt;%</span> <span class="fu">unique</span>()</span>
+<span id="cb30-45"><a href="#cb30-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-46"><a href="#cb30-46" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span>
+<span id="cb30-47"><a href="#cb30-47" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(species_data_wide1, species_data_wide2, temp, names_v)</span>
+<span id="cb30-48"><a href="#cb30-48" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="calculate-log-ratio" class="level3" data-number="6.4.2">
+<h3 data-number="6.4.2" class="anchored" data-anchor-id="calculate-log-ratio"><span class="header-section-number">6.4.2</span> Calculate Log Ratio</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate log-Ratio of AOO (Temporal change)</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>log_ratio_data <span class="ot">&lt;-</span> species_data_wide <span class="sc">%&gt;%</span> </span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">log_R2_1 =</span> <span class="fu">log</span>(tp2_AOO_1<span class="sc">/</span>tp1_AOO_1)) <span class="sc">%&gt;%</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dataset, verbatim_name, log_R2_1)</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>species_data_bigtable <span class="ot">&lt;-</span> <span class="fu">merge</span>(species_data_new2, log_ratio_data, <span class="at">by=</span><span class="fu">c</span>(<span class="st">"verbatim_name"</span>, <span class="st">"dataset"</span>),<span class="at">all =</span> T)</span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>species_data_bigtable <span class="sc">%&gt;%</span> <span class="fu">write.csv</span>(<span class="at">file=</span><span class="fu">paste0</span>(out_path, <span class="st">"csv/Big_table_CZ_JP_NY_EU.csv"</span>))</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>Change_Data <span class="ot">&lt;-</span> species_data_bigtable <span class="sc">%&gt;%</span> </span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(log_R2_1)) <span class="sc">%&gt;%</span> </span>
+<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(verbatim_name, dataset, log_R2_1) <span class="sc">%&gt;%</span> </span>
+<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">na.omit</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">reorder_levels</span>(dataset, <span class="at">order =</span> atlas_names)</span>
+<span id="cb31-16"><a href="#cb31-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-17"><a href="#cb31-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-18"><a href="#cb31-18" aria-hidden="true" tabindex="-1"></a>Change_Data <span class="sc">%&gt;%</span> </span>
+<span id="cb31-19"><a href="#cb31-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">write.csv</span>(<span class="fu">paste0</span>(out_path, <span class="st">"csv/Change_Data.csv"</span>))</span>
+<span id="cb31-20"><a href="#cb31-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-21"><a href="#cb31-21" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span>
+<span id="cb31-22"><a href="#cb31-22" aria-hidden="true" tabindex="-1"></a><span class="co">#rm(species_data_new2, log_ratio_data)</span></span>
+<span id="cb31-23"><a href="#cb31-23" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

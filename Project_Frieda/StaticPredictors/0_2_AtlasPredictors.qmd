@@ -1,4 +1,5 @@
 ---
+0---
 title: "0_2_Atlas_Predictors_prep"
 author: "Friederike Wölke"
 date: "2024-03-15"
@@ -24,48 +25,32 @@ format:
 rm(list=ls())
 gc()
 
-# Essential data wrangling packages
-library(dplyr); # Data wrangling
-library(rstatix); # Reorder levels function
-library(tidyr);
-library(tibble);
-library(readxl);
-
-# Plotting: 
-library(ggplot2); # Plotting
-library(ggthemes); # Map theme
-library(cowplot);  # Gridding plots together
-library(gridExtra); # Gridding plots together and printing for pdf 
+# Essential data wrangling packages:
+library(dplyr) # Data wrangling
+library(rstatix) # Reorder levels function
+# library(plyr) (required but will be called individually for each function because of incompatibilities with dpylr functions)
 
 # Phylogenetic stuff:
-library(ape);
+library(ape);library(phyloregion)
+library(fossil) # Co occurrence
 
 # Spatial stuff:
-library(sf); # Spatial stuff 1
-library(terra); # Spatial stuff 2 
-library(rnaturalearth)
+library(sf); sf_use_s2(FALSE) # Spatial stuff 1
 
 # SAC:
-# library(spdep);
-# library(sfdep)
-library(ncf)
-
-#load("~/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/out/RData/AtlasPredictors_1.RDataTmp")
+# library(spdep); library(sfdep) # old SAC script
+library(ncf) # new SAC script
 
 ```
 
 ## Data paths
 
-```{r}
-### The paths ===
+```{r, Data paths}
+### The paths =================================================
 source_atlas <- c("c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/")
 source_predictors <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/PhD_Projects/StaticPredictors/Data/")
 source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/")
-
-# folder path to output folder
 out_path <- c(paste0(source_Git, "out/"))
-
-
 
 # folder path to atlas data
 source_paths <- c(
@@ -90,111 +75,25 @@ grid_paths <- c(
   paste0(source_paths[4], "Birds_atlas_EBBA_grid.gpkg")
 )
 
-atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York", "Birds_atlas_Japan", "Birds_atlas_EBBA")
-
-# Define the desired order of factor levels
-desired_levels <- factor(c("1", "2", "4", "8", "16", "32", "64", "128"),
-  ordered = T,
-  levels = c("1", "2", "4", "8", "16", "32", "64", "128")
-)
-
-# grid_paths # list of atlas grids
-# data_paths # list of beast occ data
-
-big_tab_path <- paste0(out_path, "csv/Big_table_CZ_JP_NY_EU.csv") # Created in 0_1_Atlas_prep.qmd
-tree_path <- paste0(source_predictors, "Weeks_et_at_2022/singe_bird_phylo.tre")
-# sac_path <- paste0(out_path, "SAC_data.csv") # Created in this script (code runs a long time ~ 2h, so here is the object)
-
-AVONET_path_raw <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET_Raw_Data.csv")
-tree_path <- paste0(source_predictors, "Weeks_et_at_2022/singe_bird_phylo.tre")
-avonet_birdlife <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET1_Birdlife.csv")
-avonet_birdtree <- paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET3_BirdTree.xlsx")
-
+# Important vectors  =================================================
+time_periods <- c(1,2)
+atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japan", "Birds_atlas_EBBA")
+desired_levels <- factor(c("1", "2", "4", "8", "16", "32", "64", "128"), ordered = T,
+  levels = c("1", "2", "4", "8", "16", "32", "64", "128"))
 
 ```
 
-```{r}
-
+```{r, Read data}
 ## Read Processed Data from 0_1_Atlas_prep.qmd script =========================================== ##
 
 pres_dat_final <- readRDS(paste0(out_path, "rds/presence_data_final.rds")) # species data per cell
-presence_sf_list <- readRDS(paste0(out_path, "rds/presence_sf_list.rds"))
-big_tab <- read.csv(file = paste0(out_path, "csv/Big_table_CZ_JP_NY_EU.csv")) %>%
-  reorder_levels(cell_grouping, desired_levels)
-avonet_raw <- read.csv(AVONET_path_raw)
-avonet_bt <- read_excel(avonet_birdtree, sheet = 2)
-avonet_bl <- read.csv(avonet_birdlife)
+big_tab <- read.csv(paste0(out_path, "csv/Big_table_CZ_JP_NY_EU.csv")) %>% reorder_levels(cell_grouping, desired_levels)
+
+# Other external data ============================================================================ ##
 Niches_df <- readRDS(paste0(out_path, "rds/Niches_df.rds"))
-
-
-```
-
-## Taxonomic Homogenization
-
-skip this
-
-```{r, taxonomic lookup frame, eval = F, include = T}
-
-sp_names_atlas <- unique(pres_dat_final$verbatim_name)
-# taxonomy_BirdLife <- read.csv(paste0(source_predictors, "AVONET/ELEData/TraitData/AVONET_Extant_Species_list.csv"))
-tree <- ladderize(read.tree(tree_path))
-sp_names_BirdTree <- gsub("_", " ", tree$tip.label)
-
-avo_raw <- avonet_raw %>% distinct(Species1_BirdLife, Species2_eBird, eBird.species.group, Species3_BirdTree)
-avo_bl <- avonet_bl %>% distinct(Species1, Family1, Order1)
-avo_bt <- avonet_bt %>% distinct(Species3, Family3, Order3)
-
-# 9 species in data not in taxonomy (Snyonyms)
-## 1. "Delichon urbica"  == "Delichon urbicum"
-## 2. "Regulus ignicapillus" == "Regulus ignicapilla"
-## 3. "Saxicola torquata" == "Saxicola torquatus"
-## 4. "Hydropogne caspia" == "Hydroprogne caspia"
-## 5. "Egretta intermedia" == "Ardea intermedia"
-## 6. "Luscinia akahige" == "Larvivora akahige"
-## 7. "Luscinia komadori" == "Larvivora komadori"
-## 8. "Poecile varius" == "Sittiparus varius"
-## 9. "Sapheopipo noguchii" == "Dendrocopos noguchii"
-
-## Taxon Lookup frame:
-tax_frame <- as.data.frame(sp_names_atlas)
-tax_frame2 <- tax_frame %>%
-  mutate(
-    sp_names_atlas_adapted = case_when(
-      sp_names_atlas == "Delichon urbica" ~ "Delichon urbicum",
-      sp_names_atlas == "Regulus ignicapillus" ~ "Regulus ignicapilla",
-      sp_names_atlas == "Saxicola torquata" ~ "Saxicola torquatus",
-      sp_names_atlas == "Hydropogne caspia" ~ "Hydroprogne caspia",
-      sp_names_atlas == "Egretta intermedia" ~ "Ardea intermedia",
-      sp_names_atlas == "Luscinia akahige" ~ "Larvivora akahige",
-      sp_names_atlas == "Luscinia komadori" ~ "Larvivora komadori",
-      sp_names_atlas == "Poecile varius" ~ "Sittiparus varius",
-      sp_names_atlas == "Sapheopipo noguchii" ~ "Dendrocopos noguchii",
-      .default = sp_names_atlas
-    )
-  ) %>%
-  rename("verbatim_name" = "sp_names_atlas")
-
-not_inBL <- setdiff(tax_frame2$sp_names_atlas_adapted, avo_raw$Species1_BirdLife)
-not_inBL_and_BT <- setdiff(not_inBL, avo_raw$Species3_BirdTree) 
-
-tax_frame2$sp_names_atlas_adapted_keep <- tax_frame2$sp_names_atlas_adapted
-
-tax_frame3 <- merge(tax_frame2, avo_raw, by.x=c("sp_names_atlas_adapted"), by.y=c("Species1_BirdLife"), all.x = T)
-tax_frame4 <- merge(tax_frame3, avo_raw, by.x=c("sp_names_atlas_adapted"), by.y=c("Species3_BirdTree"), all.x = T)
-tax_frame5 <- tax_frame4 %>% mutate(
-  Species2_eBird = coalesce(Species2_eBird.x, Species2_eBird.y),
-  eBird.species.group = coalesce(eBird.species.group.x, eBird.species.group.y)
-) %>% select(-eBird.species.group.x, -eBird.species.group.y, -Species2_eBird.x, -Species2_eBird.y) %>%
-  rename("sp_BirdTree" = "Species3_BirdTree", 
-         "sp_eBird" = "Species2_eBird", 
-         "sp_group_eBird" = "eBird.species.group",
-         "sp_BirdLife" = "Species1_BirdLife",
-         "sp_atlas_adapted" = "sp_names_atlas_adapted") %>% distinct(.) #select(sp_atlas, Genus.name, Family.name, Order.name) %>% unique()
-
-write.csv(tax_frame5, paste0(out_path, "csv/Tax_lookup_BirdLife_eBird_BirdTree_Atlas.csv"))
-
-rm(sp_names_atlas, avo_bl, tree, avo_raw, avo_bt, tax_frame, tax_frame2, tax_frame3, tax_frame4)
-
+tax_lookup <- read.csv2(paste0(out_path, "csv/Tax_lookup_BirdLife_eBird_BirdTree_AtlasBOTW.csv"))
+RangeSizeNew <- readRDS(paste0(out_path, "rds/RangeSizeBOTW_df.rds"))
+avonet_final <- read.csv2(paste0(out_path, "csv/AVONET_final.csv"), na.strings = c("#N/A", "<NA>", "NA"))
 
 ```
 
@@ -203,10 +102,10 @@ rm(sp_names_atlas, avo_bl, tree, avo_raw, avo_bt, tax_frame, tax_frame2, tax_fra
 ```{r, read and process data, message = F}
 ## We need the highest resolution data = cell_grouping = 1
 
-# phylogenetic tree --------------------------------------------------------------------------- #
-tree <- ladderize(read.tree(tree_path))
+# phylogenetic tree =====================
+tree <- ladderize(read.tree(paste0(source_predictors, "Weeks_et_at_2022/singe_bird_phylo.tre")))
 
-# grid data
+# grid data =====================
 grids <- list()
 for (a in seq_along(grid_paths)) {
     grids_a <-sapply("cell1grid", function(i) {
@@ -217,7 +116,6 @@ for (a in seq_along(grid_paths)) {
     grids[[a]] <- grids_a$cell1grid
 }
 
-# Raw species occurrence data
 # Species data  =====================
 presence_data_all <- list()
 for (i in seq_along(data_paths)) {
@@ -262,104 +160,60 @@ for (i in seq_along(data_paths)) {
   presence_data_all[[i]] <- presence_data3
 }
 
+# Create list of spatial objects ==========================
+presence_sf_list <- list()
+for (a in seq_along(atlas_names)){
+  grid <- grids[[a]]
+  presence_data <- presence_data_all[[a]]
+  presence_sf <- left_join(grid, presence_data)
+  dd <- presence_sf %>% filter(dataset == atlas_names[a])
+  presence_sf_list[[a]] <- dd 
+  }
+
+saveRDS(presence_sf_list, paste0(out_path, "rds/presence_sf_list.rds"))
+
+# Big Table ================================
+sp_df_big <- big_tab %>% 
+  filter(cell_grouping == 1) %>% 
+  select(-cell_grouping, -X, -scale) %>% 
+  left_join(tax_lookup %>% distinct(verbatim_name, sp_atlas_adapted,sp_BirdTree, sp_BirdLife)) %>%
+  left_join(RangeSizeNew %>% rename("sp_BirdLife" = "sci_name"))%>% 
+  filter_at(vars(log_R2_1), any_vars(!is.na(.))) %>% 
+  full_join(Niches_df %>% rename("sp_BirdLife" = "verbatim_name")) %>% 
+  select(-sp_atlas_adapted) %>% unique()
+
+
 ```
 
 # Predictors
+```{r, predictors}
 
-```{r, atlas predictors}
-# Extent
-# Shape
-# Center of Gravity (of all species together) (COG)
-# Total Species Richness (Gamma)
-# Grain
-# Start & End Years
-# Sampling period length (End years - Start years)
-# Fractal dimension of the landscape !! That would be cool !!
-
+# Make dataframes with predictors ======================
 
 atlas_predictors_df2 <- big_tab %>% 
   select(dataset, Total_area, tp, grain) %>% 
   distinct()
 
-
-
-```
-
-```{r, species predictors}
-
-# Log Ratio
-# Start & End Years
-# Telfer
-# AOO
-# Relative Occupancy
-# Slope of OAR
-# D
-# Co-Occurrence
-# Autocorrelation of the distribution (thanks Carmen!)
-# Mean Diversity Measures per species: mean(cell_richness), Total atlas SR / mean(cell_richness)
-# Geometric attributes of the distribution (thanks Gabriel!)
-# HWI
-# Phylogenetic Distinctness
-# Family, Order, Genus
-# Climatic Niche
-# Mean Land use type
-# Life Strategy
-# Insectivorous ? 
-# Threat status: National, Global ?
-# Global Range Size
-# Migration Status
-# Human Association ? 
-# NDVI ? 
-# Occurrence outside of the arena ?
-# Topology/Elevation ?
-
-# tax_frame3
-species_data_bigtable <- big_tab %>% 
-  filter(cell_grouping == 1) %>% 
-  select(-cell_grouping, -X, -scale) %>% 
-  left_join(tax_lookup %>% distinct(verbatim_name, sp_atlas_adapted,sp_BirdTree, sp_BirdLife))
-
-
-
-
-# ##### Climate Niche Taxonomic Match: ####
-setdiff(Niches_df$verbatim_name, species_data_bigtable$sp_BirdLife) %>% length() # 0
-setdiff(species_data_bigtable$sp_BirdLife,Niches_df$verbatim_name) %>% length() # 22
-
-species_data_bigtable2 <- species_data_bigtable %>% filter_at(vars(log_R2_1), any_vars(!is.na(.)))
-sp_df_big <- species_data_bigtable2
-
-Niches_df <- Niches_df %>% rename("sp_BirdLife" = "verbatim_name")
-
-sp_df_big <- full_join(species_data_bigtable, Niches_df) %>% select(-sp_atlas_adapted) %>% unique()
-
-########################################
-
-
-
-# Make dataframe with predictors ======================
-names(species_data_bigtable2)
-
 predictors_df <- sp_df_big%>% 
   select(
-    verbatim_name, dataset, tp, sp_BirdTree,sp_BirdLife, # Grouping variables
+    verbatim_name, dataset, tp, sp_BirdTree, sp_BirdLife, # Grouping variables
     log_R2_1, Telfer_1_2, # Response variables
-    Total_area,
-    Total_Ncells_samp, # Extent of the Arena
+    Total_area, Total_Ncells_samp, # Extent of the Arena
     relative_occupancy_Ncells, # Relative Occupancy
     D_AOO_a, # D of AOO based on mean area
     total_SR_atlas, #GammaRichness of Atlas
     sd_PC1, sd_PC2) 
 
-sp_names_predictors <- predictors_df %>% distinct(verbatim_name) %>% as.vector()
-write.csv(sp_names_predictors, paste0(out_path, "csv/sp_names_predictors.csv"))
+# Vector with species names in predictor data ==================
+sp_names_predictors <- predictors_df %>% distinct(verbatim_name) %>%  pull(verbatim_name) %>% as.vector()
+write.csv(sp_names_predictors, paste0(out_path, "csv/sp_names_predictors.csv")) 
 
+```
 
-
-
+# Save Environment until here
+```{r}
+# Save Environment until here
 save.image(paste0(out_path, "RData/AtlasPredictors_1.RData"))
-
-
 ```
 
 ================ RUN COMPLETELY UNTIL HERE AND THEN ONLY RUN CHUNKS WHERE OBJECTS ARE READ BACK IN ======================
@@ -392,134 +246,117 @@ AvgEffort <- pres_dat_final %>%
   group_by(dataset, tp, verbatim_name) %>%
   summarize(avgEffort = mean(effort))
 
-
 Diversity_Effort <- full_join(GammaAlphaBeta_Species, AvgEffort)
 saveRDS(Diversity_Effort, paste0(out_path, "rds/Diversity_AvgEffort.rds"))
-```
-
-#### Diversity_Effort: Read back in
-
-```{r}
-Diversity_Effort <- readRDS(paste0(out_path, "rds/Diversity_AvgEffort.rds"))
-predictors_df2 <- full_join(predictors_df, Diversity_Effort); rm(Diversity_Effort)
 
 ```
 
 ## Spatial Autocorrelation
+## Second Try: 
 
-```{r, eval = F}
-## autocorrelation loop
+```{r}
 
-sf_use_s2(FALSE)
-out_list <- list()
-time_periods <- c(1,2)
-atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japan", "Birds_atlas_EBBA")
-
-presence_sf_list <- list()
-for (a in seq_along(atlas_names)){
-  grid <- grids[[a]]
-  presence_data <- presence_data_all[[a]]
-
-
-  presence_sf <- left_join(grid, presence_data)
-  dd <- presence_sf %>% filter(dataset == atlas_names[a])
-  presence_sf_list[[a]] <- dd}
-
-saveRDS(presence_sf_list, paste0(out_path, "rds/presence_sf_list.rds"))
-
-```
-
-### NCF package (my try - Takes \> 1 day)
-
-```{r, ncf package SAC, message = F}
+# presence_data_all
 pacman::p_load("ncf")
 
 sf_use_s2(FALSE)
-
-time_periods <- c(1,2)
-atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japan", "Birds_atlas_EBBA")
-
 morans_list <- list()
-out_list <- list()
+data_list <- list()
+
+morans_list2 <- list()
+data_list2 <- list()
+
+morans_list3 <- list()
+data_list3 <- list()
+
 
 for (a in seq_along(atlas_names)){
-  dd <- presence_sf_list[[a]] %>% 
-    mutate(increment = 
-      case_when(
-        dataset == atlas_names[1] ~ 15,
-        dataset == atlas_names[2] ~ 7.5,
-        dataset == atlas_names[3] ~ 30, 
-        dataset == atlas_names[4] ~ 75))
 
+  dd <- presence_data_all[[a]] %>% 
+  ungroup() %>% 
+  filter(cell_grouping == 1) %>% 
+  select(dataset, tp, verbatim_name, area, area_cropped, cell_lat, cell_long, cell_label) %>% 
+  group_by(dataset, tp, verbatim_name)
   
   for (y in seq_along(time_periods)){
     
-    dd1 <- dd %>% filter(tp == time_periods[y])
-    
-    ## From Carmen ===============================
-    
+    dd1 <- dd %>% filter(tp == time_periods[y]) %>% ungroup() %>% distinct() 
     sp_list <- unique(dd1$verbatim_name)
-  
-    # Output columns
-    columns_df <- c("tp", "dataset", "mean_area", "mean_area_cropped", "increment", "mean_cellside")
-    spmor_cols <- c("verbatim_name", "global_moran", "x_intercept", columns_df)
-    spmoran_df <- data.frame(matrix(nrow = length(sp_list), ncol = length(spmor_cols)))
-    colnames(spmoran_df) <- spmor_cols
-
-    row_id <- 1
-    for (s in seq_along(sp_list)) {
-      dd_sp <- dd1 %>% select(verbatim_name, cell_lat, cell_long, cell_label, area, area_cropped, increment) %>% st_drop_geometry()
     
+    for (s in seq_along(sp_list)){  
       print(paste("atlas =", atlas_names[a], "tp =", time_periods[y], "sp = ", sp_list[s], "N = ", s, "/", length(sp_list)))
       
       # Obtain a df for each species that indicates the presence (1) or absence (0) of the species
-      data_species <- dd_sp %>%
-        mutate(verbatim_name = ifelse(verbatim_name != sp_list[s], NA, verbatim_name)) %>%
+      
+      data_species <- dd1 %>% 
+        select(verbatim_name, cell_label, cell_lat, cell_long) %>% 
+        ungroup() %>% unique() %>%
+        mutate(
+          verbatim_name = ifelse(verbatim_name != sp_list[s], NA, verbatim_name)) %>%
         group_by(across(-verbatim_name)) %>%
-        slice(which.max(!is.na(verbatim_name))) %>%
-        mutate(presence = ifelse(!is.na(verbatim_name), 1, 0))
-      
-      # Filling in the data
-      spmoran_df$verbatim_name[row_id] <- sp_list[s]
-      spmoran_df$dataset[row_id] <- atlas_names[a]
-      spmoran_df$tp[row_id] <- time_periods[y]
-      spmoran_df$mean_area[row_id] <- mean(data_species$area, na.rm = TRUE)
-      spmoran_df$mean_area_cropped[row_id] <- mean(data_species$area_cropped, na.rm = TRUE)
-      spmoran_df$increment[row_id] <- unique(data_species$increment)
-      spmoran_df$mean_cellside[row_id] <- sqrt(spmoran_df$mean_area[row_id])
-      spmoran_df$increment2[row_id] <- spmoran_df$mean_cellside[row_id] + (spmoran_df$mean_cellside[row_id] / 2)
+        slice(which.max(!is.na(verbatim_name))) %>% 
+        distinct(verbatim_name, cell_label, .keep_all=T) %>%
+        mutate(
+          presence = ifelse(!is.na(verbatim_name), 1, 0))
+    
 
+      data_reduced <- dd1 %>% 
+        filter(verbatim_name == sp_list[s]) %>% 
+        select(verbatim_name, dataset, tp, area, area_cropped) %>% 
+        distinct() %>% 
+        mutate(mean_area = mean(area),
+          mean_area_cropped = mean(area_cropped),
+          mean_cell_length = sqrt(mean_area)) %>% 
+        mutate(
+          increment2 = mean_cell_length * 1.25) %>% 
+        ungroup() %>% 
+        distinct(verbatim_name, .keep_all = T)
       
+      data_species$increment <- data_reduced$increment2
+          
+        
       tryCatch({
     
-        morans_cor <- correlog(x = data_species$cell_long, y = data_species$cell_lat, z = data_species$presence, 
-                               latlon=T, increment = spmoran_df$increment2[row_id], resamp=0)
-        # plot(morans_cor)
-        morans_list[[length(morans_list) + 1]] <- morans_cor 
-        
-        
-        spmoran_df[row_id, "global_moran"] <- as.numeric(morans_cor$correlation[1])
-        spmoran_df[row_id, "x_intercept"] <- morans_cor$x.intercept
+         morans_cor <- correlog(x = data_species$cell_long, y = data_species$cell_lat, z = data_species$presence, 
+                                latlon=T, increment = unique(data_species$increment), resamp=0)
+         morans_list[[s]] <- morans_cor 
+
+         data_reduced$moran <- as.numeric(morans_cor$correlation[1])
+         data_reduced$x_intercept <- morans_cor$x.intercept
         
       }, error = function(e) {
         # Handle the case where Moran's I cannot be calculated
-        spmoran_df[row_id, c("global_moran", "x_intercept")] <- NA
+         data_reduced$moran <- "Error"
+         data_reduced$x_intercept <- "Error"
+         morans_list[[s]] <- "Error"
       })
       
-    }
-     out_list[[length(out_list) + 1]] <- spmoran_df
-  }
-}
 
-SAC_df_ncf <- plyr::rbind.fill(out_list, fill = T) %>% unique()
-write.csv(SAC_df_ncf, paste0(out_path, "SAC_data_ncf.csv"))
-saveRDS(SAC_df_ncf, paste0(out_path, "SAC_data_ncf.rds"))
+      data_list[[s]] <- data_reduced
+      
+    } # species loop closing
+    
+    morans_list2[[y]] <- morans_list
+    
+    data_df <- plyr::rbind.fill(data_list)
+    data_list2[[y]] <- data_df
+  
+  } # year loop closing
+  
+    morans_list3[[a]] <- morans_list2
+    
+    data_df2 <- plyr::rbind.fill(data_list2)
+    data_list3[[y]] <- data_df2
+    } # atlas loop closing
 
+data_df_all <- plyr::rbind.fill(data_list3)
+saveRDS(morans_list3, paste0(out_path, "rds/morans_list.rds"))
 
-
+SAC_df_ncf <- plyr::rbind.fill(data_df_all, fill = T) %>% unique()
 
 
 ```
+
 
 ### Carmens code:
 
@@ -587,20 +424,10 @@ for (a in seq_along(atlas_names)){
   }
   
 }
-saveRDS(presence_sf_list, paste0(out_path, "presence_sf_list.rds"))
+saveRDS(presence_sf_list, paste0(out_path, "rds/presence_sf_list.rds"))
 SAC_df <- plyr::rbind.fill(out_list, fill = T) %>% unique()
-write.csv(SAC_df, paste0(out_path, "SAC_data.csv"))
-saveRDS(SAC_df, paste0(out_path, "SAC_data.rds"))
-
-```
-
-#### SAC_df: Read back in
-
-```{r}
-SAC_df <- readRDS(paste0(out_path, "SAC_data.rds"))
-
-predictors_df4 <- full_join(predictors_df2, SAC_df); rm(predictors_df2)
-predictors_df4
+write.csv(SAC_df, paste0(out_path, "csv/SAC_data.csv"))
+saveRDS(SAC_df, paste0(out_path, "rds/SAC_data.rds"))
 
 ```
 
@@ -740,28 +567,18 @@ poly_attr <- function(x, type = NULL) {
 }
 ```
 
-# *Read Workspace*
-
-```{r}
-save.image(paste0(out_path, "Atlas_predictors.RData"))
-
-
-```
-
 ### Calculate Geometries:
 
-This takes quite some time (\~3-4h). Better read the objects back in below.
-
+This takes quite some time. Better read the objects back in below.
 ```         
-10311.01 sec elapsed
+10311.01 sec elapsed 
 ```
 
 ```{r, calculate geometries, message = F}
 tictoc::tic()
-
-
 # Atlas Geometries ==============================================================
 geom_ls <- list()
+
 for (i in seq_along(grids)){
   
   Atlas_Geom <- grids[[i]] %>% 
@@ -801,9 +618,9 @@ for (i in seq_along(grids)){
 
 countries_geom_attributes <- plyr::rbind.fill(geom_ls) 
 
-
 # Transform country-borders to lines
 lines_l <- list()
+
 for (a in seq_along(grids)){
   lines <- grids[[a]] %>% 
     summarise() %>% 
@@ -813,15 +630,15 @@ for (a in seq_along(grids)){
 }
 
 ### For each species separately:
-tictoc::tic()
+
 species_geom <- list()
 year_species_geom <- list()
 atlas_all_sp_geom <-list()
 COG_all <- list()
 COG_a <- list()
+
 for (a in seq_along(presence_sf_list)){
   atlas <- presence_sf_list[[a]]
-  
   
   for (y in seq_along(time_periods)){
     atlas_y <- atlas %>% filter(tp == time_periods[y])
@@ -845,7 +662,6 @@ for (a in seq_along(presence_sf_list)){
       print(paste(atlas_names[a], time_periods[y], sp[s]))
       atlas_sp <- atlas_y %>% filter(verbatim_name == sp[s])
       
- 
       ## Maybe I have to summarize here ! Not sure - let's try this and compare.
       COG_sp <- atlas_sp %>% 
         select(cell_long, cell_lat, verbatim_name, dataset, tp) %>%
@@ -867,8 +683,6 @@ for (a in seq_along(presence_sf_list)){
         select(geom, cell_label)%>% 
         summarise() %>% 
         vect() 
-      
-
     
       ## Calculate distance 
       atlas_lines <- lines_l[[a]]
@@ -912,15 +726,11 @@ for (a in seq_along(presence_sf_list)){
   year_species_geom_df <- plyr::rbind.fill(year_species_geom) 
   atlas_all_sp_geom[[a]] <- year_species_geom_df
   }
-tictoc::toc()
-
 COG_df <- plyr::rbind.fill(COG_a)
 Species_geom_attributes <- plyr::rbind.fill(atlas_all_sp_geom) 
 
 Atlas_geom <- full_join(countries_geom_attributes, COG_df) %>% group_by(dataset) %>% distinct(dataset, .keep_all=T)
 Geometries <- full_join(Species_geom_attributes, Atlas_geom, relationship = "many-to-many") %>% distinct()
-
-
 
 # Southerness/Westerness =================================
 Southernness_Westernness <- Geometries %>% 
@@ -932,90 +742,17 @@ Southernness_Westernness <- Geometries %>%
 
 Geometries_final <- left_join(Geometries, Southernness_Westernness, relationship = "many-to-many") %>% distinct(dataset, tp, verbatim_name, .keep_all = T)
 
-saveRDS(Geometries_final, paste0(out_path, "Geometries.rds"))
+saveRDS(Geometries_final, paste0(out_path, "rds/Geometries.rds"))
 
-
-```
-
-### PCA on Geometries
-
-```{r}
-
-## Summary Stats ========================================
-
-Geometries %>% group_by(dataset, tp) %>% 
-  rstatix::get_summary_stats(type="common")
-
-Geometries %>% mutate_at(c('dataset', 'tp', 'verbatim_name'), as.factor)%>% group_by(dataset, tp) %>% 
-  rstatix::get_summary_stats(type="common")
-
-
-##
-str(Atlas_geom)
-str(sp_pca_points)
-atlas_pca_points <- Atlas_geom %>% ungroup() %>% select(-dataset) %>% as.data.frame()
-sp_pca_points <- Species_geom_attributes %>% ungroup() %>% select(-dataset, -verbatim_name, -tp)
-pca <- prcomp(atlas_pca_points,  scale.=T)
-pca2 <- prcomp(sp_pca_points, scale.=T)
-
-autoplot(prcomp(Atlas_geom %>% ungroup() %>% select(-dataset) %>% as.data.frame()))
-autoplot(prcomp(Geometries %>% select(-verbatim_name, -tp, -dataset),  scale.=T, center=T))
-autoplot(pca2)
-autoplot(pca, loadings = TRUE, loadings.label = TRUE)
-
-autoplot(pca2, loadings = TRUE, loadings.label = TRUE,
-         data = Species_geom_attributes, colour = 'dataset')
-
-
-
-#####
-
-pca_points <- 
-  # first convert the pca results to a tibble
-  as_tibble(pca2$x) %>% 
-  # now we'll add the penguins data
-  bind_cols(Species_geom_attributes)
-
-basic_plot <- 
-  ggplot(pca_points, aes(x = PC1, y = PC2)) +
-  geom_point(aes(colour = dataset)) +
-  theme_light()
-
-# first create a dataframe to extract the convex hull points
-pca_hull <- 
-  pca_points %>% 
-  group_by(dataset) %>% 
-  slice(chull(PC1, PC2))
-
-# now, we'll just continue to build on our ggplot object
-chull_plot <- 
-  basic_plot +
-  geom_polygon(data = pca_hull,
-               aes(fill = dataset,
-                   colour = dataset),
-               alpha = 0.3,
-               show.legend = FALSE)
-
-chull_plot
-
-
-
-```
-
-#### Geometries: Read back in
-
-```{r}
-Geometries <- readRDS( paste0(out_path, "Geometries.rds"))
-
-predictors_df5 <- full_join(Geometries_final, predictors_df4) 
-predictors_df5 %>% filter_all(any_vars(is.na(.)))
 ```
 
 ## Co-Occurrence
 
 ```{r, eval = F}
-
-species_data <- pres_dat_final %>% filter(cell_grouping == 1) %>% select(dataset, tp, verbatim_name, cell_label) %>% distinct()
+species_data <- pres_dat_final %>% 
+  filter(cell_grouping == 1) %>% 
+  select(dataset, tp, verbatim_name, cell_label) %>% 
+  distinct()
 
 # ----------------------------------------------------------- #
 co_occ_list1<- list()
@@ -1051,8 +788,6 @@ for (a in seq_along(atlas_names)){
   print(length(unique(co_occurrence_tp2$spp.names))) # 213 species
   
   co_occ_list1[[a]] <- list(co_occurrence_tp1, co_occurrence_tp2)
-  
-  
 }
 
 co_occ_list2 <-list()
@@ -1060,67 +795,37 @@ for (a in seq_along(atlas_names)){
   species_data_a <- species_data %>% filter(dataset == atlas_names[a])
   species_data_a1 <- species_data_a %>% select(-cell_label) %>% distinct()
 
-  res1 <- data.frame(co_occ_list1[[a]][[1]]$results) #205 species
+  res1 <- data.frame(co_occ_list1[[a]][[1]]$results) 
   res1 <- res1 %>% group_by(sp1_name) %>%
     mutate(mean_prob_cooccur = mean(prob_cooccur), tp = "1") %>% 
     dplyr::select(sp1_name, mean_prob_cooccur, tp) %>% 
     distinct()
 
-  res2 <- data.frame(co_occ_list1[[a]][[2]]$results) #212 species
+  res2 <- data.frame(co_occ_list1[[a]][[2]]$results) 
   res2 <- res2 %>% group_by(sp1_name) %>%
     mutate(mean_prob_cooccur = mean(prob_cooccur), tp = "2") %>% 
     dplyr::select(sp1_name, mean_prob_cooccur, tp) %>% 
     distinct()
   
   results <- full_join(res1,res2)
-  
   species_data_a1_2 <- merge(species_data_a1, results, by.x=c("verbatim_name", "tp"), by.y = c("sp1_name", "tp"), all = T)
-  
   co_occ_list2[[a]] <- species_data_a1_2
-
 }
  
 Co_Occ_df_final <- plyr::rbind.fill(co_occ_list2)
 saveRDS(Co_Occ_df_final, paste0(out_path, "rds/Coocc_df_final.rds"))
 
-
-# Some summaries -------------------------------------------------------- #
-
-# summary(co_occurrence_tp1)
-# prob.table(co_occurrence_tp1)
-# plot(co_occurrence_tp1, cex.axis = 0.5)
-# pair.profile(co_occurrence_tp1)
-# obs.v.exp(co_occurrence_tp1)
-
-
-
-
 ```
 
-#### Co_Occ_df_final: Read back in
-
-```{r}
-
-Co_Occ_df_final <- readRDS(paste0(out_path, "rds/Coocc_df_final.rds"))
-
-predictors_df6 <- full_join(Co_Occ_df_final, predictors_df2) 
-# predictors_df6 <- full_join(Co_Occ_df_final, predictors_df5) 
-predictors_df6
-
-```
 
 ## AVONET Traits
 
 ```{r}
-
 tax_frame6<- tax_frame5 %>% 
   distinct(verbatim_name, sp_BirdLife, sp_BirdTree, .keep_all = T)
 
 #-------------------------------------------------------------------------------------------------------------#
-avonet_final <- read.csv2(paste0(out_path, "csv/AVONET_final.csv"), na.strings = c("#N/A", "<NA>", "NA"))
 avonet_final[avonet_final=="<NA>"] = NA
-avonet_final[avonet_final=="#NA>"] = NA
-
 
 avonet_coalesced <- avonet_final %>% mutate(
   Family = coalesce(Family_BL, Family_BT),
@@ -1139,27 +844,47 @@ avonet_final <- avonet_coalesced[,c(1:2, 26:36)] %>% distinct(sp_atlas, .keep_al
 avonet_final %>% filter_all(any_vars(is.na(.))) # 6 Species without range size (and other data)
 avonet_final %>% filter_all(any_vars(!is.na(.))) %>% distinct(sp_atlas) %>% nrow() #841 species have data
 
+```
+
+## Phylogenetic Distinctness
+
+```{r}
+FP <- phyloregion::evol_distinct(tree, "fair.proportion") # phylogenetic distinctness (Isaac et al., 2007).
+FP <- data.frame(FP)
+FP$tip.label <- rownames(FP)
+rownames(FP) <- NULL
+
+```
+
+# Merging Predictors together 
+## Species predictors
+```{r}
+Diversity_Effort <- readRDS(paste0(out_path, "rds/Diversity_AvgEffort.rds"))
+predictors_df2 <- full_join(predictors_df, Diversity_Effort); rm(Diversity_Effort)
+
+SAC_df <- readRDS(paste0(out_path, "rds/SAC_data.rds"))
+
+predictors_df4 <- full_join(predictors_df2, SAC_df); rm(predictors_df2)
+predictors_df4
+
+Geometries <- readRDS( paste0(out_path, "rds/Geometries.rds"))
+
+predictors_df5 <- full_join(Geometries_final, predictors_df4) 
+predictors_df5 %>% filter_all(any_vars(is.na(.)))
+
+Co_Occ_df_final <- readRDS(paste0(out_path, "rds/Coocc_df_final.rds"))
+
+predictors_df6 <- full_join(Co_Occ_df_final, predictors_df2) 
+# predictors_df6 <- full_join(Co_Occ_df_final, predictors_df5) 
+predictors_df6
+
 
 predictors_df7 <- left_join(predictors_df6, avonet_final) %>% 
   distinct(verbatim_name, tp, dataset, .keep_all=T) 
 predictors_df7
 
 predictors_df7 %>% filter_all(all_vars(!is.na(.))) %>% distinct(verbatim_name, dataset, tp) %>% group_by(dataset, tp) %>% summarise(n=n())
-
-
-
-```
-
-## Phylogenetic Distinctness
-
-```{r}
 predictors_df7$tip.label <- gsub(" ", "_", predictors_df7$sp_BirdTree)
-
-FP <- phyloregion::evol_distinct(tree, "fair.proportion") # phylogenetic distinctness (Isaac et al., 2007).
-FP <- data.frame(FP)
-FP$tip.label <- rownames(FP)
-rownames(FP) <- NULL
-
 setdiff(predictors_df7$tip.label, FP$tip.label) %>% length()
 
 predictors_df8 <- left_join(predictors_df7, FP) %>% 
@@ -1168,7 +893,7 @@ predictors_df8 <- left_join(predictors_df7, FP) %>%
 
 ```
 
-#### Merging Atlas + Species predictors
+## Atlas Predictors
 
 ```{r}
 all_predictors0 <- full_join(predictors_df8, atlas_predictors_df2) 
