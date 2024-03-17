@@ -1,0 +1,30 @@
+---
+title: "Prep_Example_Spec"
+author: "Frieda"
+format: html
+editor: visual
+---
+
+## Variables
+
+```{r}
+# source folder
+source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/")
+
+# folder path to output folder
+out_path <- c(paste0(source_Git, "out/"))
+
+# data
+df <- readRDS(paste0(out_path, "All_predictors.rds"))
+
+```
+
+Task:
+
+-   select 10 species that are increasing
+
+-   select 10 species that are decreasing
+
+-   Plot some relations in the data
+
+-   Maps!

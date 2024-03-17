@@ -66,3 +66,4 @@ Project_Frieda/StaticPredictors/out/pca_all.rds
 
 *.rds
 *.rds
+*.RDataTmp
