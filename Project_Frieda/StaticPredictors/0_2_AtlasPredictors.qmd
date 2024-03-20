@@ -1,5 +1,4 @@
 ---
-0---
 title: "0_2_Atlas_Predictors_prep"
 author: "Friederike Wölke"
 date: "2024-03-15"
@@ -38,10 +37,13 @@ library(fossil) # Co occurrence
 library(sf); sf_use_s2(FALSE) # Spatial stuff 1
 
 # SAC:
-# library(spdep); library(sfdep) # old SAC script
 library(ncf) # new SAC script
 
 ```
+```{r}
+load("out/RData/AtlasPredictors_1.RData")
+```
+
 
 ## Data paths
 
@@ -94,6 +96,8 @@ Niches_df <- readRDS(paste0(out_path, "rds/Niches_df.rds"))
 tax_lookup <- read.csv2(paste0(out_path, "csv/Tax_lookup_BirdLife_eBird_BirdTree_AtlasBOTW.csv"))
 RangeSizeNew <- readRDS(paste0(out_path, "rds/RangeSizeBOTW_df.rds"))
 avonet_final <- read.csv2(paste0(out_path, "csv/AVONET_final.csv"), na.strings = c("#N/A", "<NA>", "NA"))
+BOTW_RL <- read.csv2(paste0(out_path, "csv/BOTW_RedList.csv"), na.strings = c("#N/A"))
+
 
 ```
 
@@ -160,6 +164,8 @@ for (i in seq_along(data_paths)) {
   presence_data_all[[i]] <- presence_data3
 }
 
+saveRDS(presence_data_all, paste0(out_path, "rds/presence_data_all.rds"))
+
 # Create list of spatial objects ==========================
 presence_sf_list <- list()
 for (a in seq_along(atlas_names)){
@@ -213,14 +219,16 @@ write.csv(sp_names_predictors, paste0(out_path, "csv/sp_names_predictors.csv"))
 # Save Environment until here
 ```{r}
 # Save Environment until here
-save.image(paste0(out_path, "RData/AtlasPredictors_1.RData"))
+load(paste0(out_path, "RData/AtlasPredictors_1.RData"))
+
 ```
 
 ================ RUN COMPLETELY UNTIL HERE AND THEN ONLY RUN CHUNKS WHERE OBJECTS ARE READ BACK IN ======================
 
+
 ## Diversity Metrics
 
-```{r, eval = F}
+```{r, eval = F, include = T}
 ## Calculate Diversity Measures ======================
 GammaAlphaBeta_Atlas <- pres_dat_final %>%
   filter(cell_grouping == 1) %>%
@@ -251,15 +259,13 @@ saveRDS(Diversity_Effort, paste0(out_path, "rds/Diversity_AvgEffort.rds"))
 
 ```
 
-## Spatial Autocorrelation
-## Second Try: 
-
-```{r}
-
-# presence_data_all
-pacman::p_load("ncf")
-
+## Spatial Autocorrelation 
+This script takes several days to run for all atlases. Therefore I split the script and ran the calculations in parallel for all atlases at the same time. Output objects are merged in a separate script. 
+```{r, eval = F, include = T}
 sf_use_s2(FALSE)
+presence_data_all <- readRDS(paste0(out_path, "rds/presence_data_all.rds"))
+# pacman::p_load("ncf")
+
 morans_list <- list()
 data_list <- list()
 
@@ -275,8 +281,7 @@ for (a in seq_along(atlas_names)){
   dd <- presence_data_all[[a]] %>% 
   ungroup() %>% 
   filter(cell_grouping == 1) %>% 
-  select(dataset, tp, verbatim_name, area, area_cropped, cell_lat, cell_long, cell_label) %>% 
-  group_by(dataset, tp, verbatim_name)
+  select(dataset, tp, verbatim_name, area, area_cropped, cell_lat, cell_long, cell_label)
   
   for (y in seq_along(time_periods)){
     
@@ -284,12 +289,12 @@ for (a in seq_along(atlas_names)){
     sp_list <- unique(dd1$verbatim_name)
     
     for (s in seq_along(sp_list)){  
-      print(paste("atlas =", atlas_names[a], "tp =", time_periods[y], "sp = ", sp_list[s], "N = ", s, "/", length(sp_list)))
+      print(paste("atlas =", unique(dd1$dataset), "tp =", unique(dd1$tp), "sp = ", sp_list[s], "N = ", s, "/", length(sp_list)))
       
       # Obtain a df for each species that indicates the presence (1) or absence (0) of the species
       
       data_species <- dd1 %>% 
-        select(verbatim_name, cell_label, cell_lat, cell_long) %>% 
+        distinct(verbatim_name, cell_label, cell_lat, cell_long) %>% 
         ungroup() %>% unique() %>%
         mutate(
           verbatim_name = ifelse(verbatim_name != sp_list[s], NA, verbatim_name)) %>%
@@ -297,7 +302,7 @@ for (a in seq_along(atlas_names)){
         slice(which.max(!is.na(verbatim_name))) %>% 
         distinct(verbatim_name, cell_label, .keep_all=T) %>%
         mutate(
-          presence = ifelse(!is.na(verbatim_name), 1, 0))
+          presence = ifelse(!is.na(verbatim_name), 1, 0)) %>% ungroup()
     
 
       data_reduced <- dd1 %>% 
@@ -308,7 +313,7 @@ for (a in seq_along(atlas_names)){
           mean_area_cropped = mean(area_cropped),
           mean_cell_length = sqrt(mean_area)) %>% 
         mutate(
-          increment2 = mean_cell_length * 1.25) %>% 
+          increment2 = mean_cell_length * 1.75) %>% 
         ungroup() %>% 
         distinct(verbatim_name, .keep_all = T)
       
@@ -316,24 +321,31 @@ for (a in seq_along(atlas_names)){
           
         
       tryCatch({
-    
-         morans_cor <- correlog(x = data_species$cell_long, y = data_species$cell_lat, z = data_species$presence, 
-                                latlon=T, increment = unique(data_species$increment), resamp=0)
-         morans_list[[s]] <- morans_cor 
-
-         data_reduced$moran <- as.numeric(morans_cor$correlation[1])
-         data_reduced$x_intercept <- morans_cor$x.intercept
-        
-      }, error = function(e) {
-        # Handle the case where Moran's I cannot be calculated
-         data_reduced$moran <- "Error"
-         data_reduced$x_intercept <- "Error"
-         morans_list[[s]] <- "Error"
-      })
+        print("Attempting to calculate Moran's I")
+        morans_cor <- correlog(x = data_species$cell_long, 
+                         y = data_species$cell_lat, 
+                         z = data_species$presence, 
+                         latlon = TRUE, 
+                         increment = unique(data_species$increment), 
+                         resamp = 0)
+  
+        data_reduced$moran <- morans_cor$correlation[1]
+        data_reduced$x_intercept <- morans_cor$x.intercept
+  
+        print("Moran's I calculated successfully")
+        }, 
+        error = function(e) {
+          print("Error occurred while calculating Moran's I")
+          print(paste("Error message:", e))
+          morans_cor <- NA
+          data_reduced$moran <- NA
+          data_reduced$x_intercept <- NA
+          })
       
-
       data_list[[s]] <- data_reduced
+      morans_list[[s]] <- morans_cor 
       
+
     } # species loop closing
     
     morans_list2[[y]] <- morans_list
@@ -346,88 +358,12 @@ for (a in seq_along(atlas_names)){
     morans_list3[[a]] <- morans_list2
     
     data_df2 <- plyr::rbind.fill(data_list2)
-    data_list3[[y]] <- data_df2
+    data_list3[[a]] <- data_df2
+    
     } # atlas loop closing
 
-data_df_all <- plyr::rbind.fill(data_list3)
-saveRDS(morans_list3, paste0(out_path, "rds/morans_list.rds"))
-
-SAC_df_ncf <- plyr::rbind.fill(data_df_all, fill = T) %>% unique()
-
-
-```
-
-
-### Carmens code:
-
-This takes quite some time (\~ 2.5h). Read the SAC_df back in instead of re-running the code.
-
-```{r, eval = F}
-
-
-for (a in seq_along(atlas_names)){
-  dd <- presence_sf_list[[a]]
-  
-  for (y in seq_along(time_periods)){
-    
-    dd1 <- dd %>% filter(tp == time_periods[y])
-    
-    ## From Carmen ===============================
-    
-    sp_list <- unique(dd1$verbatim_name)
-
-    # Output columns
-    columns_df <- c("tp", "dataset", "mean_area", "mean_area_cropped")
-    spmor_cols <- c("verbatim_name", "global_moran", "p_value", columns_df)
-    spmoran_df <- data.frame(matrix(nrow = length(sp_list), ncol = length(spmor_cols)))
-    colnames(spmoran_df) <- spmor_cols
-
-    row_id <- 1
-    
-    for (s in seq_along(sp_list)) {
-      
-      print(paste("atlas =", atlas_names[a], "tp =", time_periods[y], "sp = ", sp_list[s]))
-      # Obtain a df for each species that indicates the presence (1) or absence (0) of the species
-      data_species <- dd1 %>%
-        mutate(verbatim_name = ifelse(verbatim_name != sp_list[s], NA, verbatim_name)) %>%
-        group_by(across(-verbatim_name)) %>%
-        slice(which.max(!is.na(verbatim_name))) %>%
-        mutate(presence = ifelse(!is.na(verbatim_name), 1, 0))
-      
-      # Filling in the data
-      spmoran_df$verbatim_name[row_id] <- sp_list[s]
-      spmoran_df$dataset[row_id] <- atlas_names[a]
-      spmoran_df$tp[row_id] <- unique(data_species$tp)
-      spmoran_df$mean_area[row_id] <- mean(data_species$area, na.rm = TRUE)
-      spmoran_df$mean_area_cropped[row_id] <- mean(data_species$area_cropped, na.rm = TRUE)
-
-      tryCatch({
-      # Creating neighbors
-      nb <- poly2nb(data_species, queen = TRUE)
-      # Spatial weights for the neighbors
-      listw <- nb2listw(nb, style = "W", zero.policy = TRUE)
-      # Moran's I
-      moran_res <- moran.test(data_species$presence, listw, zero.policy = TRUE)
-      spmoran_df[row_id, "global_moran"] <- as.numeric(moran_res$estimate)[1]
-      spmoran_df[row_id, "p_value"] <- moran_res$p.value
-      }, error = function(e) {
-        # Handle the case where Moran's I cannot be calculated
-        spmoran_df[row_id, c("global_moran", "p_value")] <- NA
-      })
-
-      row_id <- row_id + 1  # Update row_id for the next entry
-    
-      }
-    
-    out_list[[length(out_list) + 1]] <- spmoran_df
-  
-  }
-  
-}
-saveRDS(presence_sf_list, paste0(out_path, "rds/presence_sf_list.rds"))
-SAC_df <- plyr::rbind.fill(out_list, fill = T) %>% unique()
-write.csv(SAC_df, paste0(out_path, "csv/SAC_data.csv"))
-saveRDS(SAC_df, paste0(out_path, "rds/SAC_data.rds"))
+data_df_all <- plyr::rbind.fill(data_list3) 
+saveRDS(data_df_all, paste0(out_path, "rds/SAC_final.rds"))
 
 ```
 
@@ -435,7 +371,7 @@ saveRDS(SAC_df, paste0(out_path, "rds/SAC_data.rds"))
 
 (Function by Dr. Gabriel Ortega: requires terra & tidyverse)
 
-```{r, geometries function from Gabriel}
+```{r, geometries function from Gabriel, eval = F, include = T}
 pacman::p_load(geosphere, geodata, terra, tidyverse, tidyterra)
 
 # Function to get the max elongation per polygon, north-south length or east-west length, circularity, etc...
@@ -574,7 +510,7 @@ This takes quite some time. Better read the objects back in below.
 10311.01 sec elapsed 
 ```
 
-```{r, calculate geometries, message = F}
+```{r, calculate geometries, message = F, eval = F, include = T}
 tictoc::tic()
 # Atlas Geometries ==============================================================
 geom_ls <- list()
@@ -747,8 +683,8 @@ saveRDS(Geometries_final, paste0(out_path, "rds/Geometries.rds"))
 ```
 
 ## Co-Occurrence
-
-```{r, eval = F}
+Takes quite a while..
+```{r, eval = F, include = T}
 species_data <- pres_dat_final %>% 
   filter(cell_grouping == 1) %>% 
   select(dataset, tp, verbatim_name, cell_label) %>% 
@@ -821,13 +757,18 @@ saveRDS(Co_Occ_df_final, paste0(out_path, "rds/Coocc_df_final.rds"))
 ## AVONET Traits
 
 ```{r}
-tax_frame6<- tax_frame5 %>% 
-  distinct(verbatim_name, sp_BirdLife, sp_BirdTree, .keep_all = T)
 
-#-------------------------------------------------------------------------------------------------------------#
-avonet_final[avonet_final=="<NA>"] = NA
+avonet_final[avonet_final=="<NA>"] <- NA
+avonet_final %>% filter(is.na(sp_atlas.adapted1))
+avonet_final 
+names(BOTW_RL)
 
-avonet_coalesced <- avonet_final %>% mutate(
+
+
+avonet_final2 <- left_join(avonet_final, BOTW_RL)
+
+
+avonet_coalesced <- avonet_final2 %>% mutate(
   Family = coalesce(Family_BL, Family_BT),
   Order = coalesce(Order_BL, Order_BT),
   HWI = coalesce(Hand.Wing.Index_BL, Hand.Wing.Index_BT),
@@ -841,8 +782,8 @@ avonet_coalesced <- avonet_final %>% mutate(
   Range.Size = coalesce(Range.Size_BL, Range.Size_BT))
 
 avonet_final <- avonet_coalesced[,c(1:2, 26:36)] %>% distinct(sp_atlas, .keep_all=T) %>% rename("verbatim_name" = "sp_atlas")
-avonet_final %>% filter_all(any_vars(is.na(.))) # 6 Species without range size (and other data)
-avonet_final %>% filter_all(any_vars(!is.na(.))) %>% distinct(sp_atlas) %>% nrow() #841 species have data
+avonet_final %>% filter_all(any_vars(is.na(.))) # 6 Species without range size (and other data); 101 species without red list
+avonet_final %>% filter_all(any_vars(!is.na(.))) %>% distinct(verbatim_name) %>% nrow() #841 species have data
 
 ```
 
@@ -853,57 +794,59 @@ FP <- phyloregion::evol_distinct(tree, "fair.proportion") # phylogenetic distinc
 FP <- data.frame(FP)
 FP$tip.label <- rownames(FP)
 rownames(FP) <- NULL
+unique(FP$tip.label) %>% length() # 9993 species 
 
 ```
 
 # Merging Predictors together 
 ## Species predictors
 ```{r}
+# Diversity
 Diversity_Effort <- readRDS(paste0(out_path, "rds/Diversity_AvgEffort.rds"))
 predictors_df2 <- full_join(predictors_df, Diversity_Effort); rm(Diversity_Effort)
 
-SAC_df <- readRDS(paste0(out_path, "rds/SAC_data.rds"))
-
-predictors_df4 <- full_join(predictors_df2, SAC_df); rm(predictors_df2)
-predictors_df4
-
+#Geometries
 Geometries <- readRDS( paste0(out_path, "rds/Geometries.rds"))
+predictors_df3 <- full_join(Geometries, predictors_df2) 
 
-predictors_df5 <- full_join(Geometries_final, predictors_df4) 
-predictors_df5 %>% filter_all(any_vars(is.na(.)))
-
+# Co-Occurrence index
 Co_Occ_df_final <- readRDS(paste0(out_path, "rds/Coocc_df_final.rds"))
+predictors_df4 <- full_join(Co_Occ_df_final, predictors_df3) 
 
-predictors_df6 <- full_join(Co_Occ_df_final, predictors_df2) 
-# predictors_df6 <- full_join(Co_Occ_df_final, predictors_df5) 
-predictors_df6
-
-
-predictors_df7 <- left_join(predictors_df6, avonet_final) %>% 
+# Avonet
+predictors_df5 <- left_join(predictors_df4, avonet_final) %>% 
   distinct(verbatim_name, tp, dataset, .keep_all=T) 
-predictors_df7
 
-predictors_df7 %>% filter_all(all_vars(!is.na(.))) %>% distinct(verbatim_name, dataset, tp) %>% group_by(dataset, tp) %>% summarise(n=n())
-predictors_df7$tip.label <- gsub(" ", "_", predictors_df7$sp_BirdTree)
-setdiff(predictors_df7$tip.label, FP$tip.label) %>% length()
+# All vars NA for  ? species:
+predictors_df5 %>% filter_all(all_vars(!is.na(.))) %>% 
+  distinct(verbatim_name, dataset, tp) %>% 
+  group_by(dataset, tp) %>% 
+  summarise(n=n())
 
-predictors_df8 <- left_join(predictors_df7, FP) %>% 
+# Evol. distinctness
+predictors_df5$tip.label <- gsub(" ", "_", predictors_df5$sp_BirdTree)
+setdiff(predictors_df5$tip.label, FP$tip.label) %>% length()
+
+predictors_df6 <- left_join(predictors_df5, FP) %>% 
   select(-tip.label, -sp_BirdLife, -sp_BirdTree)
+str(predictors_df6)
 
+colSums(is.na(predictors_df6))
 
+# SAC
+ SAC_df <- readRDS(paste0(out_path, "rds/SAC_final.rds"))
+predictors_df7 <- full_join(predictors_df6, SAC_df); 
 ```
 
 ## Atlas Predictors
 
 ```{r}
-all_predictors0 <- full_join(predictors_df8, atlas_predictors_df2) 
+all_predictors0 <- full_join(predictors_df7, atlas_predictors_df2) 
 str(all_predictors0)
 
 rownames(all_predictors0) <- NULL
-all_predictors0 <- all_predictors0 %>% distinct(verbatim_name, tp, dataset, .keep_all = T) %>%  filter(!is.na(verbatim_name))
+all_predictors0 <- all_predictors0 %>% 
+distinct(verbatim_name, tp, dataset, .keep_all = T) %>%  filter(!is.na(verbatim_name))
 
-
-
-saveRDS(all_predictors0, paste0(out_path, "All_predictors.rds"))
-
+saveRDS(all_predictors0, paste0(out_path, "rds/All_predictors.rds"))
 ```
