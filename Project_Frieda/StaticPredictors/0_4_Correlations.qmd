@@ -93,3 +93,36 @@ dev.off()
 saveRDS(df2, "out/rds/Final_data.rds")
 
 ```
+
+```{r}
+df <- readRDS(paste0(out_path, "rds/All_predictors.rds")) %>% 
+  unique() %>% 
+  select(-sp_atlas.adapted1, -avgEffort)%>% unique() %>%
+  mutate(HWI = as.numeric(as.character(HWI)),
+         Mass = as.numeric(as.character(Mass)),
+         Range.Size = as.numeric(as.character(Range.Size)),
+         FP = as.numeric(FP),
+         tp = as.integer(tp),
+         dataset = as.factor(dataset),
+         Habitat = as.factor(Habitat),
+         RL_Category = as.factor(RL_Category),
+         Habitat.Density = as.factor(Habitat.Density),
+         Migration = as.factor(Migration),
+         Trophic.Level = as.factor(Trophic.Level),
+         Trophic.Niche = as.factor(Trophic.Niche),
+         Primary.Lifestyle = as.factor(Primary.Lifestyle),
+         grain = as.integer(grain)) %>%
+  select(-Total_Ncells_samp, -atlas_bearing, -atlas_bearingMinRect, -atlas_circ, -atlas_elonMinRect, -atlas_widthMinRect, -atlas_lengthMinRect, -atlas_xmin, -atlas_ymin, -atlas_xmax, -atlas_ymax, -atlas_yhalf, -atlas_xhalf, -bearing, -bearingMinRect, -circ, -elonMinRect, -widthMinRect, -lengthMinRect, -increment2)
+
+rownames(df) <- NULL
+str(df)
+
+highly_correlated <- caret::findCorrelation(cor(df %>% 
+                                                  select(-log_R2_1, -Telfer_1_2, -Family, -Order, -verbatim_name) %>% 
+                                                  select_if(is.numeric), use="pairwise.complete.obs"), 
+                                            cutoff = 0.8, names = T)
+
+df_red_clean <- df %>% select(-all_of(highly_correlated)) %>% distinct(tp, dataset, verbatim_name, .keep_all = T)
+
+saveRDS(df_red_clean, paste0(out_path, "rds/Predictors_cleaned.rds"))
+```
