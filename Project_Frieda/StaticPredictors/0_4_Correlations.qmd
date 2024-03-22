@@ -26,16 +26,18 @@ df <- df %>%
   mutate(HWI = as.numeric(as.character(HWI)),
          Mass = as.numeric(as.character(Mass)),
          Range.Size = as.numeric(as.character(Range.Size)),
+         FP = as.numeric(FP),
          tp = as.integer(tp),
          dataset = as.factor(dataset),
          Habitat = as.factor(Habitat),
+         RL_Category = as.factor(RL_Category),
          Habitat.Density = as.factor(Habitat.Density),
          Migration = as.factor(Migration),
          Trophic.Level = as.factor(Trophic.Level),
          Trophic.Niche = as.factor(Trophic.Niche),
          Primary.Lifestyle = as.factor(Primary.Lifestyle),
          grain = as.integer(grain)) %>%
-  select(-Total_Ncells_samp, -atlas_bearing, -atlas_bearingMinRect, -atlas_circ, -atlas_elonMinRect, -atlas_widthMinRect, -atlas_lengthMinRect, -atlas_xmin, -atlas_ymin, -atlas_xmax, -atlas_ymax, -atlas_yhalf, -atlas_xhalf, -bearing, -bearingMinRect, -circ, -elonMinRect, -widthMinRect, -lengthMinRect)
+  select(-Total_Ncells_samp, -atlas_bearing, -atlas_bearingMinRect, -atlas_circ, -atlas_elonMinRect, -atlas_widthMinRect, -atlas_lengthMinRect, -atlas_xmin, -atlas_ymin, -atlas_xmax, -atlas_ymax, -atlas_yhalf, -atlas_xhalf, -bearing, -bearingMinRect, -circ, -elonMinRect, -widthMinRect, -lengthMinRect, -increment2)
 
 str(df)
 
@@ -56,9 +58,9 @@ model.matrix(~0+., data=cor_df) %>%
   lab_size=0.8, 
   hc.order=T, 
   insig ="blank",
-  p.mat = p.mat, 
+  #p.mat = p.mat, 
   tl.cex = 5, 
-  type = "full", 
+  type = "upper", 
   digits = 1)
 dev.off()
 
@@ -78,11 +80,11 @@ model.matrix(~0+., data=df2%>% select(where(is.numeric))) %>%
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(lab=TRUE, 
   method = "square", 
-  lab_size=3, 
+  lab_size=2, 
   hc.order=T, 
   insig ="blank",
   p.mat = p.mat, 
-  tl.cex = 12, 
+  tl.cex = 10, 
   type = "full", 
   digits = 2)
 dev.off()
