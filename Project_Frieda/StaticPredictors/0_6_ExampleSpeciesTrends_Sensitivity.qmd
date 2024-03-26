@@ -8,6 +8,8 @@ editor: visual
 ## Variables
 
 ```{r}
+library(dplyr); library(sf)
+
 # source folder
 source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/")
 
@@ -15,7 +17,7 @@ source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_Ge
 out_path <- c(paste0(source_Git, "out/"))
 
 # data
-df <- readRDS(paste0(out_path, "All_predictors.rds"))
+df <- readRDS(paste0(out_path, "rds/All_predictors.rds"))
 
 ```
 
@@ -28,3 +30,32 @@ Task:
 -   Plot some relations in the data
 
 -   Maps!
+
+```{r}
+presence_sf <- readRDS(paste0(out_path, "rds/presence_sf_list.rds"))
+
+ss <- presence_sf[[1]] 
+
+ss %>% filter(verbatim_name == "Ciconia nigra" & tp == 1) %>% plot()
+ss %>% filter(verbatim_name == "Ciconia nigra" & tp == 2) %>% plot()
+
+
+```
+
+## increasing species vs. decreasing sp
+
+```{r}
+
+ df %>% filter(log_R2_1 > 0 & tp == 1) %>% group_by(dataset) %>% distinct(dataset, tp, verbatim_name, .keep_all = T) %>% summarise(N_sp = n_distinct(verbatim_name)) %>% ggplot2::ggplot(aes(x = dataset, y = N_sp))+ geom_col()+ labs(title = "increase")
+ 
+ 
+ df %>% filter(log_R2_1 < 0 & tp == 1) %>%  group_by(dataset)%>% distinct(dataset, tp, verbatim_name, .keep_all = T) %>% summarise(N_sp = n_distinct(verbatim_name)) %>% ggplot2::ggplot(aes(x = dataset, y = N_sp))+ geom_col() + labs(title = "decrease")
+
+
+```
+
+```{r}
+df %>% filter(verbatim_name == "Ciconia nigra")
+
+
+```

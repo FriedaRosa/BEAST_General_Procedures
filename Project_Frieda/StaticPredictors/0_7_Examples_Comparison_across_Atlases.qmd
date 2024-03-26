@@ -9,10 +9,10 @@ editor: visual
 
 ```{r}
 rm(list=ls())
-library(ggthemes); library(cowplot); library(gridExtra); library(dplyr); library(sf)
+library(ggthemes); library(cowplot); library(gridExtra); library(dplyr); library(sf); library(rstatix); library(ggplot2)
+sf_use_s2(FALSE)
+
 ### The paths ===
-
-
 source_atlas <- c("c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/")
 source_predictors <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/PhD_Projects/StaticPredictors/Data/")
 source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/")
@@ -46,56 +46,66 @@ desired_levels <- factor(c("1", "2","4", "8", "16", "32", "64", "128"), ordered 
 
 ## We need the highes resolution data = cell_grouping = 1
 
-# grid data
+# grid data =====================
 grids <- list()
 for (a in seq_along(grid_paths)) {
-    grids_a<- sapply("cell1grid", function(i) {
-      st_read(grid_paths[[a]], paste(i), quiet = TRUE)  %>% st_transform(crs = 4326) %>% reorder_levels( cell_grouping, order=desired_levels)
+    grids_a <-sapply("cell1grid", function(i) {
+      st_read(grid_paths[[a]], paste(i), quiet = TRUE)  %>% 
+        st_transform(crs = 4326) %>% 
+        reorder_levels( cell_grouping, order=desired_levels)
       }, simplify = FALSE)
-    grids[[a]] <- grids_a
+    grids[[a]] <- grids_a$cell1grid
 }
 
-# Raw species occurrence data
 # Species data  =====================
 presence_data_all <- list()
-for (i in seq_along(data_paths)){
+for (i in seq_along(data_paths)) {
   pres_dat <- readRDS(data_paths[i])
-  sy <- sort(unique(pres_dat$start_year))
-  
-## Add time-period column 
-  pres_dat2 <- pres_dat %>%     
-    filter(cell_grouping == 1) %>%
-    mutate(tp = ifelse(start_year == sy[1], 1, 2)) %>% 
-    reorder_levels( cell_grouping, order=desired_levels)
-  
-  ## Filter for cells that have been sampled twice ============== (!!)
-  pres_dat3 <- pres_dat2 %>% ungroup() %>% 
-    group_by(cell_label) %>%
-    mutate(num_periods = n_distinct(tp)) %>%
-    mutate(repeated = ifelse(num_periods == 2, 1, 0)) %>%
-    filter(repeated == 1)
-  
-  ## Filter for species that have change data (sp that occur in both time periods)
-  common_species <- pres_dat3 %>%
-    group_by(verbatim_name) %>%
-    summarise(num_periods = n_distinct(tp)) %>%
-    filter(num_periods == 2) %>%
-    pull(verbatim_name)
-  
-  pres_dat4 <- pres_dat3 %>% filter(verbatim_name %in% common_species)
+  sy <- sort(unique(pres_dat$start_year)) # sy = start_year
 
-  presence_data_all[[i]] <- pres_dat4
+  ## Add time-period column
+  pres_dat2 <- pres_dat %>% 
+    mutate(tp = case_when(start_year == sy[1] ~ 1,
+                          start_year == sy[2] ~ 2)) %>% 
+    filter(tp %in% c(1,2)) %>%
+    reorder_levels(cell_grouping, order=desired_levels)
+
+  ## Cells sampled twice (column: repeated)
+  common_cells <- pres_dat2 %>%
+    ungroup() %>%
+    group_by(dataset, cell_grouping, cell_label) %>%
+    mutate(num_periods_cells = n_distinct(tp)) %>%
+    mutate(repeated = case_when(
+      num_periods_cells == 2 ~ 1,
+      num_periods_cells %in% c(1, 2) ~ 0
+    )) %>%
+    ungroup() %>%
+    group_by(dataset) %>%
+    select(dataset, cell_grouping, cell_label, num_periods_cells, repeated) %>%
+    unique()
+
+  common_cells %>%
+    group_by(dataset, cell_grouping, repeated, num_periods_cells) %>%
+    summarise(n = n())
+
+  presence_data_rep <- full_join(pres_dat2, common_cells)
+
+  # Species sampled twice in the remaining cells
+  common_sp <- presence_data_rep %>%
+    filter(repeated == 1 & cell_grouping == 1) %>%
+    group_by(dataset, verbatim_name) %>%
+    summarise(num_periods_sp = n_distinct(tp)) %>%
+    ungroup() 
+  presence_data3 <- full_join(presence_data_rep, common_sp) 
+
+  presence_data_all[[i]] <- presence_data3
 }
-
-# remove tp3 from CZ data for easier handling of all datasets
-presence_data_all[[1]] <- presence_data_all[[1]] %>% 
-  filter(start_year != 2014)
 
 ##############
 
 
-presence_sf_list <- readRDS(paste0(out_path, "presence_sf_list.rds"))
-big_tab <- read.csv(file=paste0(out_path, "Big_table_CZ_JP_NY.csv")) %>% 
+presence_sf_list <- readRDS(paste0(out_path, "rds/presence_sf_list.rds"))
+big_tab <- read.csv(file=paste0(out_path, "csv/Big_table_CZ_JP_NY_EU.csv")) %>% 
   reorder_levels(cell_grouping, desired_levels)
 
 
@@ -118,10 +128,10 @@ sp <- unique_species
 ### Now we can write a Loop to run through this list of species and make the plots for all of them :) This will be funnnnnn 
 
 ## Save individual grids for plotting =====
-grid_CZ <- grids[[1]]$cell1grid
-grid_NY <- grids[[2]]$cell1grid
-grid_JP <- grids[[3]]$cell1grid
-grid_EU <- grids[[4]]$cell1grid
+grid_CZ <- grids[[1]]
+grid_NY <- grids[[2]]
+grid_JP <- grids[[3]]
+grid_EU <- grids[[4]]
 
 ## Get the Borders for plotting =====
 library(rnaturalearth) 
@@ -134,25 +144,27 @@ USA <- ne_states(returnclass = "sf", country = 'United States of America')
 NY <- USA[USA$name == "New York", ]
 NY <- NY  %>% st_crop(st_bbox(grid_NY)) 
 
+#sp <- "Ciconia nigra"
+sp <- "Platalea leucorodi"
 
 plot_list <- list()
 for (i in seq_along(sp)){
   print(sp[i])
   
   tryCatch({
-  pres_dat_CZ <- presence_sf_list[[1]] %>% 
+  pres_dat_CZ <- presence_sf_list[[1]] %>% st_make_valid() %>%
     filter(verbatim_name %in% sp[i]) %>% 
     left_join(., big_tab) %>% 
     distinct()
-  pres_dat_NY <- presence_sf_list[[2]] %>% #
+  pres_dat_NY <- presence_sf_list[[2]] %>% st_make_valid() %>%
     filter(verbatim_name %in% sp[i]) %>% 
     left_join(., big_tab) %>% 
     distinct()
-  pres_dat_JP <- presence_sf_list[[3]] %>% 
+  pres_dat_JP <- presence_sf_list[[3]] %>% st_make_valid() %>%
     filter(verbatim_name %in% sp[i]) %>% 
     left_join(., big_tab) %>% 
     distinct()
-  pres_dat_EU <- presence_sf_list[[4]] %>% 
+  pres_dat_EU <- presence_sf_list[[4]] %>%  st_make_valid() %>%
     filter(verbatim_name %in% sp[i]) %>% 
     left_join(., big_tab) %>% 
     distinct()
@@ -225,7 +237,7 @@ gg1 <- ggplot(data = sp_a, aes(x = log10(mean_area), y = log10(AOO), col = datas
     facet_wrap(tp~.)
   
   gg2 <- cowplot::plot_grid(gg1, NULL,  rel_heights = 0.5, rel_widths = 1, nrow=2)
-  sum_tab <-  big_tab  %>% filter(verbatim_name == sp[i] & cell_grouping == 1) %>% select(verbatim_name, dataset, tp, AOO, relative_occupancy_area, D_AOO_s, log_R2_1, Telfer_1_2) %>% distinct()
+  sum_tab <-  big_tab  %>% filter(verbatim_name == sp[i] & cell_grouping == 1) %>% select(verbatim_name, dataset, tp, AOO, relative_occupancy_area, D_AOO_a, log_R2_1, Telfer_1_2) %>% distinct()
   
 pdf(file = paste0(out_path, sp[i], "_allAtlasMaps.pdf"), paper = "a4")
 
