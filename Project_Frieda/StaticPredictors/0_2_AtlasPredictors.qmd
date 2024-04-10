@@ -40,6 +40,7 @@ library(sf); sf_use_s2(FALSE) # Spatial stuff 1
 library(ncf) # new SAC script
 
 ```
+
 ## Data paths
 
 ```{r, Data paths}
@@ -58,12 +59,10 @@ source_paths <- c(
 )
 
 # create path to read in data and grids from variables
-data_paths <- c(
-  paste0(source_paths[1], "Birds_Atlas_Czechia_beast_data.rds"),
-  paste0(source_paths[2], "Birds_Atlas_New_York_beast_data.rds"),
-  paste0(source_paths[3], "Birds_atlas_Japan_beast_data.rds"),
-  paste0(source_paths[4], "Birds_atlas_EBBA_beast_data.rds")
-)
+data_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_beast_data.rds"), 
+                paste0(source_paths[2], "Birds_Atlas_New_York_beast_data.rds"), 
+                paste0(source_paths[3], "Birds_atlas_Japan_beast_data.rds"),
+                paste0(out_path, "rds/EBBA_change_new.rds"))
 
 grid_paths <- c(
   paste0(source_paths[1], "Birds_Atlas_Czechia_grid.gpkg"),
@@ -80,7 +79,6 @@ desired_levels <- factor(c("1", "2", "4", "8", "16", "32", "64", "128"), ordered
 
 ```
 
-
 ```{r, Read data}
 ## Read Processed Data from 0_1_Atlas_prep.qmd script =========================================== ##
 
@@ -88,8 +86,8 @@ pres_dat_final <- readRDS(paste0(out_path, "rds/presence_data_final.rds")) # spe
 big_tab <- read.csv(paste0(out_path, "csv/Big_table_CZ_JP_NY_EU.csv")) %>% reorder_levels(cell_grouping, desired_levels)
 
 # Other external data ============================================================================ ##
-Niches_df <- readRDS(paste0(out_path, "rds/Niches_df.rds"))
-tax_lookup <- read.csv2(paste0(out_path, "csv/Tax_lookup_BirdLife_eBird_BirdTree_AtlasBOTW.csv"))
+Niches_df <- readRDS(paste0(out_path, "rds/Niches_df_v2.rds"))
+tax_lookup <- read.csv(paste0(out_path, "csv/TaxLookUp_final_v2.csv"))
 RangeSizeNew <- readRDS(paste0(out_path, "rds/RangeSizeBOTW_df.rds"))
 avonet_final <- read.csv2(paste0(out_path, "csv/AVONET_final.csv"), na.strings = c("#N/A", "<NA>", "NA"))
 BOTW_RL <- read.csv2(paste0(out_path, "csv/BOTW_RedList.csv"), na.strings = c("#N/A"))
@@ -177,16 +175,23 @@ saveRDS(presence_sf_list, paste0(out_path, "rds/presence_sf_list.rds"))
 sp_df_big <- big_tab %>% 
   filter(cell_grouping == 1) %>% 
   select(-cell_grouping, -X, -scale) %>% 
-  left_join(tax_lookup %>% distinct(verbatim_name, sp_names_atlas_adapted_keep ,sp_BirdTree, sp_BirdLife)) %>%
-  left_join(RangeSizeNew %>% rename("sp_BirdLife" = "sci_name"))%>% 
+  left_join(tax_lookup  %>% rename("verbatim_name" = "name_in_data") %>% distinct(verbatim_name, sp_BirdTree, sp_BirdLife, Birds.of.the.World))%>%
+  left_join(RangeSizeNew %>% rename("verbatim_name" = "sci_name")) %>%
   filter_at(vars(log_R2_1), any_vars(!is.na(.))) %>% 
-  full_join(Niches_df %>% rename("sp_BirdLife" = "verbatim_name")) %>% 
-  unique()
+  full_join(Niches_df) %>% 
+  distinct(verbatim_name, .keep_all=T) %>%
+  filter(!is.na(verbatim_name))
 
+sp_df_big %>% distinct(verbatim_name) %>% nrow() # 841 species 
+colSums(is.na(sp_df_big)) #172 species without climate data
+
+
+sp_wo_clim <- sp_df_big %>% filter(is.na(sd_PC1))
 
 ```
 
 # Predictors
+
 ```{r, predictors}
 # Make dataframes with predictors ======================
 atlas_predictors_df2 <- big_tab %>% 
@@ -205,19 +210,19 @@ predictors_df <- sp_df_big%>%
 
 # Vector with species names in predictor data ==================
 sp_names_predictors <- predictors_df %>% distinct(verbatim_name) %>%  pull(verbatim_name) %>% as.vector()
-write.csv(sp_names_predictors, paste0(out_path, "csv/sp_names_predictors.csv")) 
+write.csv(sp_names_predictors, paste0(out_path, "csv/sp_names_predictors_v2.csv")) 
 
 ```
 
 # Save Environment until here
+
 ```{r}
 # Save Environment until here
-save.image(paste0(out_path, "RData/AtlasPredictors_1.RData"))
+save.image(paste0(out_path, "RData/AtlasPredictors_1_v2.RData"))
 
 ```
 
 ================ RUN COMPLETELY UNTIL HERE AND THEN ONLY RUN CHUNKS WHERE OBJECTS ARE READ BACK IN ======================
-
 
 ## Diversity Metrics
 
@@ -252,8 +257,10 @@ saveRDS(Diversity_Effort, paste0(out_path, "rds/Diversity_AvgEffort.rds"))
 
 ```
 
-## Spatial Autocorrelation 
-This script takes several days to run for all atlases. Therefore I split the script and ran the calculations in parallel for all atlases at the same time. Output objects are merged in a separate script. 
+## Spatial Autocorrelation
+
+This script takes several days to run for all atlases. Therefore I split the script and ran the calculations in parallel for all atlases at the same time. Output objects are merged in a separate script.
+
 ```{r, eval = F, include = T}
 sf_use_s2(FALSE)
 presence_data_all <- readRDS(paste0(out_path, "rds/presence_data_all.rds"))
@@ -499,6 +506,7 @@ poly_attr <- function(x, type = NULL) {
 ### Calculate Geometries:
 
 This takes quite some time. Better read the objects back in below.
+
 ```         
 10311.01 sec elapsed 
 ```
@@ -676,7 +684,9 @@ saveRDS(Geometries_final, paste0(out_path, "rds/Geometries.rds"))
 ```
 
 ## Co-Occurrence
+
 Takes quite a while..
+
 ```{r, eval = F, include = T}
 species_data <- pres_dat_final %>% 
   filter(cell_grouping == 1) %>% 
@@ -746,33 +756,21 @@ saveRDS(Co_Occ_df_final, paste0(out_path, "rds/Coocc_df_final.rds"))
 
 ```
 
-
 ## AVONET Traits
 
 ```{r}
 
 avonet_final[avonet_final=="<NA>"] <- NA
-avonet_final %>% filter(is.na(sp_atlas.adapted1))
+avonet_final <- avonet_final %>% filter(verbatim_name %in% unique(pres_dat_final$verbatim_name) )
 avonet_final 
 names(BOTW_RL)
 
 avonet_final2 <- left_join(avonet_final, BOTW_RL)
-avonet_coalesced <- avonet_final2 %>% mutate(
-  Family = coalesce(Family_BL, Family_BT),
-  Order = coalesce(Order_BL, Order_BT),
-  HWI = coalesce(Hand.Wing.Index_BL, Hand.Wing.Index_BT),
-  Mass = coalesce(Mass_BL, Mass_BT),
-  Habitat = coalesce(Habitat_BL, Habitat_BT),
-  Habitat.Density = coalesce(Habitat.Density_BL, Habitat.Density_BT),
-  Migration = coalesce(Migration_BL, Migration_BT),
-  Trophic.Level = coalesce(Trophic.Level_BL, Trophic.Level_BT),
-  Trophic.Niche = coalesce(Trophic.Niche_BL, Trophic.Niche_BT),
-  Primary.Lifestyle = coalesce(Primary.Lifestyle_BL, Primary.Lifestyle_BT),
-  Range.Size = coalesce(Range.Size_BL, Range.Size_BT))
+colSums(is.na(avonet_final2))
 
-avonet_final <- avonet_coalesced[,c(1:2, 26:37)] %>% distinct(sp_atlas, .keep_all=T) %>% rename("verbatim_name" = "sp_atlas")
-avonet_final %>% filter_all(any_vars(is.na(.))) # 6 Species without range size (and other data); 101 species without red list
-avonet_final %>% filter_all(any_vars(!is.na(.))) %>% distinct(verbatim_name) %>% nrow() #841 species have data
+avonet_final <- avonet_final2 %>% distinct(verbatim_name, .keep_all=T)
+avonet_final %>% filter_all(any_vars(is.na(.))) # 6 Species without range size (and other data); 95 species without red list
+avonet_final %>% filter_all(any_vars(!is.na(.))) %>% distinct(verbatim_name) %>% nrow() #774 species have data
 
 saveRDS(avonet_final, paste0(out_path, "rds/AVONET_final_v2.rds"))
 
@@ -791,8 +789,10 @@ FP$verbatim_name <- gsub("_", " ", FP$tip.label)
 write.csv(FP, paste0(out_path, "csv/EvolDistinctness.csv"))
 ```
 
-# Merging Predictors together 
+# Merging Predictors together
+
 ## Species predictors
+
 ```{r}
 predictors_df_clean <- predictors_df %>%
   filter(if_any(c(verbatim_name, dataset, tp,
@@ -837,10 +837,11 @@ colSums(is.na(predictors_df5))
 
 # Evol. distinctness
 FP <- read.csv(paste0(out_path, "csv/EvolDistinctness.csv"))
-FP2 <- right_join(FP %>% rename("sp_BirdTree" = "verbatim_name"), tax_lookup) %>% 
-  select(verbatim_name, FP)
-predictors_df6 <- left_join(predictors_df5, FP2) %>% 
-  select(-sp_BirdLife, -sp_BirdTree)
+FP2 <- FP %>% filter(tip.label %in% tax_lookup$TipLabel) %>% rename("TipLabel" = "tip.label") %>% select(-verbatim_name)
+
+FP3 <- left_join(FP2, tax_lookup %>% distinct(TipLabel, name_in_data)) %>% rename("verbatim_name" = "name_in_data")
+predictors_df6 <- left_join(predictors_df5, FP3 %>% select(verbatim_name, FP)) %>% 
+  select(-sp_BirdLife, -sp_BirdTree) %>% distinct(verbatim_name, dataset, tp, .keep_all=T)
 colSums(is.na(predictors_df6))
 
 # SAC
@@ -851,7 +852,9 @@ colSums(is.na(SAC_df2))
 predictors_df7 <- left_join(predictors_df6, SAC_df2) %>% distinct(dataset, tp, verbatim_name, .keep_all = T)
 
 
-colSums(is.na(predictors_df7))
+colSums(is.na(predictors_df6))
+
+
 
 ```
 

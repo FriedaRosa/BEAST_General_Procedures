@@ -32,6 +32,27 @@ Task:
 -   Maps!
 
 ```{r}
+# Subset species based on Table 9 in EBBA2 Change
+
+EBBA_Tab9 <- read.csv2("~/PhD_Projects/StaticPredictors/EBBA2_Table9_Changes.csv", header = T)[1:4] %>% na.omit()
+
+change_sp <- EBBA_Tab9 %>% pull(Species)
+
+
+
+
+comp_df <- df %>% filter(verbatim_name %in% change_sp) %>% merge(EBBA_Tab9, by.x="verbatim_name", by.y="Species") %>% select(dataset,verbatim_name, Change.Index, log_R2_1, Telfer_1_2) %>% distinct(.) %>% mutate(Change.Index = gsub("\\[|\\]", "", Change.Index)) %>% mutate(Change.Index = gsub("+", "", Change.Index, fixed =T)) %>% mutate(Change.Index = as.numeric(stringr::str_replace(Change.Index,"–", "-"))) %>% mutate(Change.Index = as.numeric(Change.Index)) %>% filter(dataset == "Birds_atlas_EBBA")
+
+
+
+library(ggplot2)
+
+ggplot(comp_df, aes(y = log_R2_1, x = Telfer_1_2))+ geom_point() + geom_smooth() + theme_classic()
+ggplot(comp_df, aes(y = log_R2_1, x = Change.Index))+ geom_point() + geom_smooth() + theme_classic()
+ggplot(comp_df, aes(y = Telfer_1_2, x = Change.Index))+ geom_point() + geom_smooth() + theme_classic()
+```
+
+```{r}
 presence_sf <- readRDS(paste0(out_path, "rds/presence_sf_list.rds"))
 
 ss <- presence_sf[[1]] 

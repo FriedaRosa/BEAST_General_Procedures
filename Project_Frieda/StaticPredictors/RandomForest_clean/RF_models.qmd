@@ -10,12 +10,71 @@ format:
 
 ```{r, message = F}
 rm(list=ls())
-library(dplyr); library(randomForest); library(forcats); library(ggplot2)
+library(dplyr); library(randomForest); library(forcats); library(ggplot2); library(ggRandomForests)
+```
+
+```{r}
+df <- readRDS("../out/rds/All_predictors.rds") %>% 
+  unique() %>% 
+  select(-sp_atlas.adapted1, -avgEffort)%>% unique() %>%
+  mutate(HWI = as.numeric(as.character(HWI)),
+         Mass = as.numeric(as.character(Mass)),
+         Range.Size = as.numeric(as.character(Range.Size)),
+         FP = as.numeric(FP),
+         tp = as.factor(tp),
+         dataset = as.factor(dataset),
+         Habitat = as.factor(Habitat),
+         RL_Category = as.factor(RL_Category),
+         Habitat.Density = as.factor(Habitat.Density),
+         Migration = as.factor(Migration),
+         Trophic.Level = as.factor(Trophic.Level),
+         Trophic.Niche = as.factor(Trophic.Niche),
+         Primary.Lifestyle = as.factor(Primary.Lifestyle),
+         grain = as.integer(grain)) %>%
+  select(-Total_Ncells_samp, -atlas_bearing, -atlas_bearingMinRect, -atlas_circ, -atlas_elonMinRect, -atlas_widthMinRect, -atlas_lengthMinRect, -atlas_xmin, -atlas_ymin, -atlas_xmax, -atlas_ymax, -atlas_yhalf, -atlas_xhalf, -bearing, -bearingMinRect, -circ, -elonMinRect, -widthMinRect, -lengthMinRect, -increment2) #%>%
+#  mutate(across(where(is.numeric), scale))
+
+rownames(df) <- NULL
+str(df)
+
+
+dta <- tidyr::gather(df, "variable", "value", -log_R2_1, -Order, -verbatim_name, -Family, -tp, -dataset)
+dta <- tidyr::gather(df[1:25] %>% select(-Telfer_1_2), "variable", "value", -log_R2_1, -verbatim_name, -tp, -dataset)
+
+ggplot(dta) +
+  geom_point(alpha = 0.4, aes(y = log_R2_1, x = value, color = tp)) +
+  geom_smooth(aes(x = log_R2_1, y = value)) + 
+  #labs(y = "", x = st_labs["log_R2_1"]) +
+  scale_color_brewer(palette = "Set2") +
+  facet_wrap(~ variable, scales = "free_x", ncol = 4) #+ scale_x_log10()
+
+
+
+df$verbatim_name <- as.factor(df$verbatim_name)
+df$Family <- as.factor(df$Family)
+df$Order <- as.factor(df$Order)
+
+
+o <- max.subtree(rfsrc(log_R2_1 ~., df %>% select(-Telfer_1_2, -verbatim_name), na.action = "na.impute"))
+o$topvars
+
+highly_correlated <- caret::findCorrelation(cor(df %>% 
+                                                  select(-log_R2_1, -Telfer_1_2, -Family, -Order, -verbatim_name) %>% 
+                                                  select_if(is.numeric), use="pairwise.complete.obs"), 
+                                            cutoff = 0.8, names = T)
+
+df_red_clean <- df %>% select(-all_of(highly_correlated)) %>% distinct(tp, dataset, verbatim_name, .keep_all = T) #630 species
+
+
+saveRDS(df_red_clean, "./out/rds/Predictors_cleaned.rds")
 ```
 
 ## Data
 ```{r, message = F}
-df <- readRDS("Predictors_cleaned.rds")
+df <- df_red_clean
+#df <- readRDS("Predictors_cleaned.rds")
+
+colSums(is.na(df))
 
 # Create grouping variables for modelling in loop:
 cols <- names(df)
@@ -90,6 +149,7 @@ names(dfs_list) <- c("df_log_R1", "df_log_R2", "df_telfer1", "df_telfer2")
 models_list <- list()
 models_res_list <-list()
 pred_list <- list()
+pp_list <-list()
 
 # loop through list of model dataframes
 for (dd in seq_along(dfs_list)){
@@ -103,14 +163,24 @@ for (dd in seq_along(dfs_list)){
 
   # create response variable
   response_var <- if ("log_R2_1" %in% names(train)) "log_R2_1" else if ("Telfer_1_2" %in% names(train)) "Telfer_1_2" 
-
   
   # build models # 
   model <- randomForest(as.formula(paste(response_var, "~ .")), data = train,
-                         ntree=150, importance=TRUE, na.action = "na.omit")
+                         ntree=1000, importance=TRUE, na.action = "na.omit")
   # predict test data #
   data_pred <- data.frame(Predicted = predict(model, newdata = test), Observed = test[[response_var]])
   
+pp_list[[dd]] <- list(
+partialPlot(model, train, x.var = D_AOO_a, ylim=c(-1,1)),
+partialPlot(model, train, x.var = moran, ylim=c(-1,1)),
+partialPlot(model, train, x.var = relative_occupancy_Ncells, ylim=c(-1,1)),
+partialPlot(model, train, x.var = AlphaSR_sp, ylim=c(-1,1)),
+partialPlot(model, train, x.var = x_intercept, ylim=c(-1,1)),
+partialPlot(model, train, x.var = Mass, ylim=c(-1,1)))
+
+
+
+
   models_list[[dd]] <- model    
   pred_list[[dd]] <- data_pred
   
@@ -124,8 +194,8 @@ for (dd in seq_along(dfs_list)){
   # create summary df
   model_res <- data.frame(
     df = names(dfs_list)[[dd]],
-    mean_pseudo_R2 = mean(model$rsq),
-    mean_mse = mean(model$mse),
+    mean_pseudo_OOB_R2 = model$rsq[1000],
+    mean_OOB_mse = model$mse[1000],
     imp2) # add variable importance for each predictor
   
   models_res_list[[dd]] <- model_res
@@ -134,6 +204,67 @@ for (dd in seq_along(dfs_list)){
 
 
 models_res_df <- plyr::rbind.fill(models_res_list)
+par(mfrow=c(2,3));
+
+lapply(pp_list[[2]], plot, type="l", ylim=c(0,1))
+
+
+```
+
+```{r, OOB error}
+oob.err<-double(36)
+test.err<-double(36)
+
+obb.err_list <- list()
+test.err_list <- list()
+
+#mtry is no of Variables randomly chosen at each split
+# loop through list of model dataframes
+for (dd in seq_along(dfs_list[1:2])){
+  model_df <- dfs_list[[dd]]
+  
+  # split into test and train #
+  set.seed(123)
+  train<-sample(1:nrow(model_df),503)
+
+  # create response variable
+  response_var <- if ("log_R2_1" %in% names(model_df)) "log_R2_1" else if ("Telfer_1_2" %in% names(train)) "Telfer_1_2" 
+for(mtry in 1:36) {
+  rf <- randomForest(as.formula(paste(response_var, "~ .")), data = model_df, subset = train, mtry=mtry, ntree=1000) 
+  oob.err[mtry] = rf$mse[1000]  #Error of all Trees fitted
+  
+  pred<-predict(rf,model_df[-train,]) #Predictions on Test Set for each Tree
+  test.err[mtry]= with(model_df[-train,], mean((log_R2_1 - pred)^2)) #Mean Squared Test Error
+  
+  cat(mtry," ")
+  
+}
+  
+  obb.err_list[[dd]] <- oob.err
+  test.err_list[[dd]] <- test.err
+}
+
+
+
+matplot(1:mtry , 
+        cbind(obb.err_list[[1]],test.err_list[[1]]), pch=19 , col=c("red","blue"),
+        type="b",
+        ylab="Mean Squared Error",
+        xlab="Number of Predictors Considered at each Split",
+ylim = c(0,0.35), main = "Future Change")
+legend("topright",legend=c("Out of Bag Error","Test Error"),pch=19, col=c("red","blue"))
+
+
+matplot(1:mtry , 
+        cbind(obb.err_list[[2]],test.err_list[[2]]), pch=19 , col=c("red","blue"),
+        type="b",
+        ylab="Mean Squared Error",
+        xlab="Number of Predictors Considered at each Split",ylim = c(0,0.35), main = "Past Change")
+legend("topright",legend=c("Out of Bag Error","Test Error"),pch=19, col=c("red","blue"))
+
+
+saveRDS(obb.err_list, "OOB_Error.rds")
+saveRDS(test.err_list, "Test_Error.rds")
 
 ```
 
@@ -171,6 +302,56 @@ mse_df %>%
   xlab("Decrease of out-of-bag MSE")+
   ylab("Predictor")+
   theme_minimal()
+
+```
+
+
+```{r}
+df_all <- df_log_R
+df_f <- dfs_list[[1]]
+df_p <- dfs_list[[2]]
+
+all_model <- randomForest(log_R2_1 ~ ., data = df_all, na.roughfix = T)
+varImpPlot(all_model)
+
+f_model <- randomForest(log_R2_1 ~ ., data = df_f, na.roughfix = T)
+varImpPlot(f_model)
+
+p_model <- randomForest(log_R2_1 ~ ., data = df_p, na.roughfix = T)
+varImpPlot(p_model)
+
+```
+
+```{r}
+pacman::p_load(ggRandomForests, randomForestSRC)
+df_f$Family <-as.factor(df_f$Family)
+df_f$Order <-as.factor(df_f$Order)
+
+## Determine mtry & nodesize:
+#o <- tune(log_R2_1 ~ ., df_f)
+model <- rfsrc(log_R2_1 ~ ., data = df_f, ntree=1000, mtry = 35, nodesize = 2, na.action = "impute")
+
+## Determine important vars:
+o2 <- max.subtree(model)
+o2$topvars
+
+
+# Extract OOBs
+x <- gg_rfsrc(model)
+plot(x, alpha=.5)
+y <- gg_error(model)
+plot(y)
+
+
+gg_dta <- gg_vimp(model) 
+plot(gg_dta)
+
+partialPlot(model, train, x.var = D_AOO_a, ylim=c(-1,1))
+partialPlot(model, train, x.var = moran, ylim=c(-1,1))
+partialPlot(model, train, x.var = relative_occupancy_Ncells, ylim=c(-1,1))
+partialPlot(model, train, x.var = AlphaSR_sp, ylim=c(-1,1))
+partialPlot(model, train, x.var = x_intercept, ylim=c(-1,1))
+partialPlot(model, train, x.var = Mass, ylim=c(-1,1))
 
 ```
 

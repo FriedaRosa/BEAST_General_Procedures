@@ -1,5 +1,5 @@
 ---
-title: "SAC"
+title: "SAC2"
 format: html
 editor: visual
 ---
@@ -15,7 +15,7 @@ presence_data_all <- readRDS(paste0(out_path, "rds/presence_data_all.rds"))
 
 
 
-time_periods <- c(1,2)
+time_periods <- c(2)
 atlas_names <- c("Birds_Atlas_EBBA")
 
 morans_list <- list()
@@ -103,8 +103,8 @@ dd <- presence_data_all[[4]] %>%
   } # year loop closing
 
 data_df2_EU <- plyr::rbind.fill(data_list2)
-saveRDS(data_df2_EU, paste0(out_path, "rds/SAC_df_EU.rds"))
-saveRDS(morans_list2, paste0(out_path, "rds/morans_list_EU.rds"))
+saveRDS(data_df2_EU, paste0(out_path, "rds/SAC_df_EU2.rds"))
+saveRDS(morans_list2, paste0(out_path, "rds/morans_list_EU2.rds"))
 
 
 

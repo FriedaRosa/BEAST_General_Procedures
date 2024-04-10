@@ -66,7 +66,6 @@ saveRDS(df_red_clean, paste0(out_path, "rds/Predictors_cleaned.rds"))
 
 ```
 
-
 ## Create list of data frame for model loop
 
 ```{r}
@@ -133,7 +132,7 @@ names(dfs_list) <- c("df_log_R1", "df_log_R2", "df_telfer1", "df_telfer2")
 
 ```
 
-# Run models for log ratio and telfer 
+# Run models for log ratio and telfer
 
 ```{r}
 models_list <- list()
@@ -226,6 +225,7 @@ ggsave(filename = paste0(out_path, "figures/Decr_OOB_MSE.pdf"))
 ```
 
 ## Differences between models:
+
 ```{r}
 # transform to long format for plotting
 df_long <- plyr::rbind.fill(models_res_list) %>% tidyr::pivot_longer(cols = 2:40)

@@ -68,7 +68,7 @@ out_path <- c(paste0(source_Git, "out/"))
 data_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_beast_data.rds"), 
                 paste0(source_paths[2], "Birds_Atlas_New_York_beast_data.rds"), 
                 paste0(source_paths[3], "Birds_atlas_Japan_beast_data.rds"),
-                paste0(source_paths[4], "Birds_atlas_EBBA_beast_data.rds"))
+                paste0(out_path, "rds/EBBA_change_new.rds"))
 
 grid_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_grid.gpkg"), 
                 paste0(source_paths[2], "Birds_Atlas_New_York_grid.gpkg"), 
@@ -115,13 +115,30 @@ rm(pres_dat, sy, pres_dat2)
 
 ## Reduce biases
 
--   remove cells that were only sampled once
+-   remove cells (from the species data) that were only sampled once\
+    (Note: this is not identical to cells that have never been sampled. Those are generally excluded here)
+
+    | Dataset  | Repeated | Not repeated - thus removed from data |
+    |----------|----------|---------------------------------------|
+    | Czechia  | 885      | 0                                     |
+    | New York | 7269     | 20                                    |
+    | EBBA     | 5532     | 1706                                  |
+    | Japan    | 1673     | 3                                     |
 
 -   remove species that were only sampled once in the cells that were sampled twice (because we don't have change data for them anyway).
 
-```{r}
+    | Dataset  | Repeated | Not repeated - thus removed from data |
+    |----------|----------|---------------------------------------|
+    | Czechia  | 200      | 19                                    |
+    | New York | 237      | 16                                    |
+    | EBBA     | 503      | 94                                    |
+    | Japan    | 208      | 32                                    |
+
+```{r, message = F}
 ## Cells sampled twice 
-common_cells <- presence_data2 %>% ungroup() %>%
+common_cells <- presence_data2 %>% 
+  ungroup() %>% 
+  distinct(dataset, cell_grouping, cell_label, tp) %>%
   group_by(dataset, cell_grouping, cell_label) %>%
   mutate(num_periods_cells = n_distinct(tp)) %>%
   mutate(repeated = case_when(
@@ -131,6 +148,10 @@ common_cells <- presence_data2 %>% ungroup() %>%
   select(dataset, cell_grouping, cell_label, num_periods_cells, repeated) %>% unique()
 
 presence_data_rep <- full_join(presence_data2, common_cells)
+excluded_cells <- common_cells %>% 
+  filter(num_periods_cells == 1) %>% 
+  distinct(dataset, cell_grouping, cell_label)
+table(excluded_cells$dataset) # EBBA: 66, JP: 3, NY = 20
 
 # Species sampled twice in the remaining cells
 common_sp <- presence_data_rep %>% filter(repeated == 1 & cell_grouping == 1) %>% 
@@ -138,11 +159,16 @@ common_sp <- presence_data_rep %>% filter(repeated == 1 & cell_grouping == 1) %>
     summarise(num_periods_sp = n_distinct(tp)) %>% 
   ungroup() %>% group_by(dataset, num_periods_sp)
 
+excluded_sp <- common_sp %>% 
+  filter(num_periods_sp == 1) %>% 
+  distinct(dataset, verbatim_name)
+table(excluded_sp$dataset) # CZ: 19, EBBA = 14, JP = 32, NY = 16
+
 presence_data3 <- full_join(presence_data_rep, common_sp) 
 saveRDS(presence_data3, paste0(out_path, "rds/presence_data_reduced.rds"))
 
 presence_data3_red <- presence_data3 %>% filter(repeated == 1 & num_periods_sp == 2)
-rm(common_cells, common_sp, presence_data_rep, presence_data2)
+rm(common_sp, presence_data_rep, presence_data2)
 
 ```
 
@@ -173,6 +199,31 @@ rm(grid_list, a, layers, layers_list)
 
 ```
 
+```{r, excluded cells and species}
+
+pdf(file = "out/figures/CellsSampledMaps.pdf", onefile = T, paper = "a4")
+
+for (a in seq_along(grid_list2)){
+  for (scale in seq_along(length(grid_list2[[a]]))){
+  t_common_cells <- common_cells %>% 
+    filter(dataset == atlas_names[[a]] & cell_grouping == scale) %>% 
+    mutate(repeated = as.factor(repeated))
+  t_grid <- grid_list2[[a]][[scale]]
+  t_grid2 <- full_join(t_grid, t_common_cells) %>% 
+    mutate(repeated = case_when(is.na(repeated) ~ "never",
+                                repeated == 1 ~ "both",
+                                repeated == 0 ~ "once")) %>% 
+    mutate(repeated = as.factor(repeated)) %>% 
+    reorder_levels(repeated, order = c("never", "once", "both"))
+  plot(t_grid2["repeated"], pal = hcl.colors(3, hcl.pals(type = "divergingx")[13], alpha = 0.7))
+  #tmap::qtm(t_grid2, "repeated", style = "col_blind", fill = c("black"))
+  }
+}
+
+dev.off()
+
+```
+
 # Calculate variables
 
 ## Calculate occupancy (AOO)
@@ -190,7 +241,7 @@ pres_dat_full3 <- list()
 
 for (n_atlas in seq_along(atlas_names)){
   atlas_name <- atlas_names[n_atlas] # set variable for current run of the loop
-  atlas <- grid_list2[[n_atlas]]# subset list of atlases to one
+  atlas <- grid_list2[[n_atlas]] # subset list of atlases to one
   
   for (grain in seq_along(atlas)){
     # set some variables for current run of the loop
@@ -209,9 +260,11 @@ for (n_atlas in seq_along(atlas_names)){
     
     # Calculate total number of total cells sampled:
     Total_Ncells_samp <- presence_data3_red %>% filter(dataset == atlas_name & cell_grouping == grain_d) %>%
-      select(dataset, cell_grouping, cell_label) %>% unique() %>% 
-      group_by(dataset, cell_grouping) %>% summarise(n_cells = n_distinct(cell_label)) %>% 
-      pull(n_cells) %>% unique()
+      select(dataset, cell_grouping, cell_label, area) %>% unique() %>% na.omit() %>%
+      group_by(dataset, cell_grouping) %>% distinct(cell_label, .keep_all = T)%>%
+      summarise(n_cells = n_distinct(cell_label)) %>% 
+      ungroup() %>%
+      distinct(n_cells)
     
     # Calculate total number of total cells per atlas:
     Total_Ncells_atlas <- atlas_1scale %>%
@@ -220,7 +273,7 @@ for (n_atlas in seq_along(atlas_names)){
       pull(Total_Ncells) %>%
       unique()
     
-    atlas_1scale$Total_Ncells_samp <- Total_Ncells_samp
+    atlas_1scale$Total_Ncells_samp <- Total_Ncells_samp$n_cells
     atlas_1scale$Total_Ncells_atlas <- Total_Ncells_atlas
     map_atlas_1scale <- atlas_1scale
     
@@ -273,7 +326,7 @@ occ_data <- pres_dat_final %>%
          mean_area = mean(area)) %>%
   mutate(occupancy_Ncells = n_distinct(cell_label)) %>%
 # Calculate AOO:
-  mutate(AOO = occupancy_Ncells * mean(area)) %>%
+  mutate(AOO = occupancy_area) %>%
 # Calculate relative Occupancy:
   mutate(relative_occupancy_area = occupancy_area/Total_area) %>%
   mutate(relative_occupancy_Ncells = occupancy_Ncells/Total_Ncells_samp) %>% ungroup() %>%
@@ -320,7 +373,7 @@ species_data <- occ_data_final %>%
 
 species_data %>% write.csv(paste0(out_path, "csv/Occupancy_table.csv"))
 
-
+species_data %>% filter(dataset == "Birds_atlas_EBBA")
 ```
 
 ## Occupancy-Area Relationship (OAR, D)
@@ -540,7 +593,7 @@ rm(species_data_wide1, species_data_wide2, temp, names_v)
 # Calculate log-Ratio of AOO (Temporal change)
 log_ratio_data <- species_data_wide %>% 
   mutate(log_R2_1 = log(tp2_AOO_1/tp1_AOO_1)) %>%
-  select(dataset, verbatim_name, log_R2_1)
+  select(dataset, verbatim_name, log_R2_1, tp1_AOO_1, tp2_AOO_1)
 
 species_data_bigtable <- merge(species_data_new2, log_ratio_data, by=c("verbatim_name", "dataset"),all = T)
 species_data_bigtable %>% write.csv(file=paste0(out_path, "csv/Big_table_CZ_JP_NY_EU.csv"))
@@ -548,7 +601,7 @@ species_data_bigtable %>% write.csv(file=paste0(out_path, "csv/Big_table_CZ_JP_N
 
 Change_Data <- species_data_bigtable %>% 
   filter(!is.na(log_R2_1)) %>% 
-  select(verbatim_name, dataset, log_R2_1) %>% 
+  select(verbatim_name, dataset, log_R2_1, tp1_AOO_1, tp2_AOO_1) %>% 
   distinct() %>% 
   na.omit() %>%
   reorder_levels(dataset, order = atlas_names)
@@ -556,6 +609,40 @@ Change_Data <- species_data_bigtable %>%
 
 Change_Data %>% 
   write.csv(paste0(out_path, "csv/Change_Data.csv"))
+
+Change_Data %>% mutate(log_R2_1 = round(log_R2_1, 3),
+                       tp1_AOO_1 = round(tp1_AOO_1, 3),
+                       tp2_AOO_1 = round(tp2_AOO_1, 3))
+
+
+threshold <- quantile(Change_Data$log_R2_1, probs = 0.95)
+
+# Filter the dataframe to include only rows where 'y' is less than or equal to the threshold
+filtered_df <- Change_Data %>%
+  filter(log_R2_1 >= threshold)
+
+range(filtered_df$log_R2_1) #[1] 1.228595 4.002097
+
+filtered_df <- Change_Data %>%
+  filter(log_R2_1 <= threshold)
+
+range(filtered_df$log_R2_1) #[1] -2.935921  1.219707
+
+library(ggplot2)
+ggplot(Change_Data, aes(x = log_R2_1))+
+  geom_density()
+
+Change_Data2 <- Change_Data %>%
+  mutate(quartile = ntile(log_R2_1, 5))
+
+ggplot(Change_Data2, aes(x=log_R2_1))+
+  geom_point(aes(y = tp2_AOO_1), col="blue")+
+  geom_smooth(aes(y = tp2_AOO_1), col="blue")+
+  geom_smooth(aes(y = tp1_AOO_1), col="red")+
+  geom_point(aes(y=tp1_AOO_1), col = "red")
+
+
+Change_Data %>% group_by(dataset) %>% rstatix::get_summary_stats(type="common")
 
 ### =============================================== ###
 #rm(species_data_new2, log_ratio_data)
