@@ -16,24 +16,20 @@ format:
 ```{r, message = F}
 rm(list=ls())
 gc()
-library(sf)
-sf_use_s2(FALSE)
+
+library(sf); sf_use_s2(FALSE)
 library(terra)
 library(dplyr)
 library(ggplot2)
 library(ggfortify)
 
-
-
-### require dependencies to be installed (see GitHub of these packages):
-pacman::p_load(rasterSp, climateNiche) 
+pacman::p_load(rasterSp, climateNiche) # require dependencies to be installed (see GitHub of these packages)
 
 ```
 
 ## Variables
 
 ```{r}
-
 source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/")
 
 # folder path to output folder
@@ -42,7 +38,8 @@ source_predictors <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/PhD_Proj
 CHELSA_path <- paste0(source_predictors, "Chelsa_Bio_PET/")
 # CGIAR_path <- paste0(source_predictors, "CGIAR_PET/")
 
-name_vector <- read.csv(paste0(out_path, "csv/sp_names_predictors.csv"))[,2] %>% unique()
+name_vector <- read.csv("Taxonomic/sp_names_predictors.csv")[,2] %>% unique()
+TaxLookup <- read.csv("Taxonomic/BirdLife_TaxLookup_UTaxonstand.csv")
 
 # List all the .tif files in the directory
 tif_files <- list.files(path=CHELSA_path, pattern = ".tif$")
@@ -62,10 +59,14 @@ rm(Tax)
 ## Read + Aggregate CHELSA
 
 ```{r}
-sf_use_s2(FALSE)
-climate_stack <- rast(paste0(CHELSA_path, tif_files)) # Original Resolution 0.5km x 0.5km
-# Define the target resolution in meters
-target_resolution <- c(100)  # Factor 100 to get to 50x50km
+# Define target CRS:
+# target_crs <- "ESRI:53017"
+
+# read shapefiles:
+climate_stack <- rast(paste0(CHELSA_path, tif_files))
+
+# Define the target resolution
+target_resolution <- c(120)  # Factor 120 to get from  0.008333° to 1° (110km)
 
 # Aggregate the raster stack to the target resolution
 climate_stack_agg <- aggregate(climate_stack, ## This takes a couple of minutes.
@@ -93,8 +94,6 @@ Merge with taxonomic information
 
 All_sp <- readRDS(paste0(out_path, "rds/BOTW_All_species.rds"))
 # unique(All_sp$sci_name) %>% write.csv(paste0(out_path, "csv/BOTW_all_sp_names.csv"))
-intersect(All_sp$sci_name, name_vector) #733 species of 841 total // 671 of 774
-setdiff(name_vector, All_sp$sci_name) #103 sp
 
 BirdLife <- All_sp %>% 
   #filter(sci_name %in% name_vector) %>% 
@@ -103,16 +102,20 @@ BirdLife <- All_sp %>%
            origin %in% c(1,2) & # Native or reintroduced (not introduced or vagrant)
            presence %in% c(1,2,3))  # Extant, probably extant, possibly extant (not possibly extinct or extinct)
 
+# st_write(BirdLife, paste0(out_path, "SpeciesData_climateNiche/BirdLife_all.shp"), append=F)
+
+```
 
 
-# Calculate global range size for each species
+```{r}
+
+# Calculate global range size for each species (takes a while...)
 sp <- unique(BirdLife$sci_name)
 RangeSizeList <- list()
 for (s in seq_along(sp)){
   temp <- BirdLife %>% filter(sci_name == sp[s]) %>% dplyr::select(sci_name)
-  
   temp$GlobRangeSize_m2 <- as.numeric(st_area(temp))
-  temp$GlobRangeSize_km2 <- temp$GlobRangeSize_m2/1000 #its actually in 10,000 km2
+  temp$GlobRangeSize_km2 <- temp$GlobRangeSize_m2/1000 
   temp2 <- temp %>% st_drop_geometry()
   temp2 <- temp2 %>% 
     group_by(sci_name) %>% 
@@ -125,33 +128,98 @@ for (s in seq_along(sp)){
         nrow(temp) == 1 ~ GlobRangeSize_km2))
   
   RangeSizeList[[s]] <- temp2[1,]
-  
-}
+  }
 
 RangeSizeBOTW <- plyr::rbind.fill(RangeSizeList)
 saveRDS(RangeSizeBOTW, paste0(out_path, "rds/RangeSizeBOTW_df.rds"))
 
 
-Tax_lookup <- read.csv("out/csv/TaxLookUp_final_v2.csv")
-BirdLife %>% filter(sci_name %in% Tax_lookup$name_in_data) %>% st_drop_geometry() %>% distinct(sci_name) %>% nrow() # 602
-BirdLife %>% filter(sci_name %in% unique(Tax_lookup$submitted_name)) %>% st_drop_geometry() %>% distinct(sci_name) %>% nrow() #599
-BirdLife %>% filter(sci_name %in%unique(Tax_lookup$sp_BirdTree)) %>% st_drop_geometry() %>% distinct(sci_name) %>% nrow() #514
-BirdLife %>% filter(sci_name %in% unique(Tax_lookup$sp_BirdLife)) %>% st_drop_geometry() %>% distinct(sci_name) %>% nrow() #599
+```
+```{r}
+#Tax_lookup <- read.csv2("out/csv/Tax_lookup_BirdLife_eBird_BirdTree_AtlasBOTW.csv")
 
-name_vector <- Tax_lookup %>% distinct(name_in_data) %>% na.omit() %>% as.vector()
-BirdLife %>% filter(sci_name %in% unique(Tax_lookup$sp_BOTW)) %>% st_drop_geometry() %>% distinct(sci_name) %>% nrow()#738
+####
+require(openxlsx)
+databaseAves <- read.xlsx("Taxonomic/Birds_ITIS_database.xlsx") 
+BL2 <- BirdLife %>% pull(sci_name)
+Tax_df <- nameMatch(spList = BL2, author = F, spSource = databaseAves) %>% 
+  distinct(Submitted_Name, Accepted_SPNAME) %>% 
+  rename("BL_names" = "Submitted_Name") %>%
+  mutate(Accepted_SPNAME2 = case_when(is.na(Accepted_SPNAME) ~ BL_names,
+                                      !is.na(Accepted_SPNAME) ~ Accepted_SPNAME))
 
-BL_reduced <- BirdLife %>% filter(sci_name %in% unique(Tax_lookup$name_in_data)) 
+DF <- read.csv("Taxonomic/sp_names_data.csv") %>% pull(scientificName)
+Tax_df_data <- nameMatch(spList = DF, author = F, spSource = databaseAves) %>% 
+  distinct(Submitted_Name, Accepted_SPNAME) %>%
+  rename("data_names" = "Submitted_Name") %>%
+  mutate(Accepted_SPNAME2 = case_when(is.na(Accepted_SPNAME) ~ data_names,
+                                      !is.na(Accepted_SPNAME) ~ Accepted_SPNAME))
+Tax_df2 <- left_join(Tax_df_data %>% select(-Accepted_SPNAME), Tax_df %>% select(-Accepted_SPNAME)) %>% unique()
+
+n_distinct(Tax_df2$data_names)
+n_distinct(Tax_df2$BL_names)
+n_distinct(Tax_df2$Accepted_SPNAME2)
+colSums(is.na(Tax_df2))
+####
+
+
+Tax_lookup <- TaxLookup 
+BirdLife %>% filter(sci_name %in% Tax_df2$BL_names) %>% st_drop_geometry() %>% distinct(sci_name) %>% nrow() #768
+BirdLife %>% filter(sci_name %in% unique(Tax_lookup$sp_atlas)) %>% st_drop_geometry() %>% distinct(sci_name) %>% nrow() #733
+BirdLife %>% filter(sci_name %in%unique(Tax_lookup$Accepted_SPNAME)) %>% st_drop_geometry() %>% distinct(sci_name) %>% nrow() #657
+
+
+BirdLife %>% filter(sci_name %in% unique(Tax_df2$BL_names)) %>% st_drop_geometry() %>% distinct(sci_name) %>% nrow() #768
+
+
+BL_reduced <- BirdLife %>% filter(sci_name %in%  unique(Tax_df2$BL_names)) 
 
 
 saveRDS(BL_reduced, paste0(out_path, "rds/BirdLife_reduced.rds"))
-st_write(BL_reduced, paste0(out_path, "SpeciesData_climateNiche/BirdLife.shp"), append=F)
+st_write(BL_reduced, paste0(out_path, "SpeciesData_climateNiche/BirdLife_reduced.shp"), append=F)
+```
+
+
+
+# Taxonomic normalization (skip)
+```{r} 
+sp_data_tax_lookup <- read.csv("Taxonomic/Sp_in_data_GBIF_normalized.csv")%>% 
+  mutate(
+    canonicalName = case_when(
+      matchType %in% c("HIGHERRANK", "NONE") ~ verbatimScientificName,
+      matchType %in% c("FUZZY", "EXACT") ~ canonicalName)) %>%
+  select(verbatimScientificName, canonicalName) %>% 
+  rename("name_in_data" = "verbatimScientificName")
+colSums(is.na(sp_data_tax_lookup))
+
+x <- taxize::synonyms_df(taxize::synonyms(sp_data_tax_lookup$verbatimScientificName[1:3], db="iucn" ,key = "0f6be312676213695155e240c5d79f183f67c1ea9bfa012e20c1d427f5c8dab3"))
+
+Tax_lookup <- read.csv2("Taxonomic/BOTW_all_sp_names_all_normalized.csv")%>% 
+  mutate(
+    canonicalName = case_when(
+      matchType %in% c("HIGHERRANK", "NONE") ~ verbatimScientificName,
+      matchType %in% c("FUZZY", "EXACT") ~ canonicalName)) %>%
+  select(verbatimScientificName, canonicalName)
+colSums(is.na(Tax_lookup))
+head(Tax_lookup)
+
+BL_tax_merged <- merge(BirdLife, Tax_lookup, by.x=c("sci_name"), by.y=c("verbatimScientificName"))
+colSums(is.na(BL_tax_merged))
+BL_normalized <- BL_tax_merged %>% filter(canonicalName %in% sp_data_tax_lookup$canonicalName)
+
+BL_normalized_clean <- BL_normalized %>% left_join(sp_data_tax_lookup)
+length(unique(BL_normalized_clean$name_in_data))
+
+
+saveRDS(BL_normalized_clean, paste0(out_path, "rds/BirdLife_reduced.rds"))
+st_write(BL_normalized_clean, paste0(out_path, "SpeciesData_climateNiche/BirdLife.shp"), append=F)
 
 ```
 
 # Species Niches via PCA
 
 ```{r}
+library(colors3d)
 
 climate_stack_agg <- readRDS(paste0(out_path, "rds/climate_stack_agg.rds"))
 range(climate_stack_agg)
@@ -160,31 +228,38 @@ colSums(is.na(climate_stack_agg[1]))
 pca_res <- prcomp(climate_stack_agg, scale. = T)
 summary(pca_res)
  pca_res$rotation %>% write.csv(paste0(out_path, "csv/PCA_loadings_climNiche.csv"))
- autoplot(pca_res,loadings = TRUE, loadings.colour = 'blue',
-          loadings.label = TRUE, loadings.label.size = 6)
+# Calculate colors based on loadings
+loadings_colors <- colors2d(pca_res$rotation[,1:2])
+ 
+ 
+# Plot biplot with colored loadings
+autoplot(pca_res, loadings = TRUE, loadings.colour = loadings_colors,
+          loadings.label = TRUE, loadings.label.size = 6, show.legend = T)+
+    geom_vline(xintercept = 0, lty = 2) +
+  geom_hline(yintercept = 0, lty = 2)+
+    theme(legend.position = "left")
 
 
 # Rasterize species range polygons  ======================================================
-# Takes about 29 minutes for 827 species (v1); 17:15-17:24 for 602 speciess
-r_birds <- rasterizeRange(dsn=paste0(out_path, "SpeciesData_climateNiche/BirdLife.shp"),
-                          id="sci_nam", touches=TRUE, save = TRUE,
-                          path = paste0(out_path, "SpeciesData_climateNiche/sp_rasters_v2/"))
+# Takes about 29 minutes for 827 species (v1); 17:15-17:24 for 602 speciess ; 15:18- for 674 species 
+r_birds <- rasterizeRange(dsn=paste0(out_path, "SpeciesData_climateNiche/BirdLife_reduced.shp"),
+                          id="sci_nam", touches=TRUE, save = TRUE, resolution = 1,
+                          path = paste0(out_path, "SpeciesData_climateNiche/sp_rasters_1_v2/"))
 
 
 
 ## Read bird shapefiles back in ===========================================================
-sp_v <- stringr::str_split(list.files(paste0(out_path, "SpeciesData_climateNiche/sp_rasters_v2/")), 
-                           pattern = "_0.5.tif")
+sp_v <- stringr::str_split(list.files(paste0(out_path, "SpeciesData_climateNiche/sp_rasters_1_v2/")), 
+                           pattern = ".tif")
 sp_v <- do.call(rbind, sp_v)[,1] 
+sp_v <- gsub("_1", "", sp_v)
 sp_v <- gsub("_", " ", sp_v)
-setdiff(name_vector[[1]], sp_v) # 88 species in data not in shapefile
-intersect(name_vector[[1]], sp_v)
 
-r_birds <- rast(paste0(out_path, "SpeciesData_climateNiche/sp_rasters_v2/", 
-                       list.files(paste0(out_path, "SpeciesData_climateNiche/sp_rasters_v2/"), 
+r_birds <- rast(paste0(out_path, "SpeciesData_climateNiche/sp_rasters_1_v2/", 
+                       list.files(paste0(out_path, "SpeciesData_climateNiche/sp_rasters_1_v2/"), 
                                   pattern =".tif")))
 
-r_birds2 <- resample(r_birds, climate_stack_agg)
+r_birds2 <- r_birds
 plot(r_birds2[[1]])
 names(r_birds) <- sp_v
 
@@ -206,7 +281,6 @@ for(i in seq_along(sp_v)){
 
 coords_df <- do.call(rbind,coords_sp)
 
-
 # Loop through species to extract climate values  ======================================
 sp_v <- unique(coords_df$species)
 clim_vals_list <- list()
@@ -227,17 +301,18 @@ for (i in seq_along(sp_v)){
 
 
 clim_vals_all <- do.call(rbind, clim_vals_list) 
-
-
 colSums(is.na(clim_vals_all))
 
 # Checking NAs #
-clim_vals_all %>% filter_all(any_vars(!is.na(.))) %>% distinct(species) %>% nrow() # non-NAs for 827 species
+clim_vals_all %>% filter_all(any_vars(!is.na(.))) %>% distinct(species) %>% nrow() # non-NAs for 826 species
 clim_vals_all %>% filter_all(any_vars(is.na(.))) %>% distinct(species) %>% nrow() # NAs for 0 species
 
+clim_vals_all_tax <- left_join(clim_vals_all, Tax_df2 %>% rename("species" = "BL_names"))
+
+
 # Save Objects #
-saveRDS(clim_vals_all, paste0(out_path, "rds/species_climate_df_v2.rds"))
-saveRDS(pca_all, paste0(out_path, "rds/pca_all_v2.rds"))
+saveRDS(clim_vals_all, paste0(out_path, "rds/species_climate_df_v3.rds"))
+saveRDS(pca_all, paste0(out_path, "rds/pca_all_v3.rds"))
 
 # Plot Climate Space for a couple of species # 
 library(ggplot2); library(ggfortify)
@@ -257,8 +332,7 @@ ggplot()+
 
 ```{r}
 
-
-pca_all <-  readRDS(paste0(out_path, "rds/pca_all_v2.rds")) # Predicted values in PCA for species
+pca_all <-  readRDS(paste0(out_path, "rds/pca_all_v3.rds")) # Predicted values in PCA for species
 all_niches <- list()
 # Calculate niche breadth
 for (i in seq_along(pca_all)){
@@ -277,10 +351,15 @@ Niches_df<-  plyr::rbind.fill(all_niches)[,1:3]%>% rename("verbatim_name" = "spe
 Niches_df$verbatim_name = gsub("_", " ",Niches_df$verbatim_name)
 
 colSums(is.na(Niches_df))
-saveRDS(Niches_df, paste0(out_path, "rds/Niches_df_v2.rds"))
 
-ggplot()+
-  geom_point(data = Niches_df, aes(x = sd_PC1, y = sd_PC2, col = verbatim_name), show.legend = F) +
+Niches_df2 <- left_join(Niches_df, Tax_df2 %>% rename("verbatim_name" = "BL_names"))
+
+
+saveRDS(Niches_df2, paste0(out_path, "rds/Niches_df_v3.rds"))
+
+ggplot(data = Niches_df2, aes(x = sd_PC1, y = sd_PC2))+
+  geom_point(data = Niches_df2, aes(x = sd_PC1, y = sd_PC2, col = data_names), show.legend = F) +
+  geom_smooth()+
   theme_bw()
  
 ```

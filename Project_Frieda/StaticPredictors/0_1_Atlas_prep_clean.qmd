@@ -14,7 +14,9 @@ format:
 
 # ***Predicting temporal change from static patterns***
 
-This first script is dedicated to work the atlas data and calculate AOO, OAR/D, Log response ratio, Telfer Index. In parallel, the data is iteratively checked at each step to exclude errors in data processing (Script: *`0_0_Double_Checking_DataProcessing.R`*)
+This first script is dedicated to work the atlas data and calculate AOO, OAR/D, Log response ratio, Telfer Index.
+
+In parallel, the data is iteratively checked at each step to exclude errors in data processing (Script: *`0_0_Double_Checking_DataProcessing.R`*)
 
 # Libraries
 
@@ -68,7 +70,7 @@ out_path <- c(paste0(source_Git, "out/"))
 data_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_beast_data.rds"), 
                 paste0(source_paths[2], "Birds_Atlas_New_York_beast_data.rds"), 
                 paste0(source_paths[3], "Birds_atlas_Japan_beast_data.rds"),
-                paste0(out_path, "rds/EBBA_change_new.rds"))
+                paste0(source_paths[4], "2Birds_atlas_EBBA_beast_data.rds"))
 
 grid_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_grid.gpkg"), 
                 paste0(source_paths[2], "Birds_Atlas_New_York_grid.gpkg"), 
@@ -83,6 +85,12 @@ time_periods <- c(1,2)
 desired_levels <- factor(c("1", "2","4", "8", "16", "32", "64", "128"), ordered = T,  
                          levels = c("1", "2","4", "8", "16", "32", "64", "128")) 
 
+# list of crs in order of atlas_names
+crs_list <- list( "EPSG:5514", # CZ
+                  "EPSG:32118", # NY
+                  "EPSG:6668", # JP
+                  "EPSG:3035") # EU
+names(crs_list) <- c("CZ", "NY", "JP", "EU")
 
 ```
 
@@ -96,21 +104,44 @@ for (i in seq_along(data_paths)){
   pres_dat <- readRDS(data_paths[i])
   sy <- sort(unique(pres_dat$start_year))
   
-## Add time-period column 
-  pres_dat2 <- pres_dat %>% 
-    mutate(tp = case_when(start_year == sy[1] ~ 1,
-                          start_year == sy[2] ~ 2)) %>% 
+  pres_dat2 <- pres_dat %>%     
+    ungroup() %>%
+    # Add time-period column
+    mutate(tp = case_when(start_year == sy[1] ~ 1, start_year == sy[2] ~ 2)) %>% 
     filter(tp %in% c(1,2)) %>%
-    reorder_levels(cell_grouping, order=desired_levels)
+    # Reorder spatial scales from small to large
+    reorder_levels(cell_grouping, order=desired_levels) %>% 
+    select(dataset, tp, cell_grouping, 
+           cell_label, cell_lat, cell_long, area, 
+           verbatim_name) 
   presence_data[[i]] <- pres_dat2
 }
 
-# Merge list together
-presence_data2 <- plyr::rbind.fill(presence_data, fill=T) %>% select(-repeated)
-saveRDS(presence_data2, paste0(out_path, "rds/presence_data_raw.rds"))
+# Merge list of atlases together
+presence_data2 <- plyr::rbind.fill(presence_data, fill=T) %>% 
+  distinct(dataset, tp, verbatim_name, cell_grouping, cell_label, .keep_all = T)
 
+# ========================== Data checks ======================================= #
+
+colSums(is.na(presence_data2))
+
+# Summary sp and site numbers: Before reduction
+presence_data2 %>% 
+  filter(cell_grouping == 1) %>% 
+  group_by(dataset, tp) %>% 
+  summarise(n_sp = n_distinct(verbatim_name),
+            n_sites = n_distinct(cell_label))
+
+presence_data2 %>% 
+  ungroup() %>% 
+  summarise(n_sp = n_distinct(verbatim_name)) # 989 sp in total (before reduction)
+
+# ==================== Save output & clean up environment ===================== #
+
+# saveRDS(presence_data2, paste0(out_path, "rds/presence_data_raw.rds"))
 rm(pres_dat, sy, pres_dat2)
 
+# ============================================================================= #
 ```
 
 ## Reduce biases
@@ -135,25 +166,40 @@ rm(pres_dat, sy, pres_dat2)
     | Japan    | 208      | 32                                    |
 
 ```{r, message = F}
-## Cells sampled twice 
+
+## Filter level 1: Cells sampled twice 
 common_cells <- presence_data2 %>% 
   ungroup() %>% 
-  distinct(dataset, cell_grouping, cell_label, tp) %>%
+  distinct(dataset, cell_grouping, cell_label, tp) %>% ungroup() %>%
   group_by(dataset, cell_grouping, cell_label) %>%
-  mutate(num_periods_cells = n_distinct(tp)) %>%
+  # How often each cell was sampled:
+  mutate(num_periods_cells = n_distinct(tp)) %>% 
+  # Dummy variable for easy filtering of cells that were sampled repeatedly
   mutate(repeated = case_when(
-    num_periods_cells == 2 ~ 1,
+    num_periods_cells == 2 ~ 1, 
     num_periods_cells %in% c(1,2) ~ 0)) %>% 
-  ungroup() %>% group_by(dataset) %>% 
-  select(dataset, cell_grouping, cell_label, num_periods_cells, repeated) %>% unique()
+  ungroup() %>% 
+  group_by(dataset) %>% 
+  select(dataset, cell_grouping, cell_label, num_periods_cells, repeated) %>% 
+  distinct()
 
 presence_data_rep <- full_join(presence_data2, common_cells)
+
 excluded_cells <- common_cells %>% 
   filter(num_periods_cells == 1) %>% 
   distinct(dataset, cell_grouping, cell_label)
-table(excluded_cells$dataset) # EBBA: 66, JP: 3, NY = 20
 
-# Species sampled twice in the remaining cells
+# ========================== Data checks ======================================= #
+common_cells %>% 
+  filter(num_periods_cells == 2 & cell_grouping == 1) %>%
+  group_by(dataset, cell_grouping) %>% 
+  summarise(n = n_distinct(cell_label))
+
+table(excluded_cells$dataset) # EBBA: 66 (1706?), JP: 3, NY = 20
+# ============================================================================= #
+
+
+## Filter level 2: Species sampled twice in the remaining cells
 common_sp <- presence_data_rep %>% filter(repeated == 1 & cell_grouping == 1) %>% 
     group_by(dataset, verbatim_name) %>%
     summarise(num_periods_sp = n_distinct(tp)) %>% 
@@ -162,12 +208,50 @@ common_sp <- presence_data_rep %>% filter(repeated == 1 & cell_grouping == 1) %>
 excluded_sp <- common_sp %>% 
   filter(num_periods_sp == 1) %>% 
   distinct(dataset, verbatim_name)
-table(excluded_sp$dataset) # CZ: 19, EBBA = 14, JP = 32, NY = 16
 
-presence_data3 <- full_join(presence_data_rep, common_sp) 
+# ========================== Data checks ======================================= #
+common_sp %>% 
+  filter(num_periods_sp == 2) %>%
+  group_by(dataset) %>% 
+  summarise(n = n_distinct(verbatim_name))
+
+table(excluded_sp$dataset) # CZ: 19, EBBA = 14 (94?), JP = 32, NY = 16
+# ============================================================================= #
+
+# Add Diversity Metris to data: 
+presence_data3 <- full_join(presence_data_rep, common_sp)  
+# Subset with only repeated cells
+presence_data3_red <- presence_data3 %>% 
+  filter(repeated == 1 & num_periods_sp == 2) %>%  # Gamma is per atlas
+    group_by(dataset, tp, cell_grouping) %>% 
+    mutate(Gamma = n_distinct(verbatim_name)) %>% 
+    ungroup() %>% 
+    # Alpha and Beta are per cell
+    group_by(dataset, tp, cell_grouping, cell_label) %>% 
+    mutate(Alpha = mean(n_distinct(verbatim_name))) %>% 
+    mutate(Beta = Gamma / Alpha) %>%
+    ungroup() %>% 
+    # Mean Beta and Mean Alpha are per atlas
+    group_by(dataset, tp, cell_grouping) %>%  
+    mutate(Mean_Alpha = mean(Alpha),
+           Mean_Beta = Gamma / Mean_Alpha) %>% 
+    ungroup()
+
+# ========================== Data checks ======================================= #
+presence_data3 %>% 
+  filter(cell_grouping == 1) %>%
+  group_by(dataset, tp) %>% 
+  rstatix::get_summary_stats(type = "robust")
+
+presence_data3_red %>% 
+  filter(cell_grouping == 1) %>%
+  group_by(dataset, tp) %>% 
+  rstatix::get_summary_stats(
+    c(area, Gamma, Alpha, Beta, Mean_Alpha, Mean_Beta),
+    type = "robust")
+
+# ==================== Save output & clean up environment ===================== #  
 saveRDS(presence_data3, paste0(out_path, "rds/presence_data_reduced.rds"))
-
-presence_data3_red <- presence_data3 %>% filter(repeated == 1 & num_periods_sp == 2)
 rm(common_sp, presence_data_rep, presence_data2)
 
 ```
@@ -175,7 +259,6 @@ rm(common_sp, presence_data_rep, presence_data2)
 # Read & Process Grids
 
 ```{r}
-
 # make list with names of layers so we can read them in below
 layers_list <- list()
 for (i in seq_along(grid_paths)){
@@ -189,7 +272,8 @@ grid_list2 <- list()
 for (a in seq_along(grid_paths)) {
     grid_list <- sapply(layers_list[[a]], function(i) {
       st_read(grid_paths[[a]], paste(i), quiet = TRUE) %>% 
-        st_transform(crs = 4326) %>% reorder_levels( cell_grouping, order=desired_levels)
+        st_transform(crs = crs_list[[a]]) %>% 
+        reorder_levels( cell_grouping, order=desired_levels)
       }, simplify = FALSE)
     grid_list2[[a]] <- grid_list
     }
@@ -202,7 +286,6 @@ rm(grid_list, a, layers, layers_list)
 ```{r, excluded cells and species}
 
 pdf(file = "out/figures/CellsSampledMaps.pdf", onefile = T, paper = "a4")
-
 for (a in seq_along(grid_list2)){
   for (scale in seq_along(length(grid_list2[[a]]))){
   t_common_cells <- common_cells %>% 
@@ -217,6 +300,10 @@ for (a in seq_along(grid_list2)){
     reorder_levels(repeated, order = c("never", "once", "both"))
   plot(t_grid2["repeated"], pal = hcl.colors(3, hcl.pals(type = "divergingx")[13], alpha = 0.7))
   #tmap::qtm(t_grid2, "repeated", style = "col_blind", fill = c("black"))
+  print(t_grid2 %>% 
+    filter(repeated == "both" & cell_grouping == 1) %>% 
+    mutate(Total_area_sampled = sum(area)) %>% 
+    distinct(Total_area_sampled))
   }
 }
 
@@ -259,12 +346,14 @@ for (n_atlas in seq_along(atlas_names)){
       mutate(Total_area = sum(atlas_1scale$area))
     
     # Calculate total number of total cells sampled:
-    Total_Ncells_samp <- presence_data3_red %>% filter(dataset == atlas_name & cell_grouping == grain_d) %>%
+    Total_Ncells_samp <- presence_data3_red %>% 
+      filter(dataset == atlas_name & cell_grouping == grain_d) %>%
       select(dataset, cell_grouping, cell_label, area) %>% unique() %>% na.omit() %>%
       group_by(dataset, cell_grouping) %>% distinct(cell_label, .keep_all = T)%>%
-      summarise(n_cells = n_distinct(cell_label)) %>% 
+      summarise(n_cells = n_distinct(cell_label),
+                area_samp = sum(area)) %>% 
       ungroup() %>%
-      distinct(n_cells)
+      distinct(n_cells, area_samp)
     
     # Calculate total number of total cells per atlas:
     Total_Ncells_atlas <- atlas_1scale %>%
@@ -273,6 +362,10 @@ for (n_atlas in seq_along(atlas_names)){
       pull(Total_Ncells) %>%
       unique()
     
+    
+    
+    # Merge columns together
+    atlas_1scale$Total_area_samp <- Total_Ncells_samp$area_samp
     atlas_1scale$Total_Ncells_samp <- Total_Ncells_samp$n_cells
     atlas_1scale$Total_Ncells_atlas <- Total_Ncells_atlas
     map_atlas_1scale <- atlas_1scale
@@ -281,7 +374,7 @@ for (n_atlas in seq_along(atlas_names)){
     pres_data_1atlas <- presence_data3_red %>% 
       filter(dataset == atlas_name) %>%
       filter(cell_grouping == grain_d) %>%
-      select(dataset, tp, verbatim_name, samp_effort_type, effort, cell_label, cell_grouping, repeated)
+      select(dataset, tp, verbatim_name, cell_label, cell_grouping, repeated)
   
     # Merge sampled and unsampled cells for calculations:
     pres_data_full_1atlas <- left_join(map_atlas_1scale, pres_data_1atlas)
@@ -328,10 +421,10 @@ occ_data <- pres_dat_final %>%
 # Calculate AOO:
   mutate(AOO = occupancy_area) %>%
 # Calculate relative Occupancy:
-  mutate(relative_occupancy_area = occupancy_area/Total_area) %>%
+  mutate(relative_occupancy_area = occupancy_area/Total_area_samp) %>%
   mutate(relative_occupancy_Ncells = occupancy_Ncells/Total_Ncells_samp) %>% ungroup() %>%
   group_by(dataset, tp, cell_grouping) %>%
-  mutate(total_SR_atlas = n_distinct(verbatim_name)) %>%
+  mutate(total_SR_atlas_AOOcalc = n_distinct(verbatim_name)) %>%
 # Remove duplicated rows:
   distinct() 
 
@@ -367,8 +460,10 @@ rm(occ_data)
 # save reduced version of this to file:
 
 species_data <- occ_data_final %>% 
-  select(dataset, tp, cell_grouping, scale, verbatim_name, Total_area, Total_Ncells_atlas, Total_Ncells_samp, 
-         occupancy_area, occupancy_Ncells, AOO, relative_occupancy_area, relative_occupancy_Ncells, mean_area, total_SR_atlas, grain) %>%
+  select(dataset, tp, cell_grouping, scale, verbatim_name, 
+         Total_area, Total_area_samp, Total_Ncells_atlas, Total_Ncells_samp, 
+         occupancy_area, occupancy_Ncells, AOO, relative_occupancy_area, relative_occupancy_Ncells, 
+         mean_area, total_SR_atlas_AOOcalc, grain) %>%
   distinct() 
 
 species_data %>% write.csv(paste0(out_path, "csv/Occupancy_table.csv"))
@@ -399,27 +494,27 @@ for (a in seq_along(atlas_names)){
       # Exclude saturated scales
       temp_df_red <- temp_df_s %>% filter(relative_occupancy_Ncells < 1)
       
-      if (nrow(temp_df_red) < 2) {
+      if (nrow(temp_df_red) < 2 & nrow(temp_df_red) > 0) {
         out_df <- data.frame(verbatim_name = species_names[s],
                              dataset = atlas_names[a],
                              tp = time_periods[t],
                              exclude = 1,
                              available_scales = nrow(temp_df_red),
-                             mean_relOcc = mean(temp_df_red$relative_occupancy_Ncells))
+                             mean_relOcc = mean(temp_df_red$relative_occupancy_Ncells, na.rm=T))
       } else if (nrow(temp_df_red) >= 2) {
         out_df <- data.frame(verbatim_name = species_names[s],
                              dataset = atlas_names[a],
                              tp = time_periods[t],
                              exclude = 0,
                              available_scales = nrow(temp_df_red),
-                             mean_relOcc = mean(temp_df_red$relative_occupancy_Ncells))
+                             mean_relOcc = mean(temp_df_red$relative_occupancy_Ncells, na.rm=T))
       } else {
                 out_df <- data.frame(verbatim_name = species_names[s],
                              dataset = atlas_names[a],
                              tp = time_periods[t],
-                             exclude = NA,
+                             exclude = 1,
                              available_scales = nrow(temp_df_red),
-                             mean_relOcc = mean(temp_df_red$relative_occupancy_Ncells))
+                             mean_relOcc = 1)
                 }
       list_sp[[s]] <- out_df
     
@@ -434,9 +529,11 @@ for (a in seq_along(atlas_names)){
 atlas_df <- plyr::rbind.fill(list_a)
 sp_data_new <- full_join(species_data, atlas_df)
 
+
+
 ```
 
-```{r OAR}
+```{r, OAR}
 dd <- sp_data_new %>%
   filter(exclude == 0) %>%
   filter(relative_occupancy_Ncells < 1) %>% # exclude saturated scales
@@ -500,6 +597,13 @@ species_data_new <- merge(sp_data_new,
 rm(dd, OAR_list_sp_tp_atlas, OAR_list_sp_tp, OAR_df_sp_tp, OAR_list_sp, OAR_df_sp, OAR_df, sp, atlas_1time, model_df )
 ### =============================================== ###
 
+colSums(is.na(species_data_new))
+
+species_data_new %>% filter(exclude == 1) %>% group_by(dataset, tp) %>% summarize(n = n_distinct(verbatim_name)) 
+# 28 species from CZ lost (21 from tp1 and 24 from tp2)
+
+
+
 ```
 
 ## Telfer Index of change (not static)
@@ -526,6 +630,7 @@ telfer_res_df <- plyr::rbind.fill(telfer_res, fill = T) %>% distinct() %>%
 
 
 species_data_new2 <- left_join(species_data_new, telfer_res_df)
+colSums(is.na(species_data_new2))
 
 ```
 
@@ -595,7 +700,8 @@ log_ratio_data <- species_data_wide %>%
   mutate(log_R2_1 = log(tp2_AOO_1/tp1_AOO_1)) %>%
   select(dataset, verbatim_name, log_R2_1, tp1_AOO_1, tp2_AOO_1)
 
-species_data_bigtable <- merge(species_data_new2, log_ratio_data, by=c("verbatim_name", "dataset"),all = T)
+species_data_bigtable <- merge(species_data_new2, log_ratio_data, 
+      by=c("verbatim_name", "dataset"),all = T)
 species_data_bigtable %>% write.csv(file=paste0(out_path, "csv/Big_table_CZ_JP_NY_EU.csv"))
 
 
@@ -621,12 +727,12 @@ threshold <- quantile(Change_Data$log_R2_1, probs = 0.95)
 filtered_df <- Change_Data %>%
   filter(log_R2_1 >= threshold)
 
-range(filtered_df$log_R2_1) #[1] 1.228595 4.002097
+range(filtered_df$log_R2_1) #[1] 1.035344 3.761139
 
 filtered_df <- Change_Data %>%
   filter(log_R2_1 <= threshold)
 
-range(filtered_df$log_R2_1) #[1] -2.935921  1.219707
+range(filtered_df$log_R2_1) #[1] -3.296224  1.028331
 
 library(ggplot2)
 ggplot(Change_Data, aes(x = log_R2_1))+
@@ -637,9 +743,9 @@ Change_Data2 <- Change_Data %>%
 
 ggplot(Change_Data2, aes(x=log_R2_1))+
   geom_point(aes(y = tp2_AOO_1), col="blue")+
+  geom_point(aes(y = tp1_AOO_1), col = "red")+
   geom_smooth(aes(y = tp2_AOO_1), col="blue")+
-  geom_smooth(aes(y = tp1_AOO_1), col="red")+
-  geom_point(aes(y=tp1_AOO_1), col = "red")
+  geom_smooth(aes(y = tp1_AOO_1), col="red")
 
 
 Change_Data %>% group_by(dataset) %>% rstatix::get_summary_stats(type="common")
@@ -647,5 +753,8 @@ Change_Data %>% group_by(dataset) %>% rstatix::get_summary_stats(type="common")
 ### =============================================== ###
 #rm(species_data_new2, log_ratio_data)
 ### =============================================== ###
+
+colSums(is.na(Change_Data))
+Change_Data %>% summarise(n = n_distinct(verbatim_name))
 
 ```

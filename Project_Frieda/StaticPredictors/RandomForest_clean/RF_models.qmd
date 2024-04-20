@@ -14,14 +14,20 @@ library(dplyr); library(randomForest); library(forcats); library(ggplot2); libra
 ```
 
 ```{r}
-df <- readRDS("../out/rds/All_predictors.rds") %>% 
-  unique() %>% 
-  select(-sp_atlas.adapted1, -avgEffort)%>% unique() %>%
+
+df2 <- readRDS("../out/rds/All_predictors_relativeGeom.rds")
+df2 %>% group_by(dataset, tp) %>% 
+  summarise(across(everything(), ~ sum(is.na(.x)))) %>% 
+  write.csv("../out/csv/Summary_NAs_All_predictors.csv")
+
+str(df)
+df2 <- df2 %>% 
+  select(-Family, -Order, -verbatim_name)%>% unique() %>%
   mutate(HWI = as.numeric(as.character(HWI)),
          Mass = as.numeric(as.character(Mass)),
          Range.Size = as.numeric(as.character(Range.Size)),
          FP = as.numeric(FP),
-         tp = as.factor(tp),
+         tp = as.integer(tp),
          dataset = as.factor(dataset),
          Habitat = as.factor(Habitat),
          RL_Category = as.factor(RL_Category),
@@ -29,50 +35,64 @@ df <- readRDS("../out/rds/All_predictors.rds") %>%
          Migration = as.factor(Migration),
          Trophic.Level = as.factor(Trophic.Level),
          Trophic.Niche = as.factor(Trophic.Niche),
-         Primary.Lifestyle = as.factor(Primary.Lifestyle),
-         grain = as.integer(grain)) %>%
-  select(-Total_Ncells_samp, -atlas_bearing, -atlas_bearingMinRect, -atlas_circ, -atlas_elonMinRect, -atlas_widthMinRect, -atlas_lengthMinRect, -atlas_xmin, -atlas_ymin, -atlas_xmax, -atlas_ymax, -atlas_yhalf, -atlas_xhalf, -bearing, -bearingMinRect, -circ, -elonMinRect, -widthMinRect, -lengthMinRect, -increment2) #%>%
-#  mutate(across(where(is.numeric), scale))
+         Primary.Lifestyle = as.factor(Primary.Lifestyle)) 
+str(df2)
 
-rownames(df) <- NULL
+cor_df <- df2 %>% select(-log_R2_1, -Telfer_1_2)
+cor_df_num <- cor_df %>% select(where(is.numeric)) %>% na.omit()
+
+
+# Find highly correlated variables
+highCor <- caret::findCorrelation(cor(cor_df_num), cutoff = 0.8, names=T, exact = F) 
+
+df_red_clean <- readRDS("../out/rds/All_predictors_relativeGeom.rds") %>%
+  unique() %>% 
+  mutate(HWI = as.numeric(as.character(HWI)),
+         Mass = as.numeric(as.character(Mass)),
+         Range.Size = as.numeric(as.character(Range.Size)),
+         FP = as.numeric(FP),
+         tp = as.integer(tp),
+         dataset = as.factor(dataset),
+         Order = as.factor(Order),
+         Family = as.factor(Family),
+         verbatim_name = as.factor(verbatim_name),
+         Habitat = as.factor(Habitat),
+         RL_Category = as.factor(RL_Category),
+         Habitat.Density = as.factor(Habitat.Density),
+         Migration = as.factor(Migration),
+         Trophic.Level = as.factor(Trophic.Level),
+         Trophic.Niche = as.factor(Trophic.Niche),
+         Primary.Lifestyle = as.factor(Primary.Lifestyle)) %>%
+  select(-all_of(highCor)) %>% distinct(tp, dataset, verbatim_name, .keep_all = T)
+
+saveRDS(df_red_clean, "../out/rds/Predictors_cleaned.rds")
+
+###
+
+df<- df_red_clean
 str(df)
 
+df$tp <- as.factor(as.character(df$tp))
 
 dta <- tidyr::gather(df, "variable", "value", -log_R2_1, -Order, -verbatim_name, -Family, -tp, -dataset)
 dta <- tidyr::gather(df[1:25] %>% select(-Telfer_1_2), "variable", "value", -log_R2_1, -verbatim_name, -tp, -dataset)
 
-ggplot(dta) +
-  geom_point(alpha = 0.4, aes(y = log_R2_1, x = value, color = tp)) +
-  geom_smooth(aes(x = log_R2_1, y = value)) + 
-  #labs(y = "", x = st_labs["log_R2_1"]) +
-  scale_color_brewer(palette = "Set2") +
-  facet_wrap(~ variable, scales = "free_x", ncol = 4) #+ scale_x_log10()
-
-
-
-df$verbatim_name <- as.factor(df$verbatim_name)
-df$Family <- as.factor(df$Family)
-df$Order <- as.factor(df$Order)
+dta %>% filter(tp == 1) %>%
+ggplot() +
+  geom_point(alpha = 0.4, aes(y = log_R2_1, x = value, color = dataset)) +
+  facet_wrap(~ variable, scales = "free_x", ncol = 4)
 
 
 o <- max.subtree(rfsrc(log_R2_1 ~., df %>% select(-Telfer_1_2, -verbatim_name), na.action = "na.impute"))
 o$topvars
 
-highly_correlated <- caret::findCorrelation(cor(df %>% 
-                                                  select(-log_R2_1, -Telfer_1_2, -Family, -Order, -verbatim_name) %>% 
-                                                  select_if(is.numeric), use="pairwise.complete.obs"), 
-                                            cutoff = 0.8, names = T)
 
-df_red_clean <- df %>% select(-all_of(highly_correlated)) %>% distinct(tp, dataset, verbatim_name, .keep_all = T) #630 species
-
-
-saveRDS(df_red_clean, "./out/rds/Predictors_cleaned.rds")
 ```
 
 ## Data
 ```{r, message = F}
-df <- df_red_clean
-#df <- readRDS("Predictors_cleaned.rds")
+df <- df_red_clean %>% na.omit()
+df <- readRDS("Predictors_cleaned.rds") %>% na.omit()
 
 colSums(is.na(df))
 
@@ -120,8 +140,8 @@ df_log_R <-  df %>%
   distinct(tp, dataset, verbatim_name, .keep_all = T) %>%
   filter(!is.na(log_R2_1))
 
-df_log_R1 <- df_log_R %>% filter(tp == 1) %>% select(-tp, -verbatim_name) # Future Change
-df_log_R2 <- df_log_R %>% filter(tp == 2) %>% select(-tp, -verbatim_name) # Past Change
+df_log_R1 <- df_log_R %>% filter(tp == 1) %>% select(-tp, -verbatim_name, -Family) # Future Change
+df_log_R2 <- df_log_R %>% filter(tp == 2) %>% select(-tp, -verbatim_name, -Family) # Past Change
 
 
 
@@ -131,8 +151,8 @@ df_telfer <- df %>%
   distinct(tp, dataset, verbatim_name, .keep_all = T) %>%
   filter(!is.na(Telfer_1_2))
 
-df_telfer1 <- df_telfer %>% filter(tp == 1) %>% select(-tp, -verbatim_name) # Future Change
-df_telfer2 <- df_telfer %>% filter(tp == 2) %>% select(-tp, -verbatim_name) # Past Change
+df_telfer1 <- df_telfer %>% filter(tp == 1) %>% select(-tp, -verbatim_name, -Family) # Future Change
+df_telfer2 <- df_telfer %>% filter(tp == 2) %>% select(-tp, -verbatim_name, -Family) # Past Change
 
 
 
@@ -324,12 +344,12 @@ varImpPlot(p_model)
 
 ```{r}
 pacman::p_load(ggRandomForests, randomForestSRC)
-df_f$Family <-as.factor(df_f$Family)
-df_f$Order <-as.factor(df_f$Order)
 
+str(df_f)
+df_f$Order <- as.factor(df_f$Order)
 ## Determine mtry & nodesize:
-#o <- tune(log_R2_1 ~ ., df_f)
-model <- rfsrc(log_R2_1 ~ ., data = df_f, ntree=1000, mtry = 35, nodesize = 2, na.action = "impute")
+o <- tune(log_R2_1 ~ ., df_f)
+model <- rfsrc(log_R2_1 ~ ., data = df_f, ntree=1000, mtry = 22, nodesize = 3, na.action = "na.impute")
 
 ## Determine important vars:
 o2 <- max.subtree(model)
@@ -346,7 +366,11 @@ plot(y)
 gg_dta <- gg_vimp(model) 
 plot(gg_dta)
 
-partialPlot(model, train, x.var = D_AOO_a, ylim=c(-1,1))
+partial.obj <- partial.rfsrc(model, partial.xvar = "D_AOO_a", partial.values = model$xvar$D_AOO_a)
+pdta <- get.partial.plot.data(partial.obj)
+plot(pdta$x, pdta$yhat, type = "b", pch = 16,
+      xlab = "D_AOO_a", ylab = "partial effect of D on Change")
+
 partialPlot(model, train, x.var = moran, ylim=c(-1,1))
 partialPlot(model, train, x.var = relative_occupancy_Ncells, ylim=c(-1,1))
 partialPlot(model, train, x.var = AlphaSR_sp, ylim=c(-1,1))

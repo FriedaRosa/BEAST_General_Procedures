@@ -12,11 +12,9 @@ out_path <- c(paste0(source_Git, "out/"))
 
 pacman::p_load("ncf", "dplyr", "rstatix", "sf")
 sf_use_s2(FALSE)
-presence_data_all <- readRDS(paste0(out_path, "rds/presence_data_all.rds"))
+presence_data_all <- readRDS(paste0(out_path, "rds/EBBA_df_all.rds"))
 
-
-
-time_periods <- c(1)
+time_periods <- c(1,2)
 atlas_names <- c("Birds_Atlas_EBBA")
 
 morans_list <- list()
@@ -26,7 +24,7 @@ morans_list2 <- list()
 data_list2 <- list()
 
 
-dd <- presence_data_all[[4]] %>% 
+dd <- presence_data_all %>% 
   ungroup() %>% 
   filter(cell_grouping == 1) %>% 
   select(dataset, tp, verbatim_name, area, area_cropped, cell_lat, cell_long, cell_label)
