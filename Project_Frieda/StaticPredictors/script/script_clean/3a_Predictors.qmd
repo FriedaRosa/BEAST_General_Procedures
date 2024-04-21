@@ -1,0 +1,298 @@
+---
+title: "Predictor Variables Calculations 1"
+author: "Friederike Wölke"
+date: "2024-04-20"
+output:
+  html_document:
+    code_folding: hide
+format:
+  html:
+    toc: true
+    number-sections: true
+    colorlinks: true
+---
+
+# Clean environment
+```{r}
+rm(list=ls())
+gc()
+```
+
+# Libraries
+```{r}
+# Essential data wrangling packages:
+library(dplyr) # Data wrangling
+library(rstatix) # Reorder levels function
+# library(plyr) (required but will be called individually for each function because of incompatibilities with dpylr functions)
+
+library(fossil) # Co occurrence
+# Spatial stuff:
+library(sf); sf_use_s2(FALSE) # Spatial stuff 1
+
+```
+
+# Paths
+```{r}
+### The paths =================================================
+source_atlas <- c("c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/")
+source_predictors <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/PhD_Projects/StaticPredictors/Data/")
+source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/")
+out_path <- c(paste0(source_Git, "out/"))
+
+# folder path to atlas data
+source_paths <- c(
+  paste0(source_atlas, "Birds_Atlas_Czechia/"),
+  paste0(source_atlas, "Birds_Atlas_New_York/"),
+  paste0(source_atlas, "Birds_atlas_Japan/"),
+  paste0(source_atlas, "Birds_atlas_EBBA/")
+)
+
+# create path to read in data and grids from variables
+data_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_beast_data.rds"), 
+                paste0(source_paths[2], "Birds_Atlas_New_York_beast_data.rds"), 
+                paste0(source_paths[3], "Birds_atlas_Japan_beast_data.rds"),
+                paste0(source_paths[4], "2Birds_atlas_EBBA_beast_data.rds"))
+
+grid_paths <- c(
+  paste0(source_paths[1], "Birds_Atlas_Czechia_grid.gpkg"),
+  paste0(source_paths[2], "Birds_Atlas_New_York_grid.gpkg"),
+  paste0(source_paths[3], "Birds_atlas_Japan_grid.gpkg"),
+  paste0(source_paths[4], "Birds_atlas_EBBA_grid.gpkg")
+)
+```
+
+# Variables
+```{r}
+# Important vectors  =================================================
+time_periods <- c(1,2)
+atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japan", "Birds_atlas_EBBA")
+desired_levels <- factor(c("1", "2", "4", "8", "16", "32", "64", "128"), ordered = T,
+  levels = c("1", "2", "4", "8", "16", "32", "64", "128"))
+
+# list of crs in order of atlas_names
+# Define CRS for each region
+crs_list <- list( "EPSG:5514", # CZ
+                  "EPSG:32118", # NY
+                  "EPSG:6668", # JP
+                  "EPSG:3035") # EU
+names(crs_list) <- c("CZ", "NY", "JP", "EU")
+
+pred_list <- list()
+```
+
+---
+
+# Data & Grids
+We need the highest resolution data = cell_grouping = 1
+```{r}
+# grid data =====================
+grids <- list()
+for (a in seq_along(grid_paths)) {
+    grids_a <-sapply("cell1grid", function(i) {
+      st_read(grid_paths[[a]], paste(i), quiet = TRUE)  %>% 
+        st_transform(crs = crs_list[[a]]) %>% 
+        reorder_levels( cell_grouping, order=desired_levels)
+      }, simplify = FALSE)
+    grids[[a]] <- grids_a$cell1grid
+}
+
+# Species data  =====================
+presence_data_all <- list()
+for (i in seq_along(data_paths)) {
+  pres_dat <- readRDS(data_paths[i]) %>% filter(cell_grouping == 1)
+  sy <- sort(unique(pres_dat$start_year)) # sy = start_year
+
+  ## Add time-period column
+  pres_dat2 <- pres_dat %>% 
+    mutate(tp = case_when(start_year == sy[1] ~ 1,
+                          start_year == sy[2] ~ 2)) %>% 
+    filter(tp %in% c(1,2)) %>%
+    filter(!is.na(cell_label)) %>%
+    reorder_levels(cell_grouping, order=desired_levels)
+
+  ## Cells sampled twice (column: repeated)
+common_cells <- pres_dat2 %>% 
+  ungroup() %>% 
+  distinct(dataset, cell_grouping, cell_label, tp) %>% ungroup() %>%
+  group_by(dataset, cell_grouping, cell_label) %>%
+  # How often each cell was sampled:
+  mutate(num_periods_cells = n_distinct(tp)) %>% 
+  # Dummy variable for easy filtering of cells that were sampled repeatedly
+  mutate(repeated = case_when(
+    num_periods_cells == 2 ~ 1, 
+    num_periods_cells %in% c(1,2) ~ 0)) %>% 
+  ungroup() %>% 
+  group_by(dataset) %>% 
+  select(dataset, cell_grouping, cell_label, num_periods_cells, repeated) %>% 
+  distinct()
+
+  common_cells %>%
+    group_by(dataset, cell_grouping, repeated, num_periods_cells) %>%
+    summarise(n = n())
+
+  presence_data_rep <- full_join(pres_dat2, common_cells)
+
+  # Species sampled twice in the remaining cells
+  common_sp <- presence_data_rep %>%
+    filter(repeated == 1 & cell_grouping == 1) %>%
+    group_by(dataset, verbatim_name) %>%
+    summarise(num_periods_sp = n_distinct(tp)) %>%
+    ungroup() 
+  presence_data3 <- full_join(presence_data_rep, common_sp) 
+
+  presence_data_all[[i]] <- presence_data3 %>%  
+    filter(num_periods_cells == 2 & num_periods_sp == 2 & repeated == 1) %>% 
+    select(-num_periods_cells, -num_periods_sp, -repeated)
+}
+
+
+
+# Create list of spatial objects ==========================
+presence_sf_list <- list()
+for (a in seq_along(atlas_names)){
+  grid <- grids[[a]]
+  presence_data <- presence_data_all[[a]]
+  presence_sf <- left_join(grid, presence_data) 
+  dd <- presence_sf %>% filter(dataset == atlas_names[a]) %>% # remove unsampled cells
+    group_by(dataset,tp) %>%
+    mutate(GammaSR = sum(n_distinct(verbatim_name))) %>% 
+    ungroup()
+  presence_sf_list[[a]] <- dd 
+  }
+names(presence_sf_list) <- atlas_names
+
+
+
+# ============================================================ ##
+
+saveRDS(presence_data_all, "presence_data_all.rds")
+saveRDS(presence_sf_list, "presence_sf_list.rds")
+rm(common_cells, common_sp, dd, pres_dat, pres_dat2, presence_data_rep, presence_data3, a, grids_a, i, presence_sf, sy)
+
+# ============================================================ ##
+
+```
+
+
+# Diversity Metrics
+
+```{r}
+sp_cell_dat <- readRDS("SpeciesDatPerCell.rds")
+unique(sp_cell_dat$verbatim_name) %>% write.csv("out/SpeciesNamesData.csv")
+
+## Calculate Diversity Measures ======================
+## Per Cell:
+GammaAlphaBeta_Atlas <- sp_cell_dat %>%
+  filter(cell_grouping == 1) %>%
+  select(dataset, tp, cell_label, verbatim_name) %>% distinct() %>%
+  # Gamma is the total SR of the atlas per sampling period
+  group_by(dataset,tp) %>%
+  mutate(
+    GammaSR = sum(n_distinct(verbatim_name))) %>% ungroup() %>%
+  # AlphaSR (per cell) is the number of distinct species for each grid cell
+  group_by(dataset, tp, cell_label) %>%
+  mutate(
+    AlphaSR = sum(n_distinct(verbatim_name))) %>%
+  # BetaSR (per cell) is the product of global Gamma and local Alpha
+  mutate(
+    BetaSR = GammaSR/AlphaSR)
+
+
+## Per Species:  
+# These measures are mean Alpha & Beta for a single species across all cells in which it is found
+GammaAlphaBeta_Species <- GammaAlphaBeta_Atlas %>%   
+  ungroup() %>%
+  group_by(dataset, tp, verbatim_name) %>%
+  mutate(
+    AlphaSR_sp = mean(AlphaSR)) %>%
+  mutate(
+    BetaSR_sp = GammaSR/AlphaSR_sp) %>%
+  select(dataset, tp, verbatim_name, AlphaSR_sp, BetaSR_sp, GammaSR) %>% 
+  distinct()
+
+saveRDS(GammaAlphaBeta_Species, "GammaAlphaBeta_Species.rds")
+pred_list[[1]] <- GammaAlphaBeta_Species
+rm(GammaAlphaBeta_Atlas, GammaAlphaBeta_Species)
+```
+
+# Co-occurrence probabilities
+Creation of the community matrices takes a while.
+
+```{r}
+
+species_data <- sp_cell_dat %>% 
+  filter(cell_grouping == 1) %>% 
+  distinct(dataset, tp, verbatim_name, cell_label) 
+colSums(is.na(species_data))
+# ----------------------------------------------------------- #
+
+co_occ_list1 <- list()
+for (a in seq_along(atlas_names)){
+  # create community dataframe
+  species_data_a <- species_data %>% filter(dataset == atlas_names[a])
+  comm_dat <- species_data_a %>% ungroup() %>%
+    dplyr::select(tp, verbatim_name, cell_label) %>%    
+    group_by(tp) %>% 
+    ungroup() %>% 
+    distinct()
+  comm_dat <- as.data.frame(comm_dat)
+  
+  # Convert data frame to Species X sites matrix
+  comm_matrix_tp1 <- fossil::create.matrix(comm_dat, 
+                                           tax.name = "verbatim_name", 
+                                           locality = "cell_label", 
+                                           time.col = "tp", 
+                                           time = "1", 
+                                           abund = F)
+  comm_matrix_tp2 <- fossil::create.matrix(comm_dat, 
+                                           tax.name = "verbatim_name", 
+                                           locality = "cell_label", 
+                                           time.col = "tp", 
+                                           time = "2", 
+                                           abund = F)
+  
+  # Calculate probability of pairwise co-occurrence of species: ----------- #
+  co_occurrence_tp1 <- cooccur::cooccur(comm_matrix_tp1, spp_names = T)
+  print(length(unique(co_occurrence_tp1$spp.names))) 
+  co_occurrence_tp2 <- cooccur::cooccur(comm_matrix_tp2, spp_names = T)
+  print(length(unique(co_occurrence_tp2$spp.names)))
+  
+  co_occ_list1[[a]] <- list(co_occurrence_tp1, co_occurrence_tp2)
+}
+
+co_occ_list2 <-list()
+for (a in seq_along(atlas_names)){
+  species_data_a <- species_data %>% filter(dataset == atlas_names[a])
+  species_data_a1 <- species_data_a %>% select(-cell_label) %>% distinct()
+
+  res1 <- data.frame(co_occ_list1[[a]][[1]]$results) 
+  res1 <- res1 %>% group_by(sp1_name) %>%
+    mutate(mean_prob_cooccur = mean(prob_cooccur), tp = "1") %>% 
+    dplyr::select(sp1_name, mean_prob_cooccur, tp) %>% 
+    distinct()
+
+  res2 <- data.frame(co_occ_list1[[a]][[2]]$results) 
+  res2 <- res2 %>% group_by(sp1_name) %>%
+    mutate(mean_prob_cooccur = mean(prob_cooccur), tp = "2") %>% 
+    dplyr::select(sp1_name, mean_prob_cooccur, tp) %>% 
+    distinct()
+  
+  results <- full_join(res1,res2)
+  species_data_a1_2 <- merge(species_data_a1, results, by.x=c("verbatim_name", "tp"), by.y = c("sp1_name", "tp"), all = T)
+  co_occ_list2[[a]] <- species_data_a1_2
+}
+ 
+Co_Occ_df_final <- plyr::rbind.fill(co_occ_list2)
+pred_list[[2]] <- Co_Occ_df_final
+saveRDS(Co_Occ_df_final, paste0(out_path, "rds/Coocc_df_final.rds"))
+saveRDS(Co_Occ_df_final, "Co_Occ_df_final.rds")
+
+rm(Co_Occ_df_final, co_occ_list2, comm_dat, comm_matrix_tp1, comm_matrix_tp2, species_data, species_data_a, species_data_a1, species_data_a1_2, a, co_occ_list1, co_occurrence_tp1, co_occurrence_tp2)
+
+```
+
+
+```{r}
+save.image("3a_Predictors.RData")
+saveRDS(pred_list, "pred_list.rds")
+```
