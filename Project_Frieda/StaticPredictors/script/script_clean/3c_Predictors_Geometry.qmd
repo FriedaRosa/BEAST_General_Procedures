@@ -294,7 +294,9 @@ year_species_geom <- list()
 atlas_all_sp_geom <-list()
 COG_all <- list()
 COG_a <- list()
-presence_sf_list0 <- readRDS("presence_sf_list.rds")
+presence_sf_list0 <- readRDS("out/rds/presence_sf_list.rds")
+
+
 presence_sf_list <- presence_sf_list0
 
 for (a in seq_along(presence_sf_list)){
@@ -401,6 +403,7 @@ Atlas_geom <- full_join(countries_geom_attributes, COG_df) %>%
 Geometries <- full_join(Species_geom_attributes, Atlas_geom) %>% 
                 distinct()
 colSums(is.na(Geometries))
+
 # Southerness/Westerness =================================
 Southernness_Westernness <- Geometries %>% 
   group_by(dataset, tp, verbatim_name) %>% 
@@ -432,37 +435,11 @@ Geometries_final2 <- Geometries_final %>% mutate(
          -circNorm, -atlas_circNorm)
 
 colSums(is.na(Geometries_final2))
-saveRDS(Geometries_final2, paste0(out_path, "rds/Geometries.rds"))
+
+
 saveRDS(Geometries_final2, "Geometries.rds")
 save.image("Geometry.RData")
 tictoc::toc()
 ```
 
-# This still produces MANY MANY NAs
-colSums(is.na(Geometries_final2))
-                dataset                      tp           verbatim_name
-                      0                       4                       4
-          lengthMinRect            widthMinRect             elonMinRect
-                      4                       4                       4
-                   circ          bearingMinRect                 bearing
-                      4                       4                       4
-   Dist_centroid_to_COG minDist_toBorder_border maxDist_toBorder_border
-                      4                       4                       4
- minDist_toBorder_centr  maxDist_toBorder_centr                       x
-                      4                       4                       0
-                      y              atlas_xmin              atlas_xmax
-                      0                    2154                    2154
-            atlas_xhalf              atlas_ymin              atlas_ymax
-                   2154                    2154                    2154
-            atlas_yhalf     atlas_lengthMinRect      atlas_widthMinRect
-                   2154                    2154                    2154
-      atlas_elonMinRect              atlas_circ    atlas_bearingMinRect 
-                   2154                    2154                    2154
-          atlas_bearing            Southernness             Westernness
-                   2154                    2154                    2154
-            rel_maxDist              rel_ewDist              rel_nsDist
-                   2158                    2158                    2158
-          rel_elonRatio             rel_relCirc                 rel_lin
-                   2158                    2158                    2158
-           rel_circNorm
-                   2158
+# No More NAs !! 

@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.450">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Friederike Wölke">
+<meta name="dcterms.date" content="2024-04-20">
+
+<title>Atlas Data Clean</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="1_Atlas_Data_files/libs/clipboard/clipboard.min.js"></script>
+<script src="1_Atlas_Data_files/libs/quarto-html/quarto.js"></script>
+<script src="1_Atlas_Data_files/libs/quarto-html/popper.min.js"></script>
+<script src="1_Atlas_Data_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="1_Atlas_Data_files/libs/quarto-html/anchor.min.js"></script>
+<link href="1_Atlas_Data_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="1_Atlas_Data_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="1_Atlas_Data_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="1_Atlas_Data_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="1_Atlas_Data_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#clean-environment" id="toc-clean-environment" class="nav-link active" data-scroll-target="#clean-environment"><span class="header-section-number">1</span> Clean Environment</a></li>
+  <li><a href="#libraries" id="toc-libraries" class="nav-link" data-scroll-target="#libraries"><span class="header-section-number">2</span> Libraries</a></li>
+  <li><a href="#path-variables" id="toc-path-variables" class="nav-link" data-scroll-target="#path-variables"><span class="header-section-number">3</span> Path Variables:</a></li>
+  <li><a href="#set-variables" id="toc-set-variables" class="nav-link" data-scroll-target="#set-variables"><span class="header-section-number">4</span> Set Variables</a></li>
+  <li><a href="#data" id="toc-data" class="nav-link" data-scroll-target="#data"><span class="header-section-number">5</span> Data</a>
+  <ul class="collapse">
+  <li><a href="#read-pre-process" id="toc-read-pre-process" class="nav-link" data-scroll-target="#read-pre-process"><span class="header-section-number">5.1</span> Read &amp; Pre-Process</a>
+  <ul class="collapse">
+  <li><a href="#data-checks" id="toc-data-checks" class="nav-link" data-scroll-target="#data-checks"><span class="header-section-number">5.1.1</span> Data checks</a></li>
+  </ul></li>
+  <li><a href="#filter-1-cells-sampled-twice" id="toc-filter-1-cells-sampled-twice" class="nav-link" data-scroll-target="#filter-1-cells-sampled-twice"><span class="header-section-number">5.2</span> Filter 1: Cells sampled twice</a>
+  <ul class="collapse">
+  <li><a href="#data-checks-1" id="toc-data-checks-1" class="nav-link" data-scroll-target="#data-checks-1"><span class="header-section-number">5.2.1</span> Data checks</a></li>
+  </ul></li>
+  <li><a href="#filter-2-species-sampled-twice-in-those-cells" id="toc-filter-2-species-sampled-twice-in-those-cells" class="nav-link" data-scroll-target="#filter-2-species-sampled-twice-in-those-cells"><span class="header-section-number">5.3</span> Filter 2: Species sampled twice in those cells</a>
+  <ul class="collapse">
+  <li><a href="#data-checks-2" id="toc-data-checks-2" class="nav-link" data-scroll-target="#data-checks-2"><span class="header-section-number">5.3.1</span> Data checks</a></li>
+  </ul></li>
+  <li><a href="#add-diversity-metrics-per-area" id="toc-add-diversity-metrics-per-area" class="nav-link" data-scroll-target="#add-diversity-metrics-per-area"><span class="header-section-number">5.4</span> Add: Diversity Metrics per Area</a>
+  <ul class="collapse">
+  <li><a href="#data-checks-3" id="toc-data-checks-3" class="nav-link" data-scroll-target="#data-checks-3"><span class="header-section-number">5.4.1</span> Data checks</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#grids" id="toc-grids" class="nav-link" data-scroll-target="#grids"><span class="header-section-number">6</span> Grids</a>
+  <ul class="collapse">
+  <li><a href="#read-pre-process-1" id="toc-read-pre-process-1" class="nav-link" data-scroll-target="#read-pre-process-1"><span class="header-section-number">6.1</span> Read &amp; Pre-Process</a>
+  <ul class="collapse">
+  <li><a href="#mapping-replicated-cells" id="toc-mapping-replicated-cells" class="nav-link" data-scroll-target="#mapping-replicated-cells"><span class="header-section-number">6.1.1</span> Mapping replicated cells</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#save-objects-to-rds" id="toc-save-objects-to-rds" class="nav-link" data-scroll-target="#save-objects-to-rds"><span class="header-section-number">7</span> Save Objects to RDS</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Atlas Data Clean</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Friederike Wölke </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 20, 2024</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="clean-environment" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Clean Environment</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(<span class="at">list=</span><span class="fu">ls</span>())</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          used (Mb) gc trigger (Mb) max used (Mb)
+Ncells  576778 30.9    1317727 70.4   660420 35.3
+Vcells 1048914  8.1    8388608 64.0  1770238 13.6</code></pre>
+</div>
+</div>
+</section>
+<section id="libraries" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Libraries</h1>
+<div class="cell" data-mesaage="false">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Spatial:</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Linking to GEOS 3.11.2, GDAL 3.7.2, PROJ 9.3.0; sf_use_s2() is TRUE</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sf_use_s2</span>(<span class="cn">FALSE</span>) <span class="co"># switch spherical geometry off</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Spherical geometry (s2) switched off</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Data handling:</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rstatix)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attache Paket: 'rstatix'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Das folgende Objekt ist maskiert 'package:stats':
+
+    filter</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attache Paket: 'dplyr'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Die folgenden Objekte sind maskiert von 'package:stats':
+
+    filter, lag</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Die folgenden Objekte sind maskiert von 'package:base':
+
+    intersect, setdiff, setequal, union</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr) </span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co"># library(plyr) </span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="do">## plyr is required but produces some issues with dplyr. Thus it will be called in each function individually and is not required to load here.</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="path-variables" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Path Variables:</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Folders</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>source_atlas <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/"</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>source_predictors <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/PhD_Projects/StaticPredictors/Data/"</span>)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>source_Git <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/"</span>)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Folder paths to atlas data</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>source_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_Atlas_Czechia/"</span>), </span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_Atlas_New_York/"</span>), </span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_atlas_Japan/"</span>), </span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_atlas_EBBA/"</span>))</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Folder path to output folder</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>out_path <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_Git, <span class="st">"out/"</span>))</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Paths to data &amp; grids</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>data_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_paths[<span class="dv">1</span>],<span class="st">"Birds_Atlas_Czechia_beast_data.rds"</span>), </span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">2</span>], <span class="st">"Birds_Atlas_New_York_beast_data.rds"</span>), </span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">3</span>], <span class="st">"Birds_atlas_Japan_beast_data.rds"</span>),</span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">4</span>], <span class="st">"2Birds_atlas_EBBA_beast_data.rds"</span>))</span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>grid_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_paths[<span class="dv">1</span>],<span class="st">"Birds_Atlas_Czechia_grid.gpkg"</span>), </span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">2</span>], <span class="st">"Birds_Atlas_New_York_grid.gpkg"</span>), </span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">3</span>], <span class="st">"Birds_atlas_Japan_grid.gpkg"</span>),</span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">4</span>], <span class="st">"Birds_atlas_EBBA_grid.gpkg"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="set-variables" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Set Variables</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Vectors for loops:</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>atlas_names <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Birds_Atlas_Czechia"</span>, <span class="st">"Birds_Atlas_New_York"</span>,<span class="st">"Birds_atlas_Japan"</span>, <span class="st">"Birds_atlas_EBBA"</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>time_periods <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the desired order of factor levels</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>desired_levels <span class="ot">&lt;-</span> <span class="fu">factor</span>(<span class="fu">c</span>(<span class="st">"1"</span>, <span class="st">"2"</span>,<span class="st">"4"</span>, <span class="st">"8"</span>, <span class="st">"16"</span>, <span class="st">"32"</span>, <span class="st">"64"</span>, <span class="st">"128"</span>), <span class="at">ordered =</span> T,  </span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>                         <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"1"</span>, <span class="st">"2"</span>,<span class="st">"4"</span>, <span class="st">"8"</span>, <span class="st">"16"</span>, <span class="st">"32"</span>, <span class="st">"64"</span>, <span class="st">"128"</span>)) </span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a><span class="co"># list of crs in order of atlas_names</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>crs_list <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="st">"EPSG:5514"</span>, <span class="co"># CZ</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>                  <span class="st">"EPSG:32118"</span>, <span class="co"># NY</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>                  <span class="st">"EPSG:6668"</span>, <span class="co"># JP</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>                  <span class="st">"EPSG:3035"</span>) <span class="co"># EU</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(crs_list) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"CZ"</span>, <span class="st">"NY"</span>, <span class="st">"JP"</span>, <span class="st">"EU"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="data" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Data</h1>
+<section id="read-pre-process" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="read-pre-process"><span class="header-section-number">5.1</span> Read &amp; Pre-Process</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Species data  =====================</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>presence_data <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(data_paths)){</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  pres_dat <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(data_paths[i])</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  sy <span class="ot">&lt;-</span> <span class="fu">sort</span>(<span class="fu">unique</span>(pres_dat<span class="sc">$</span>start_year))</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  pres_dat2 <span class="ot">&lt;-</span> pres_dat <span class="sc">%&gt;%</span>     </span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add time-period column</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">tp =</span> <span class="fu">case_when</span>(start_year <span class="sc">==</span> sy[<span class="dv">1</span>] <span class="sc">~</span> <span class="dv">1</span>, </span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>                          start_year <span class="sc">==</span> sy[<span class="dv">2</span>] <span class="sc">~</span> <span class="dv">2</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(tp <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Reorder spatial scales from small to large</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">reorder_levels</span>(cell_grouping, <span class="at">order=</span>desired_levels) <span class="sc">%&gt;%</span> </span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(dataset, tp, cell_grouping, </span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>           cell_label, cell_lat, cell_long, area, </span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>           verbatim_name) </span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>  presence_data[[i]] <span class="ot">&lt;-</span> pres_dat2</span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge list of atlases together</span></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>presence_data2 <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(presence_data, <span class="at">fill=</span>T) <span class="sc">%&gt;%</span> </span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(dataset, tp, verbatim_name, cell_grouping, cell_label, <span class="at">.keep_all =</span> T)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="data-checks" class="level3" data-number="5.1.1">
+<h3 data-number="5.1.1" class="anchored" data-anchor-id="data-checks"><span class="header-section-number">5.1.1</span> Data checks</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ========================== Data checks ======================================= #</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="fu">colSums</span>(<span class="fu">is.na</span>(presence_data2))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      dataset            tp cell_grouping    cell_label      cell_lat 
+            0             0             0             0             0 
+    cell_long          area verbatim_name 
+            0             0             0 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Summary sp and site numbers: Before reduction</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>presence_data2 <span class="sc">%&gt;%</span> </span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, tp) <span class="sc">%&gt;%</span> </span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_sp =</span> <span class="fu">n_distinct</span>(verbatim_name),</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>            <span class="at">n_sites =</span> <span class="fu">n_distinct</span>(cell_label))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`summarise()` has grouped output by 'dataset'. You can override using the
+`.groups` argument.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 8 × 4
+# Groups:   dataset [4]
+  dataset                 tp  n_sp n_sites
+  &lt;chr&gt;                &lt;dbl&gt; &lt;int&gt;   &lt;int&gt;
+1 Birds_Atlas_Czechia      1   206     628
+2 Birds_Atlas_Czechia      2   213     628
+3 Birds_Atlas_New_York     1   242    5323
+4 Birds_Atlas_New_York     2   248    5332
+5 Birds_atlas_EBBA         1   511    3909
+6 Birds_atlas_EBBA         2   617    5041
+7 Birds_atlas_Japan        1   221    1095
+8 Birds_atlas_Japan        2   227    1098</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>presence_data2 <span class="sc">%&gt;%</span> </span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_sp =</span> <span class="fu">n_distinct</span>(verbatim_name)) <span class="co"># 989 sp in total (before reduction)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  n_sp
+1  989</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ==================== Save output &amp; clean up environment ===================== #</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="co"># saveRDS(presence_data2, paste0(out_path, "rds/presence_data_raw.rds"))</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(pres_dat, sy, pres_dat2)</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================================= #</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="filter-1-cells-sampled-twice" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="filter-1-cells-sampled-twice"><span class="header-section-number">5.2</span> Filter 1: Cells sampled twice</h2>
+<ul>
+<li>remove cells (from the species data) that were only sampled once (Note: this is not identical to cells that have never been sampled. Those are generally excluded here)</li>
+<li>remove species that were only sampled once in the cells that were sampled twice (because we don’t have change data for them anyway).</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="do">## Filter level 1: Cells sampled twice </span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>common_cells <span class="ot">&lt;-</span> presence_data2 <span class="sc">%&gt;%</span> </span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(dataset, cell_grouping, cell_label, tp) <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, cell_grouping, cell_label) <span class="sc">%&gt;%</span></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># How often each cell was sampled:</span></span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">num_periods_cells =</span> <span class="fu">n_distinct</span>(tp)) <span class="sc">%&gt;%</span> </span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Dummy variable for easy filtering of cells that were sampled repeatedly</span></span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">repeated =</span> <span class="fu">case_when</span>(</span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a>    num_periods_cells <span class="sc">==</span> <span class="dv">2</span> <span class="sc">~</span> <span class="dv">1</span>, </span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>    num_periods_cells <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>) <span class="sc">~</span> <span class="dv">0</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset) <span class="sc">%&gt;%</span> </span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dataset, cell_grouping, cell_label, num_periods_cells, repeated) <span class="sc">%&gt;%</span> </span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>()</span>
+<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-17"><a href="#cb26-17" aria-hidden="true" tabindex="-1"></a>presence_data_rep <span class="ot">&lt;-</span> <span class="fu">full_join</span>(presence_data2, common_cells)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(dataset, cell_grouping, cell_label)`</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>excluded_cells <span class="ot">&lt;-</span> common_cells <span class="sc">%&gt;%</span> </span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(num_periods_cells <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(dataset, cell_grouping, cell_label)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="data-checks-1" class="level3" data-number="5.2.1">
+<h3 data-number="5.2.1" class="anchored" data-anchor-id="data-checks-1"><span class="header-section-number">5.2.1</span> Data checks</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ========================== Data checks ======================================= #</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>common_cells <span class="sc">%&gt;%</span> </span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(num_periods_cells <span class="sc">==</span> <span class="dv">2</span> <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, cell_grouping) <span class="sc">%&gt;%</span> </span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n =</span> <span class="fu">n_distinct</span>(cell_label))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`summarise()` has grouped output by 'dataset'. You can override using the
+`.groups` argument.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 3
+# Groups:   dataset [4]
+  dataset              cell_grouping     n
+  &lt;chr&gt;                &lt;fct&gt;         &lt;int&gt;
+1 Birds_Atlas_Czechia  1               628
+2 Birds_Atlas_New_York 1              5320
+3 Birds_atlas_EBBA     1              3792
+4 Birds_atlas_Japan    1              1095</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(excluded_cells<span class="sc">$</span>dataset) <span class="co"># EBBA: 66 (1706?), JP: 3, NY = 20</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Birds_atlas_EBBA    Birds_atlas_Japan Birds_Atlas_New_York 
+                1706                    3                   20 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================================= #</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="filter-2-species-sampled-twice-in-those-cells" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="filter-2-species-sampled-twice-in-those-cells"><span class="header-section-number">5.3</span> Filter 2: Species sampled twice in those cells</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="do">## Filter level 2: Species sampled twice in the remaining cells</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>common_sp <span class="ot">&lt;-</span> presence_data_rep <span class="sc">%&gt;%</span> <span class="fu">filter</span>(repeated <span class="sc">==</span> <span class="dv">1</span> <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(dataset, verbatim_name) <span class="sc">%&gt;%</span></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">num_periods_sp =</span> <span class="fu">n_distinct</span>(tp)) <span class="sc">%&gt;%</span> </span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(dataset, num_periods_sp)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`summarise()` has grouped output by 'dataset'. You can override using the
+`.groups` argument.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>excluded_sp <span class="ot">&lt;-</span> common_sp <span class="sc">%&gt;%</span> </span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(num_periods_sp <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(dataset, verbatim_name)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="data-checks-2" class="level3" data-number="5.3.1">
+<h3 data-number="5.3.1" class="anchored" data-anchor-id="data-checks-2"><span class="header-section-number">5.3.1</span> Data checks</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ========================== Data checks ======================================= #</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>common_sp <span class="sc">%&gt;%</span> </span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(num_periods_sp <span class="sc">==</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset) <span class="sc">%&gt;%</span> </span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n =</span> <span class="fu">n_distinct</span>(verbatim_name))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 4 × 2
+  dataset                  n
+  &lt;chr&gt;                &lt;int&gt;
+1 Birds_Atlas_Czechia    200
+2 Birds_Atlas_New_York   237
+3 Birds_atlas_EBBA       503
+4 Birds_atlas_Japan      208</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(excluded_sp<span class="sc">$</span>dataset)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+ Birds_Atlas_Czechia     Birds_atlas_EBBA    Birds_atlas_Japan 
+                  19                   94                   32 
+Birds_Atlas_New_York 
+                  16 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>excluded_sp <span class="sc">%&gt;%</span> <span class="fu">write.csv</span>(<span class="st">"../../Documents/documentation_methods/ExcludedSpecies.csv"</span>) <span class="co"># CZ: 19, EBBA = 14 (94?), JP = 32, NY = 16</span></span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================================= #</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="add-diversity-metrics-per-area" class="level2" data-number="5.4">
+<h2 data-number="5.4" class="anchored" data-anchor-id="add-diversity-metrics-per-area"><span class="header-section-number">5.4</span> Add: Diversity Metrics per Area</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add Diversity Metris to data: </span></span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>presence_data_filt <span class="ot">&lt;-</span> <span class="fu">full_join</span>(presence_data_rep, common_sp)  <span class="sc">%&gt;%</span>  </span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(num_periods_cells <span class="sc">==</span> <span class="dv">2</span> <span class="sc">&amp;</span> num_periods_sp <span class="sc">==</span> <span class="dv">2</span> <span class="sc">&amp;</span> repeated <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(<span class="sc">-</span>num_periods_cells, <span class="sc">-</span>num_periods_sp, <span class="sc">-</span>repeated)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(dataset, verbatim_name)`</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Subset with only repeated cells</span></span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>presence_data_filt2 <span class="ot">&lt;-</span> presence_data_filt <span class="sc">%&gt;%</span> </span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(dataset, tp, cell_grouping) <span class="sc">%&gt;%</span> <span class="co"># Gamma is per atlas</span></span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Gamma =</span> <span class="fu">n_distinct</span>(verbatim_name)) <span class="sc">%&gt;%</span> </span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Alpha and Beta are per cell</span></span>
+<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(dataset, tp, cell_grouping, cell_label) <span class="sc">%&gt;%</span> </span>
+<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Alpha =</span> <span class="fu">mean</span>(<span class="fu">n_distinct</span>(verbatim_name))) <span class="sc">%&gt;%</span> </span>
+<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Beta =</span> Gamma <span class="sc">/</span> Alpha) <span class="sc">%&gt;%</span></span>
+<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Mean Beta and Mean Alpha are per atlas</span></span>
+<span id="cb45-12"><a href="#cb45-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(dataset, tp, cell_grouping) <span class="sc">%&gt;%</span>  </span>
+<span id="cb45-13"><a href="#cb45-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Mean_Alpha =</span> <span class="fu">mean</span>(Alpha),</span>
+<span id="cb45-14"><a href="#cb45-14" aria-hidden="true" tabindex="-1"></a>           <span class="at">Mean_Beta =</span> Gamma <span class="sc">/</span> Mean_Alpha) <span class="sc">%&gt;%</span> </span>
+<span id="cb45-15"><a href="#cb45-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ungroup</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="data-checks-3" class="level3" data-number="5.4.1">
+<h3 data-number="5.4.1" class="anchored" data-anchor-id="data-checks-3"><span class="header-section-number">5.4.1</span> Data checks</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ========================== Data checks ======================================= #</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a>presence_data_filt <span class="sc">%&gt;%</span> </span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, tp) <span class="sc">%&gt;%</span> </span>
+<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a>  rstatix<span class="sc">::</span><span class="fu">get_summary_stats</span>(<span class="at">type =</span> <span class="st">"robust"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 32 × 6
+   dataset                 tp variable        n median     iqr
+   &lt;chr&gt;                &lt;dbl&gt; &lt;fct&gt;       &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+ 1 Birds_Atlas_Czechia      1 cell_label  65362  351    324   
+ 2 Birds_Atlas_Czechia      1 cell_lat    65362   49.8    0.9 
+ 3 Birds_Atlas_Czechia      1 cell_long   65362   15.2    2.5 
+ 4 Birds_Atlas_Czechia      1 area        65362  134.     2.45
+ 5 Birds_Atlas_Czechia      2 cell_label  68508  353    330   
+ 6 Birds_Atlas_Czechia      2 cell_lat    68508   49.8    0.9 
+ 7 Birds_Atlas_Czechia      2 cell_long   68508   15.2    2.5 
+ 8 Birds_Atlas_Czechia      2 area        68508  134.     2.45
+ 9 Birds_Atlas_New_York     1 cell_label 361308 2575   2621.  
+10 Birds_Atlas_New_York     1 cell_lat   361308   42.8    1.24
+# ℹ 22 more rows</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a>presence_data_filt <span class="sc">%&gt;%</span> </span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, tp) <span class="sc">%&gt;%</span> </span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(</span>
+<span id="cb48-5"><a href="#cb48-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_sp =</span> <span class="fu">n_distinct</span>(verbatim_name),</span>
+<span id="cb48-6"><a href="#cb48-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_cells =</span> <span class="fu">n_distinct</span>(cell_label))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`summarise()` has grouped output by 'dataset'. You can override using the
+`.groups` argument.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 8 × 4
+# Groups:   dataset [4]
+  dataset                 tp  n_sp n_cells
+  &lt;chr&gt;                &lt;dbl&gt; &lt;int&gt;   &lt;int&gt;
+1 Birds_Atlas_Czechia      1   200     628
+2 Birds_Atlas_Czechia      2   200     628
+3 Birds_Atlas_New_York     1   237    5320
+4 Birds_Atlas_New_York     2   237    5320
+5 Birds_atlas_EBBA         1   503    3791
+6 Birds_atlas_EBBA         2   503    3792
+7 Birds_atlas_Japan        1   208    1095
+8 Birds_atlas_Japan        2   208    1095</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a>presence_data_filt <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(verbatim_name) <span class="co"># 841 species </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                    verbatim_name
+1              Accipiter gentilis
+2                 Accipiter nisus
+3       Acrocephalus arundinaceus
+4          Acrocephalus palustris
+5      Acrocephalus schoenobaenus
+6         Acrocephalus scirpaceus
+7              Actitis hypoleucos
+8             Aegithalos caudatus
+9               Aegolius funereus
+10                Alauda arvensis
+11                  Alcedo atthis
+12                     Anas acuta
+13                  Anas clypeata
+14                    Anas crecca
+15             Anas platyrhynchos
+16               Anas querquedula
+17                  Anas strepera
+18                    Anser anser
+19              Anthus campestris
+20               Anthus pratensis
+21              Anthus spinoletta
+22               Anthus trivialis
+23                      Apus apus
+24                Aquila pomarina
+25                  Ardea cinerea
+26                 Ardea purpurea
+27                  Asio flammeus
+28                      Asio otus
+29                  Athene noctua
+30                  Aythya ferina
+31                Aythya fuligula
+32                  Aythya nyroca
+33                 Bonasa bonasia
+34             Botaurus stellaris
+35                      Bubo bubo
+36             Bucephala clangula
+37                    Buteo buteo
+38          Caprimulgus europaeus
+39            Carduelis cannabina
+40            Carduelis carduelis
+41              Carduelis chloris
+42              Carduelis flammea
+43               Carduelis spinus
+44          Carpodacus erythrinus
+45          Certhia brachydactyla
+46             Certhia familiaris
+47              Charadrius dubius
+48          Charadrius morinellus
+49               Chlidonias niger
+50                Ciconia ciconia
+51                  Ciconia nigra
+52                Cinclus cinclus
+53             Circus aeruginosus
+54                 Circus cyaneus
+55                Circus pygargus
+56  Coccothraustes coccothraustes
+57                  Columba livia
+58                  Columba oenas
+59               Columba palumbus
+60                   Corvus corax
+61                  Corvus corone
+62              Corvus frugilegus
+63                Corvus monedula
+64              Coturnix coturnix
+65                      Crex crex
+66                Cuculus canorus
+67                    Cygnus olor
+68                Delichon urbica
+69           Dendrocopos leucotos
+70              Dendrocopos major
+71             Dendrocopos medius
+72              Dendrocopos minor
+73           Dendrocopos syriacus
+74              Dryocopus martius
+75               Egretta garzetta
+76            Emberiza citrinella
+77             Emberiza hortulana
+78           Emberiza schoeniclus
+79             Erithacus rubecula
+80                  Falco cherrug
+81               Falco peregrinus
+82                 Falco subbuteo
+83              Falco tinnunculus
+84            Ficedula albicollis
+85             Ficedula hypoleuca
+86                 Ficedula parva
+87              Fringilla coelebs
+88                    Fulica atra
+89              Galerida cristata
+90            Gallinago gallinago
+91            Gallinula chloropus
+92            Garrulus glandarius
+93          Glaucidium passerinum
+94                      Grus grus
+95           Haliaeetus albicilla
+96          Himantopus himantopus
+97             Hippolais icterina
+98                Hirundo rustica
+99             Ixobrychus minutus
+100                Jynx torquilla
+101               Lanius collurio
+102              Lanius excubitor
+103              Larus cachinnans
+104                   Larus canus
+105          Larus melanocephalus
+106              Larus ridibundus
+107                 Limosa limosa
+108        Locustella fluviatilis
+109       Locustella luscinioides
+110             Locustella naevia
+111             Loxia curvirostra
+112               Lullula arborea
+113             Luscinia luscinia
+114         Luscinia megarhynchos
+115              Luscinia svecica
+116              Mergus merganser
+117               Merops apiaster
+118             Miliaria calandra
+119                Milvus migrans
+120                 Milvus milvus
+121                Motacilla alba
+122             Motacilla cinerea
+123               Motacilla flava
+124             Muscicapa striata
+125                  Netta rufina
+126       Nucifraga caryocatactes
+127              Numenius arquata
+128         Nycticorax nycticorax
+129             Oenanthe oenanthe
+130               Oriolus oriolus
+131                    Otus scops
+132             Panurus biarmicus
+133                    Parus ater
+134               Parus caeruleus
+135               Parus cristatus
+136                   Parus major
+137                Parus montanus
+138               Parus palustris
+139             Passer domesticus
+140               Passer montanus
+141                 Perdix perdix
+142               Pernis apivorus
+143           Phalacrocorax carbo
+144           Phasianus colchicus
+145          Phoenicurus ochruros
+146       Phoenicurus phoenicurus
+147        Phylloscopus collybita
+148       Phylloscopus sibilatrix
+149     Phylloscopus trochiloides
+150        Phylloscopus trochilus
+151                     Pica pica
+152          Picoides tridactylus
+153                   Picus canus
+154                 Picus viridis
+155           Platalea leucorodia
+156            Podiceps cristatus
+157            Podiceps grisegena
+158          Podiceps nigricollis
+159                 Porzana parva
+160               Porzana porzana
+161             Prunella collaris
+162            Prunella modularis
+163             Pyrrhula pyrrhula
+164              Rallus aquaticus
+165        Recurvirostra avosetta
+166          Regulus ignicapillus
+167               Regulus regulus
+168              Remiz pendulinus
+169               Riparia riparia
+170              Saxicola rubetra
+171             Saxicola torquata
+172            Scolopax rusticola
+173               Serinus serinus
+174                Sitta europaea
+175                Sterna hirundo
+176         Streptopelia decaocto
+177           Streptopelia turtur
+178                   Strix aluco
+179               Strix uralensis
+180              Sturnus vulgaris
+181            Sylvia atricapilla
+182                  Sylvia borin
+183               Sylvia communis
+184                Sylvia curruca
+185                Sylvia nisoria
+186        Tachybaptus ruficollis
+187                 Tetrao tetrix
+188              Tetrao urogallus
+189               Tringa ochropus
+190                Tringa totanus
+191       Troglodytes troglodytes
+192                Turdus iliacus
+193                 Turdus merula
+194             Turdus philomelos
+195                Turdus pilaris
+196              Turdus torquatus
+197             Turdus viscivorus
+198                     Tyto alba
+199                   Upupa epops
+200             Vanellus vanellus
+201            Accipiter cooperii
+202            Accipiter striatus
+203            Actitis macularius
+204             Aegolius acadicus
+205           Agelaius phoeniceus
+206                    Aix sponsa
+207         Ammodramus caudacutus
+208          Ammodramus henslowii
+209          Ammodramus maritimus
+210         Ammodramus savannarum
+211                Anas americana
+212                  Anas discors
+213                 Anas rubripes
+214             Aquila chrysaetos
+215          Archilochus colubris
+216                    Ardea alba
+217                Ardea herodias
+218                Aythya affinis
+219              Aythya americana
+220               Aythya collaris
+221            Aythya valisineria
+222            Baeolophus bicolor
+223          Bartramia longicauda
+224           Bombycilla cedrorum
+225               Bonasa umbellus
+226         Botaurus lentiginosus
+227             Branta canadensis
+228              Bubo virginianus
+229                 Bubulcus ibis
+230             Buteo jamaicensis
+231                Buteo lineatus
+232             Buteo platypterus
+233           Butorides virescens
+234      Caprimulgus carolinensis
+235         Caprimulgus vociferus
+236         Cardinalis cardinalis
+237          Carpodacus mexicanus
+238          Carpodacus purpureus
+239                Cathartes aura
+240            Catharus bicknelli
+241           Catharus fuscescens
+242             Catharus guttatus
+243            Catharus ustulatus
+244             Certhia americana
+245             Chaetura pelagica
+246            Charadrius melodus
+247          Charadrius vociferus
+248              Chordeiles minor
+249         Cistothorus palustris
+250         Cistothorus platensis
+251    Coccothraustes vespertinus
+252           Coccyzus americanus
+253      Coccyzus erythropthalmus
+254              Colaptes auratus
+255           Colinus virginianus
+256              Contopus cooperi
+257               Contopus virens
+258         Corvus brachyrhynchos
+259             Corvus ossifragus
+260           Cyanocitta cristata
+261        Dendroica caerulescens
+262            Dendroica castanea
+263             Dendroica cerulea
+264            Dendroica coronata
+265            Dendroica discolor
+266            Dendroica dominica
+267               Dendroica fusca
+268            Dendroica magnolia
+269            Dendroica palmarum
+270        Dendroica pensylvanica
+271            Dendroica petechia
+272               Dendroica pinus
+273             Dendroica striata
+274             Dendroica tigrina
+275              Dendroica virens
+276         Dolichonyx oryzivorus
+277            Dryocopus pileatus
+278        Dumetella carolinensis
+279              Egretta caerulea
+280                 Egretta thula
+281              Egretta tricolor
+282             Empidonax alnorum
+283        Empidonax flaviventris
+284             Empidonax minimus
+285            Empidonax traillii
+286           Empidonax virescens
+287          Eremophila alpestris
+288            Euphagus carolinus
+289        Falcipennis canadensis
+290              Falco sparverius
+291              Fulica americana
+292            Gallinago delicata
+293                   Gavia immer
+294         Gelochelidon nilotica
+295            Geothlypis trichas
+296          Haematopus palliatus
+297      Haliaeetus leucocephalus
+298        Helmitheros vermivorum
+299             Hydropogne caspia
+300          Hylocichla mustelina
+301                Icteria virens
+302               Icterus galbula
+303               Icterus spurius
+304             Ixobrychus exilis
+305                Junco hyemalis
+306           Lanius ludovicianus
+307              Larus argentatus
+308            Larus delawarensis
+309                 Larus marinus
+310        Laterallus jamaicensis
+311         Leucophaeus atricilla
+312         Lophodytes cucullatus
+313              Loxia leucoptera
+314             Megaceryle alcyon
+315                Megascops asio
+316          Melanerpes carolinus
+317    Melanerpes erythrocephalus
+318           Meleagris gallopavo
+319           Melospiza georgiana
+320           Melospiza lincolnii
+321             Melospiza melodia
+322               Mergus serrator
+323             Mimus polyglottos
+324               Mniotilta varia
+325                Molothrus ater
+326            Myiarchus crinitus
+327           Myiopsitta monachus
+328           Nyctanassa violacea
+329            Oporornis formosus
+330        Oporornis philadelphia
+331            Oxyura jamaicensis
+332             Pandion haliaetus
+333              Parula americana
+334     Passerculus sandwichensis
+335            Passerina caerulea
+336              Passerina cyanea
+337         Perisoreus canadensis
+338      Petrochelidon pyrrhonota
+339         Phalacrocorax auritus
+340       Pheucticus ludovicianus
+341             Picoides arcticus
+342             Picoides dorsalis
+343            Picoides pubescens
+344             Picoides villosus
+345       Pipilo erythrophthalmus
+346              Piranga olivacea
+347                 Piranga rubra
+348          Plegadis falcinellus
+349           Podilymbus podiceps
+350          Poecile atricapillus
+351            Poecile hudsonicus
+352           Polioptila caerulea
+353           Pooecetes gramineus
+354              Porzana carolina
+355                  Progne subis
+356           Protonotaria citrea
+357               Quiscalus major
+358            Quiscalus quiscula
+359                Rallus elegans
+360               Rallus limicola
+361           Rallus longirostris
+362             Regulus calendula
+363               Regulus satrapa
+364                Rynchops niger
+365               Sayornis phoebe
+366                Scolopax minor
+367           Seiurus aurocapilla
+368             Seiurus motacilla
+369        Seiurus noveboracensis
+370           Setophaga ruticilla
+371                 Sialia sialis
+372              Sitta canadensis
+373            Sitta carolinensis
+374            Sphyrapicus varius
+375                  Spinus pinus
+376                Spinus tristis
+377               Spiza americana
+378              Spizella pallida
+379            Spizella passerina
+380              Spizella pusilla
+381    Stelgidopteryx serripennis
+382              Sterna dougallii
+383               Sterna forsteri
+384           Sternula antillarum
+385                   Strix varia
+386               Sturnella magna
+387            Sturnella neglecta
+388           Tachycineta bicolor
+389      Thryothorus ludovicianus
+390               Toxostoma rufum
+391            Tringa semipalmata
+392             Troglodytes aedon
+393            Turdus migratorius
+394             Tyrannus tyrannus
+395         Vermivora chrysoptera
+396           Vermivora peregrina
+397               Vermivora pinus
+398         Vermivora ruficapilla
+399              Vireo flavifrons
+400                  Vireo gilvus
+401                 Vireo griseus
+402               Vireo olivaceus
+403          Vireo philadelphicus
+404              Vireo solitarius
+405           Wilsonia canadensis
+406              Wilsonia citrina
+407              Wilsonia pusilla
+408              Zenaida macroura
+409        Zonotrichia albicollis
+410             Accipiter gularis
+411     Acrocephalus bistrigiceps
+412       Acrocephalus orientalis
+413         Agropsar philippensis
+414              Aix galericulata
+415        Amaurornis phoenicurus
+416                  Anas falcata
+417              Anas zonorhyncha
+418                Anous stolidus
+419               Anthus hodgsoni
+420         Apalopteron familiare
+421               Apus nipalensis
+422                Apus pacificus
+423        Bambusicola thoracicus
+424              Butastur indicus
+425             Butorides striata
+426        Calonectris leucomelas
+427           Caprimulgus indicus
+428                 Cepphus carbo
+429         Cerorhinca monocerata
+430                Cettia diphone
+431            Chalcophaps indica
+432       Charadrius alexandrinus
+433           Charadrius placidus
+434                Chloris sinica
+435              Cinclus pallasii
+436             Circus spilonotus
+437            Cisticola juncidis
+438              Columba janthina
+439          Corvus macrorhynchos
+440           Cuculus micropterus
+441               Cuculus optatus
+442         Cuculus poliocephalus
+443              Cyanopica cyanus
+444        Cyanoptila cyanomelana
+445              Delichon dasypus
+446            Dendrocopos kizuki
+447            Egretta intermedia
+448                 Egretta sacra
+449              Emberiza cioides
+450               Emberiza fucata
+451         Emberiza spodocephala
+452           Emberiza sulphurata
+453           Emberiza variabilis
+454           Emberiza yessoensis
+455             Eophona personata
+456         Eurystomus orientalis
+457           Ficedula narcissina
+458          Gallinago hardwickii
+459          Gallirallus okinawae
+460              Garrulax canorus
+461               Garrulus lidthi
+462           Glareola maldivarum
+463            Gorsachius goisagi
+464               Grus japonensis
+465             Halcyon coromanda
+466       Hierococcyx hyperythrus
+467         Hirundapus caudacutus
+468               Hirundo daurica
+469              Hirundo tahitica
+470     Histrionicus histrionicus
+471          Hypsipetes amaurotis
+472        Ixobrychus cinnamomeus
+473           Ixobrychus sinensis
+474                  Lagopus muta
+475             Lanius bucephalus
+476              Lanius cristatus
+477               Lanius tigrinus
+478           Larus crassirostris
+479            Larus schistisagus
+480               Leiothrix lutea
+481         Locustella fasciolata
+482         Locustella lanceolata
+483         Locustella ochotensis
+484            Locustella pleskei
+485             Locustella pryeri
+486           Lonchura punctulata
+487              Luscinia akahige
+488             Luscinia calliope
+489                Luscinia cyane
+490             Luscinia komadori
+491           Megaceryle lugubris
+492          Monticola solitarius
+493             Motacilla grandis
+494            Muscicapa dauurica
+495            Muscicapa sibirica
+496               Ninox scutulata
+497           Nisaetus nipalensis
+498                  Otus elegans
+499                  Otus lempiji
+500                    Otus sunia
+501                   Parus minor
+502               Passer rutilans
+503      Pericrocotus divaricatus
+504                Periparus ater
+505          Pernis ptilorhynchus
+506      Phalacrocorax capillatus
+507       Phalacrocorax pelagicus
+508          Phoenicurus auroreus
+509      Phylloscopus borealoides
+510        Phylloscopus coronatus
+511           Phylloscopus ijimae
+512      Phylloscopus xanthodryas
+513                 Picus awokera
+514           Pinicola enucleator
+515                  Pitta nympha
+516              Poecile montanus
+517             Poecile palustris
+518                Poecile varius
+519                 Porzana fusca
+520               Prunella rubida
+521           Pycnonotus sinensis
+522          Rallina eurizonoides
+523       Rostratula benghalensis
+524           Sapheopipo noguchii
+525            Saxicola torquatus
+526              Spilornis cheela
+527         Spodiopsar cineraceus
+528              Sterna albifrons
+529              Sterna sumatrana
+530       Streptopelia orientalis
+531              Sula leucogaster
+532      Syrmaticus soemmerringii
+533             Tarsiger cyanurus
+534       Terpsiphone atrocaudata
+535             Tetrastes bonasia
+536               Treron formosae
+537              Treron sieboldii
+538                 Turdus cardis
+539              Turdus celaenops
+540             Turdus chrysolaus
+541               Turdus pallidus
+542             Turnix suscitator
+543              Uragus sibiricus
+544         Urosphena squameiceps
+545             Vanellus cinereus
+546                Zoothera dauma
+547             Zoothera sibirica
+548           Zosterops japonicus
+549              Acanthis flammea
+550            Accipiter brevipes
+551     Acridotheres cristatellus
+552         Acrocephalus agricola
+553        Acrocephalus dumetorum
+554      Acrocephalus melanopogon
+555       Acrocephalus paludicola
+556             Aegypius monachus
+557             Alauda leucoptera
+558            Alaudala rufescens
+559                    Alca torda
+560             Alectoris barbara
+561              Alectoris chukar
+562              Alectoris graeca
+563                Alectoris rufa
+564                     Alle alle
+565          Alopochen aegyptiaca
+566             Amandava amandava
+567               Anser albifrons
+568          Anser brachyrhynchus
+569              Anser erythropus
+570                 Anser fabalis
+571            Anthropoides virgo
+572            Anthus berthelotii
+573               Anthus cervinus
+574               Anthus petrosus
+575                   Apus caffer
+576                 Apus pallidus
+577                 Apus unicolor
+578              Aquila adalberti
+579               Aquila fasciata
+580                Aquila heliaca
+581             Aquila nipalensis
+582             Ardeola ralloides
+583            Arenaria interpres
+584                 Aythya marila
+585           Bombycilla garrulus
+586               Branta bernicla
+587              Branta leucopsis
+588               Bubo scandiacus
+589         Bucanetes githagineus
+590          Bucanetes mongolicus
+591           Bucephala islandica
+592             Bulweria bulwerii
+593           Burhinus oedicnemus
+594                 Buteo lagopus
+595                 Buteo rufinus
+596     Calandrella brachydactyla
+597          Calcarius lapponicus
+598                 Calidris alba
+599               Calidris alpina
+600              Calidris canutus
+601          Calidris falcinellus
+602             Calidris maritima
+603            Calidris melanotos
+604               Calidris minuta
+605               Calidris pugnax
+606           Calidris temminckii
+607             Calliope calliope
+608        Callipepla californica
+609          Calonectris borealis
+610          Calonectris diomedea
+611        Caprimulgus ruficollis
+612          Carduelis citrinella
+613           Carduelis corsicana
+614          Carpodacus rubicilla
+615               Catharacta skua
+616              Cecropis daurica
+617                Cepphus grylle
+618       Cercotrichas galactotes
+619                  Cettia cetti
+620          Charadrius asiaticus
+621          Charadrius hiaticula
+622      Charadrius leschenaultii
+623          Chersophilus duponti
+624            Chlidonias hybrida
+625        Chlidonias leucopterus
+626               Chloris chloris
+627       Chrysolophus amherstiae
+628           Chrysolophus pictus
+629            Circaetus gallicus
+630              Circus macrourus
+631           Clamator glandarius
+632                 Clanga clanga
+633               Clanga pomarina
+634             Clangula hyemalis
+635                Columba trocaz
+636             Coracias garrulus
+637             Cuculus saturatus
+638             Cyanecula svecica
+639           Cyanistes caeruleus
+640              Cyanistes cyanus
+641          Cyanistes teneriffae
+642               Cyanopica cooki
+643            Cygnus columbianus
+644                 Cygnus cygnus
+645              Delichon urbicum
+646               Dryobates minor
+647              Elanus caeruleus
+648              Emberiza aureola
+649            Emberiza bruniceps
+650               Emberiza caesia
+651             Emberiza calandra
+652                  Emberiza cia
+653            Emberiza cineracea
+654               Emberiza cirlus
+655        Emberiza melanocephala
+656              Emberiza pallasi
+657              Emberiza pusilla
+658              Emberiza rustica
+659              Estrilda astrild
+660              Estrilda melpoda
+661          Eudromias morinellus
+662               Falco biarmicus
+663             Falco columbarius
+664               Falco eleonorae
+665                Falco naumanni
+666              Falco rusticolus
+667             Falco vespertinus
+668         Ficedula semitorquata
+669       Francolinus francolinus
+670            Fratercula arctica
+671      Fringilla montifringilla
+672               Fulica cristata
+673            Fulmarus glacialis
+674              Galerida theklae
+675               Gallinago media
+676             Gallinago stenura
+677                 Gavia arctica
+678                Gavia stellata
+679            Glareola nordmanni
+680           Glareola pratincola
+681           Gulosus aristotelis
+682             Gypaetus barbatus
+683                   Gyps fulvus
+684         Haematopus ostralegus
+685           Hieraaetus pennatus
+686          Hippolais olivetorum
+687          Hippolais polyglotta
+688             Hydrobates castro
+689         Hydrobates leucorhous
+690          Hydrobates pelagicus
+691          Hydrocoloeus minutus
+692            Hydroprogne caspia
+693                Iduna caligata
+694                   Iduna opaca
+695                 Iduna pallida
+696               Lagopus lagopus
+697           Lanius meridionalis
+698                  Lanius minor
+699                Lanius nubicus
+700                Lanius senator
+701               Larus armenicus
+702               Larus audouinii
+703                  Larus fuscus
+704                   Larus genei
+705             Larus hyperboreus
+706             Larus ichthyaetus
+707             Larus michahellis
+708              Leiopicus medius
+709              Limosa lapponica
+710             Linaria cannabina
+711          Linaria flavirostris
+712         Lophophanes cristatus
+713          Loxia pytyopsittacus
+714                 Loxia scotica
+715          Lymnocryptes minimus
+716         Lyrurus mlokosiewiczi
+717                Lyrurus tetrix
+718               Mareca penelope
+719               Mareca strepera
+720   Marmaronetta angustirostris
+721               Melanitta fusca
+722               Melanitta nigra
+723        Melanocorypha calandra
+724            Mergellus albellus
+725               Merops persicus
+726           Microcarbo pygmaeus
+727           Monticola saxatilis
+728        Montifringilla nivalis
+729                Morus bassanus
+730            Motacilla citreola
+731         Neophron percnopterus
+732             Numenius phaeopus
+733              Oenanthe deserti
+734             Oenanthe finschii
+735            Oenanthe hispanica
+736           Oenanthe isabellina
+737              Oenanthe leucura
+738           Oenanthe pleschanka
+739          Onychoprion fuscatus
+740                    Otis tarda
+741           Oxyura leucocephala
+742             Pagophila eburnea
+743         Passer hispaniolensis
+744                Passer italiae
+745                 Pastor roseus
+746            Pelagodroma marina
+747             Pelecanus crispus
+748         Pelecanus onocrotalus
+749          Perisoreus infaustus
+750             Petronia petronia
+751         Phalaropus fulicarius
+752            Phalaropus lobatus
+753         Phoenicopterus roseus
+754          Phylloscopus bonelli
+755         Phylloscopus borealis
+756         Phylloscopus ibericus
+757        Phylloscopus inornatus
+758          Phylloscopus nitidus
+759       Phylloscopus orientalis
+760        Phylloscopus sindianus
+761                 Picus sharpei
+762         Plectrophenax nivalis
+763           Pluvialis apricaria
+764          Pluvialis squatarola
+765              Podiceps auritus
+766               Poecile cinctus
+767              Poecile lugubris
+768           Polysticta stelleri
+769           Porphyrio porphyrio
+770          Prunella atrogularis
+771           Prunella montanella
+772            Psittacula krameri
+773             Pterocles alchata
+774          Pterocles orientalis
+775            Pterodroma deserta
+776            Pterodroma madeira
+777        Ptyonoprogne rupestris
+778          Puffinus lherminieri
+779         Puffinus mauretanicus
+780             Puffinus puffinus
+781             Puffinus yelkouan
+782          Pyrrhocorax graculus
+783       Pyrrhocorax pyrrhocorax
+784               Pyrrhula murina
+785           Regulus ignicapilla
+786           Regulus madeirensis
+787              Rissa tridactyla
+788               Serinus canaria
+789              Serinus pusillus
+790                Sitta krueperi
+791                Sitta neumayer
+792              Sitta whiteheadi
+793          Somateria mollissima
+794         Somateria spectabilis
+795              Spatula clypeata
+796           Spatula querquedula
+797       Spilopelia senegalensis
+798                 Spinus spinus
+799      Stercorarius longicaudus
+800      Stercorarius parasiticus
+801        Stercorarius pomarinus
+802             Sterna paradisaea
+803            Sternula albifrons
+804                Strix nebulosa
+805              Sturnus unicolor
+806                  Surnia ulula
+807              Sylvia balearica
+808             Sylvia cantillans
+809          Sylvia conspicillata
+810          Sylvia crassirostris
+811              Sylvia hortensis
+812          Sylvia melanocephala
+813               Sylvia mystacea
+814                Sylvia ruppeli
+815                  Sylvia sarda
+816              Sylvia subalpina
+817                 Sylvia undata
+818           Syrmaticus reevesii
+819            Tachymarptis melba
+820            Tadorna ferruginea
+821               Tadorna tadorna
+822          Tetraogallus caspius
+823       Tetraogallus caucasicus
+824                 Tetrax tetrax
+825       Thalasseus sandvicensis
+826            Tichodroma muraria
+827             Tringa erythropus
+828               Tringa glareola
+829              Tringa nebularia
+830            Tringa stagnatilis
+831            Turdus atrogularis
+832                    Uria aalge
+833                   Uria lomvia
+834            Vanellus gregarius
+835             Vanellus leucurus
+836             Vanellus spinosus
+837                   Xema sabini
+838                Xenus cinereus
+839                Zapornia parva
+840              Zapornia pusilla
+841                Zoothera aurea</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ==================== Save output &amp; clean up environment ===================== #  </span></span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a><span class="co"># saveRDS(presence_data_filt, "Presence_data_filtered.rds") ## this is the most up to date name for this file !!</span></span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="co"># saveRDS(presence_data_filt, paste0(out_path, "rds/presence_data_reduced.rds"))</span></span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(common_sp, presence_data_rep, presence_data2, excluded_cells, excluded_sp, presence_data, i )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="grids" class="level1" data-number="6">
+<h1 data-number="6"><span class="header-section-number">6</span> Grids</h1>
+<section id="read-pre-process-1" class="level2" data-number="6.1">
+<h2 data-number="6.1" class="anchored" data-anchor-id="read-pre-process-1"><span class="header-section-number">6.1</span> Read &amp; Pre-Process</h2>
+<ul>
+<li>Transform to national CRS with unit = meter</li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="co"># make list with names of layers so we can read them in below</span></span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a>layers_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(grid_paths)){</span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>  layers <span class="ot">&lt;-</span> <span class="fu">st_layers</span>(grid_paths[i])<span class="sc">$</span>name</span>
+<span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a>  layers_list[[i]] <span class="ot">&lt;-</span> layers</span>
+<span id="cb54-6"><a href="#cb54-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb54-7"><a href="#cb54-7" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(layers_list) <span class="ot">&lt;-</span> atlas_names</span>
+<span id="cb54-8"><a href="#cb54-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb54-9"><a href="#cb54-9" aria-hidden="true" tabindex="-1"></a><span class="co"># read grids to list</span></span>
+<span id="cb54-10"><a href="#cb54-10" aria-hidden="true" tabindex="-1"></a>grid_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb54-11"><a href="#cb54-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(grid_paths)) {</span>
+<span id="cb54-12"><a href="#cb54-12" aria-hidden="true" tabindex="-1"></a>    grids <span class="ot">&lt;-</span> <span class="fu">sapply</span>(layers_list[[a]], <span class="cf">function</span>(i) {</span>
+<span id="cb54-13"><a href="#cb54-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">st_read</span>(grid_paths[[a]], <span class="fu">paste</span>(i), <span class="at">quiet =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb54-14"><a href="#cb54-14" aria-hidden="true" tabindex="-1"></a>        <span class="fu">st_transform</span>(<span class="at">crs =</span> crs_list[[a]]) <span class="sc">%&gt;%</span> </span>
+<span id="cb54-15"><a href="#cb54-15" aria-hidden="true" tabindex="-1"></a>        <span class="fu">reorder_levels</span>( cell_grouping, <span class="at">order=</span>desired_levels)</span>
+<span id="cb54-16"><a href="#cb54-16" aria-hidden="true" tabindex="-1"></a>      }, <span class="at">simplify =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb54-17"><a href="#cb54-17" aria-hidden="true" tabindex="-1"></a>    grid_list[[a]] <span class="ot">&lt;-</span> grids</span>
+<span id="cb54-18"><a href="#cb54-18" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb54-19"><a href="#cb54-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb54-20"><a href="#cb54-20" aria-hidden="true" tabindex="-1"></a><span class="co"># clear space</span></span>
+<span id="cb54-21"><a href="#cb54-21" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(a, i, layers, layers_list, grids)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="mapping-replicated-cells" class="level3" data-number="6.1.1">
+<h3 data-number="6.1.1" class="anchored" data-anchor-id="mapping-replicated-cells"><span class="header-section-number">6.1.1</span> Mapping replicated cells</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="co"># pdf(file = "out/figures/CellsSampledMaps.pdf", onefile = T, paper = "a4")</span></span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(grid_list)){</span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (scale <span class="cf">in</span> <span class="fu">seq_along</span>(<span class="fu">length</span>(grid_list[[a]]))){</span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>  t_common_cells <span class="ot">&lt;-</span> common_cells <span class="sc">%&gt;%</span> </span>
+<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_names[[a]] <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> scale) <span class="sc">%&gt;%</span> </span>
+<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">repeated =</span> <span class="fu">as.factor</span>(repeated))</span>
+<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>  t_grid <span class="ot">&lt;-</span> grid_list[[a]][[scale]]</span>
+<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a>  t_grid2 <span class="ot">&lt;-</span> <span class="fu">full_join</span>(t_grid, t_common_cells) <span class="sc">%&gt;%</span> </span>
+<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">repeated =</span> <span class="fu">case_when</span>(<span class="fu">is.na</span>(repeated) <span class="sc">~</span> <span class="st">"never"</span>,</span>
+<span id="cb55-10"><a href="#cb55-10" aria-hidden="true" tabindex="-1"></a>                                repeated <span class="sc">==</span> <span class="dv">1</span> <span class="sc">~</span> <span class="st">"both"</span>,</span>
+<span id="cb55-11"><a href="#cb55-11" aria-hidden="true" tabindex="-1"></a>                                repeated <span class="sc">==</span> <span class="dv">0</span> <span class="sc">~</span> <span class="st">"once"</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb55-12"><a href="#cb55-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">repeated =</span> <span class="fu">as.factor</span>(repeated)) <span class="sc">%&gt;%</span> </span>
+<span id="cb55-13"><a href="#cb55-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">reorder_levels</span>(repeated, <span class="at">order =</span> <span class="fu">c</span>(<span class="st">"never"</span>, <span class="st">"once"</span>, <span class="st">"both"</span>))</span>
+<span id="cb55-14"><a href="#cb55-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(t_grid2[<span class="st">"repeated"</span>], <span class="at">pal =</span> <span class="fu">hcl.colors</span>(<span class="dv">3</span>, <span class="fu">hcl.pals</span>(<span class="at">type =</span> <span class="st">"divergingx"</span>)[<span class="dv">13</span>], <span class="at">alpha =</span> <span class="fl">0.7</span>))</span>
+<span id="cb55-15"><a href="#cb55-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">#tmap::qtm(t_grid2, "repeated", style = "col_blind", fill = c("black"))</span></span>
+<span id="cb55-16"><a href="#cb55-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(t_grid2 <span class="sc">%&gt;%</span> </span>
+<span id="cb55-17"><a href="#cb55-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(repeated <span class="sc">==</span> <span class="st">"both"</span> <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb55-18"><a href="#cb55-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Total_area_sampled =</span> <span class="fu">sum</span>(area)) <span class="sc">%&gt;%</span> </span>
+<span id="cb55-19"><a href="#cb55-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">distinct</span>(Total_area_sampled))</span>
+<span id="cb55-20"><a href="#cb55-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb55-21"><a href="#cb55-21" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(cell_grouping, cell_label)`</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Total_area_sampled
+1           83907.51</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(cell_grouping, cell_label)`</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="1_Atlas_Data_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Total_area_sampled
+1           133036.9</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(cell_grouping, cell_label)`</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="1_Atlas_Data_files/figure-html/unnamed-chunk-14-2.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Total_area_sampled
+1             448951</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(cell_grouping, cell_label)`</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="1_Atlas_Data_files/figure-html/unnamed-chunk-14-3.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="1_Atlas_Data_files/figure-html/unnamed-chunk-14-4.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Total_area_sampled
+1            9781678</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb64"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a><span class="co"># dev.off()</span></span>
+<span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb64-3"><a href="#cb64-3" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(t_common_cells, t_grid, t_grid2, common_cells, a, scale)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb65"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a>presence_data_filt2 <span class="do">## Plot something</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 2,763,468 × 13
+   dataset    tp cell_grouping cell_label cell_lat cell_long  area verbatim_name
+   &lt;chr&gt;   &lt;dbl&gt; &lt;fct&gt;              &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;        
+ 1 Birds_…     1 1                      2     51.0      14.4  130. Accipiter ge…
+ 2 Birds_…     1 1                      8     50.9      14.4  130. Accipiter ge…
+ 3 Birds_…     1 1                      9     50.9      14.6  130. Accipiter ge…
+ 4 Birds_…     1 1                     11     50.9      15.1  130. Accipiter ge…
+ 5 Birds_…     1 1                     12     50.9      15.2  130. Accipiter ge…
+ 6 Birds_…     1 1                     15     50.8      14.2  131. Accipiter ge…
+ 7 Birds_…     1 1                     16     50.8      14.4  131. Accipiter ge…
+ 8 Birds_…     1 1                     17     50.8      14.6  131. Accipiter ge…
+ 9 Birds_…     1 1                     18     50.8      14.7  131. Accipiter ge…
+10 Birds_…     1 1                     19     50.8      14.9  131. Accipiter ge…
+# ℹ 2,763,458 more rows
+# ℹ 5 more variables: Gamma &lt;int&gt;, Alpha &lt;dbl&gt;, Beta &lt;dbl&gt;, Mean_Alpha &lt;dbl&gt;,
+#   Mean_Beta &lt;dbl&gt;</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb67"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(presence_data_filt2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="save-objects-to-rds" class="level1" data-number="7">
+<h1 data-number="7"><span class="header-section-number">7</span> Save Objects to RDS</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb68"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="fu">save.image</span>(<span class="st">"1_Atlas_Data_clean.RData"</span>)</span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a><span class="do">## We need these:</span></span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a><span class="co">#atlas_names</span></span>
+<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a><span class="co">#time_periods</span></span>
+<span id="cb68-5"><a href="#cb68-5" aria-hidden="true" tabindex="-1"></a><span class="co">#grid_list</span></span>
+<span id="cb68-6"><a href="#cb68-6" aria-hidden="true" tabindex="-1"></a><span class="co">#presence_data_filt # I have to filter this completely ! ## TO DO</span></span>
+<span id="cb68-7"><a href="#cb68-7" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"1_Atlas_Data_clean.RData"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

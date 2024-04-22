@@ -30,12 +30,12 @@ atlas_names <- c("Birds_Atlas_Czechia",
                  "Birds_Atlas_New_York",
                  "Birds_atlas_Japan", 
                  "Birds_atlas_EBBA")
-df <- readRDS("presence_data_all.rds")
+df <- readRDS("../../out/rds/presence_data_all.rds")
 ```
 
 ## Spatial Autocorrelation
 
-```{r}
+```{r, eval = F}
 # Species 
 morans_list <- list()
 data_list <- list()
@@ -149,4 +149,5 @@ saveRDS(morans_list3, "SAC_MoransList.rds")
 saveRDS(data_df_all, "SAC_DataDf.rds")
 
 save.image("SAC.RData")
+load("SAC.RData")
 ```

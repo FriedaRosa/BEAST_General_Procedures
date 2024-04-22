@@ -77,14 +77,13 @@ crs_list <- list( "EPSG:5514", # CZ
                   "EPSG:3035") # EU
 names(crs_list) <- c("CZ", "NY", "JP", "EU")
 
-pred_list <- list()
 ```
 
 ---
 
 # Data & Grids
 We need the highest resolution data = cell_grouping = 1
-```{r}
+```{r, message = F}
 # grid data =====================
 grids <- list()
 for (a in seq_along(grid_paths)) {
@@ -165,8 +164,7 @@ names(presence_sf_list) <- atlas_names
 
 # ============================================================ ##
 
-saveRDS(presence_data_all, "presence_data_all.rds")
-saveRDS(presence_sf_list, "presence_sf_list.rds")
+
 rm(common_cells, common_sp, dd, pres_dat, pres_dat2, presence_data_rep, presence_data3, a, grids_a, i, presence_sf, sy)
 
 # ============================================================ ##
@@ -177,8 +175,8 @@ rm(common_cells, common_sp, dd, pres_dat, pres_dat2, presence_data_rep, presence
 # Diversity Metrics
 
 ```{r}
-sp_cell_dat <- readRDS("SpeciesDatPerCell.rds")
-unique(sp_cell_dat$verbatim_name) %>% write.csv("out/SpeciesNamesData.csv")
+# readRDS("../../out/rds/Presence_data_filtered.rds") %>% distinct(verbatim_name) %>% write.csv("../../out/csv/SpeciesNamesData.csv", row.names = F)
+sp_cell_dat <- readRDS("../../out/rds/SpeciesDatPerCell.rds")
 
 ## Calculate Diversity Measures ======================
 ## Per Cell:
@@ -210,16 +208,15 @@ GammaAlphaBeta_Species <- GammaAlphaBeta_Atlas %>%
   select(dataset, tp, verbatim_name, AlphaSR_sp, BetaSR_sp, GammaSR) %>% 
   distinct()
 
-saveRDS(GammaAlphaBeta_Species, "GammaAlphaBeta_Species.rds")
-pred_list[[1]] <- GammaAlphaBeta_Species
-rm(GammaAlphaBeta_Atlas, GammaAlphaBeta_Species)
+
+rm(GammaAlphaBeta_Atlas)
 ```
 
 # Co-occurrence probabilities
 Creation of the community matrices takes a while.
 
 ```{r}
-
+tictoc::tic()
 species_data <- sp_cell_dat %>% 
   filter(cell_grouping == 1) %>% 
   distinct(dataset, tp, verbatim_name, cell_label) 
@@ -283,16 +280,21 @@ for (a in seq_along(atlas_names)){
 }
  
 Co_Occ_df_final <- plyr::rbind.fill(co_occ_list2)
-pred_list[[2]] <- Co_Occ_df_final
-saveRDS(Co_Occ_df_final, paste0(out_path, "rds/Coocc_df_final.rds"))
-saveRDS(Co_Occ_df_final, "Co_Occ_df_final.rds")
 
-rm(Co_Occ_df_final, co_occ_list2, comm_dat, comm_matrix_tp1, comm_matrix_tp2, species_data, species_data_a, species_data_a1, species_data_a1_2, a, co_occ_list1, co_occurrence_tp1, co_occurrence_tp2)
 
+
+
+rm(co_occ_list2, comm_dat, comm_matrix_tp1, comm_matrix_tp2, species_data, species_data_a, species_data_a1, species_data_a1_2, a, co_occ_list1, co_occurrence_tp1, co_occurrence_tp2)
+tictoc::toc()
 ```
 
 
 ```{r}
-save.image("3a_Predictors.RData")
-saveRDS(pred_list, "pred_list.rds")
+saveRDS(presence_data_all, "../../out/rds/presence_data_all.rds")
+saveRDS(presence_sf_list, "../../out/rds/presence_sf_list.rds")
+
+saveRDS(Co_Occ_df_final, "../../out/predictors/Co_Occ_df_final.rds")
+saveRDS(GammaAlphaBeta_Species, "../../out/predictors/GammaAlphaBeta_Species.rds")
+
+save.image("../../out/RData/3a_Predictors.RData")
 ```

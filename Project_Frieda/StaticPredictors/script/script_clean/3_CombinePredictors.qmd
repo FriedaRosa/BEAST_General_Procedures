@@ -1,0 +1,37 @@
+---
+title: "Predictor Variables Calculations 3"
+author: "Friederike Wölke"
+date: "2024-04-20"
+output:
+  html_document:
+    code_folding: hide
+format:
+  html:
+    toc: true
+    number-sections: true
+    colorlinks: true
+---
+
+```{r}
+predictors <- list.files("out/predictors/")
+pred_list <- sapply(paste0("out/predictors/", predictors), readRDS)
+names(pred_list) <- gsub(pattern= ".rds", "", predictors)
+pred_list[[7]]  <- pred_list[[7]] %>% rename("verbatim_name" = "AtlasSp")
+pred_list[[1]]  <- pred_list[[1]] %>% rename("verbatim_name" = "AtlasSp")
+colSums(is.na(pred_list[[6]]))
+
+
+pred_list[[6]] %>% distinct(verbatim_name) %>% nrow()
+
+# Merge together
+BigTab2 <- pred_list[[2]] %>% filter(cell_grouping == 1) %>% left_join(pred_list[[3]]) %>% distinct(dataset, tp, verbatim_name, .keep_all=T)
+BigTab3 <- BigTab2 %>% left_join(pred_list[[4]])%>% distinct(dataset, tp, verbatim_name, .keep_all=T)
+BigTab4 <- BigTab3 %>% left_join(pred_list[[5]])%>% distinct(dataset, tp, verbatim_name, .keep_all=T)
+BigTab5 <- BigTab4 %>% left_join(pred_list[[6]])%>% distinct(dataset, tp, verbatim_name, .keep_all=T)
+BigTab6 <- BigTab5 %>% left_join(pred_list[[7]])%>% distinct(dataset, tp, verbatim_name, .keep_all=T)
+BigTab7 <- BigTab6 %>% left_join(pred_list[[8]])%>% distinct(dataset, tp, verbatim_name, .keep_all=T)
+BigTab8 <- BigTab7 %>% left_join(pred_list[[1]])%>% distinct(dataset, tp, verbatim_name, .keep_all=T)
+
+colSums(is.na(BigTab8))
+
+```

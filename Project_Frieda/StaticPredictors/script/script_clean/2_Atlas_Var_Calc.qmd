@@ -41,7 +41,7 @@ library(sparta)
 
 # Load Environment
 ```{r}
-load("1_Atlas_Data_clean.RData")
+load("../../out/RData/1_Atlas_Data_clean.RData")
 ls()
 ```
 
@@ -421,7 +421,7 @@ logRatio <- sp_dat_wide %>%
   mutate(log_R2_1 = log(tp2_AOO/tp1_AOO)) %>%
   select(-tp1_AOO, -tp2_AOO)
 
-big_table <- full_join(species_data_new2, logRatio) %>% 
+big_table <- full_join(species_data_new2, logRatio) %>% filter(cell_grouping == 1) %>%
     distinct(dataset, tp, cell_grouping, verbatim_name, .keep_all=T) %>%
     mutate_if(is.numeric, round, 3)
 
@@ -435,6 +435,7 @@ rm(logRatio,sp_dat_wide)
 
 # Save Output:
 ```{r}
-saveRDS(occ_data_final, "SpeciesDatPerCell.rds") # data per cell
-saveRDS(big_table, "BigTable.rds") # data per species
+saveRDS(occ_data_final, "../../out/rds/SpeciesDatPerCell.rds") # data per cell
+saveRDS(big_table, "../../out/predictors/BigTable.rds") # data per species
+save.image("../../out/RData/2_Atlas_Var_Calc.RData")
 ```

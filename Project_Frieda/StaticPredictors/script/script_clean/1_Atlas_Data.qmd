@@ -31,14 +31,6 @@ library(tidyr)
 # library(plyr) 
 ## plyr is required but produces some issues with dplyr. Thus it will be called in each function individually and is not required to load here.
 
-
-# Telfer calculation:
-## sparta is not on CRAN and cannot be updated as usual because there is another package called sparta from CRAN but we don't want this.
-
-# library(devtools)
-# install_github('biologicalrecordscentre/sparta')
-library(sparta) 
-
 ```
 
 # Path Variables:
@@ -209,7 +201,8 @@ common_sp %>%
   group_by(dataset) %>% 
   summarise(n = n_distinct(verbatim_name))
 
-table(excluded_sp$dataset) # CZ: 19, EBBA = 14 (94?), JP = 32, NY = 16
+table(excluded_sp$dataset)
+excluded_sp %>% write.csv("../../Documents/documentation_methods/ExcludedSpecies.csv") # CZ: 19, EBBA = 14 (94?), JP = 32, NY = 16
 # ============================================================================= #
 ```
 
@@ -242,7 +235,7 @@ presence_data_filt2 <- presence_data_filt %>%
 
 ```{r}
 # ========================== Data checks ======================================= #
-presence_data3 %>% 
+presence_data_filt %>% 
   filter(cell_grouping == 1) %>%
   group_by(dataset, tp) %>% 
   rstatix::get_summary_stats(type = "robust")
@@ -253,6 +246,9 @@ presence_data_filt %>%
   summarize(
     n_sp = n_distinct(verbatim_name),
     n_cells = n_distinct(cell_label))
+
+
+presence_data_filt %>% distinct(verbatim_name) # 841 species 
 
 # ==================== Save output & clean up environment ===================== #  
 # saveRDS(presence_data_filt, "Presence_data_filtered.rds") ## this is the most up to date name for this file !!
