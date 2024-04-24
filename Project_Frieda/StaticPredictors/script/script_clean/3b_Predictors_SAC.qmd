@@ -40,6 +40,7 @@ unique(df[[1]]$num_periods_cells) # reduced data
 ## Spatial Autocorrelation
 
 ```{r, eval = F}
+tictoc::tic()
 # Species 
 morans_list <- list()
 data_list <- list()
@@ -145,10 +146,19 @@ data_df_all <- plyr::rbind.fill(data_list3)
 # Data Checks:
 colSums(is.na(data_df_all))
 ls()
-rm(a, y, s, sp_list, data_species, data_reduced, df_y, dd, morans_cor )
+rm(a, y, s, sp_list, data_species, data_reduced, dd_y, dd, morans_cor )
 # Save Output:
 saveRDS(morans_list3, "../../out/rds/SAC_MoransList.rds")
 saveRDS(data_df_all, "../../out/predictors/SAC_DataDf.rds")
 
 save.image("../../out/RData/SAC.RData")
+
+
+
+data_df_all %>% group_by(dataset, tp) %>% rstatix::get_summary_stats(c(moran,x_intercept), type = "robust")
+data_df_all %>% distinct(verbatim_name) %>% nrow()
+tictoc::toc()
+
+
+plot(data_df_all$moran, data_df_all$x_intercept)
 ```

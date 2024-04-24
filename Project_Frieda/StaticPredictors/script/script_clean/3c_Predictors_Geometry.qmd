@@ -435,10 +435,11 @@ Geometries_final2 <- Geometries_final %>% mutate(
          -circNorm, -atlas_circNorm)
 
 colSums(is.na(Geometries_final2))
+Geometries_final2 %>% distinct(verbatim_name) %>% nrow()
+head(Geometries_final2)
 
+Geometries_final2 %>% group_by(dataset, tp) %>% rstatix::get_summary_stats(type="mean_sd") %>% filter(sd != 0) %>% View()
 
-presence_sf_list %>% unlist
-Geometries_final2 %>% distinct(verbatim_name)
 
 saveRDS(Geometries_final2, "../../out/predictors/Geometries.rds")
 save.image("../../out/RData/Geometry.RData")
