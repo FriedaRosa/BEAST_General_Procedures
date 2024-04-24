@@ -141,7 +141,6 @@ for (a in seq_along(atlas_names)){
 } # atlas loop closing
 
 data_df_all <- plyr::rbind.fill(data_list3) 
-# saveRDS(data_df_all, paste0(out_path, "rds/SAC_final.rds"))
  
 # Data Checks:
 colSums(is.na(data_df_all))
