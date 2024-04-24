@@ -265,14 +265,14 @@ countries_geom_attributes <- plyr::rbind.fill(geom_ls)
 # ============================================================== #
 
 # Transform country-borders to lines
-lines_l <- list()
+atlas_border_lines <- list()
 
 for (a in seq_along(grids)){
   lines <- grids[[a]] %>% 
     summarise() %>% 
     vect() %>% 
     as.lines()
-  lines_l[[a]] <- lines
+  atlas_border_lines[[a]] <- lines
 }
 
 tictoc::toc()
@@ -292,35 +292,34 @@ tictoc::tic()
 species_geom <- list()
 year_species_geom <- list()
 atlas_all_sp_geom <-list()
-COG_all <- list()
-COG_a <- list()
-presence_sf_list0 <- readRDS("out/rds/presence_sf_list.rds")
+AtlasCOG_list <- list()
+AtlasCOG_all <- list()
+presence_sf_list0 <- readRDS("../../out/rds/presence_sf_list.rds")
 
-
+presence_sf_list0 %>% plyr::rbind.fill() %>% distinct(verbatim_name) %>% nrow()
 presence_sf_list <- presence_sf_list0
 
 for (a in seq_along(presence_sf_list)){
   atlas <- presence_sf_list[[a]] %>% 
+    filter(exclude_cell == 0) %>%
     select(dataset, tp, cell_label, cell_long, cell_lat, 
-    verbatim_name) %>%
-    st_transform(crs = "epsg:4326")
-
+    verbatim_name)
 
     for (y in seq_along(time_periods)){
         atlas_y <- atlas %>% filter(tp == time_periods[y])
         sp <- unique(atlas_y$verbatim_name)
     
     # Calculate center of gravity for all species in each atlas 
-    points_atlas <- atlas_y %>% 
+    AtlasCOG <- atlas_y %>% 
         st_drop_geometry() %>% 
         summarise(x = mean(cell_long),
                   y = mean(cell_lat),
                   dataset = unique(dataset)) %>% 
         vect(geom = c("x", "y"))
-    COG_all[[y]] <- atlas_y %>% 
+    AtlasCOG_list[[y]] <- atlas_y %>% 
         st_drop_geometry() %>% 
-        summarise(x = mean(cell_long),
-                  y = mean(cell_lat),
+        summarise(AtlasCOG_long = mean(cell_long),
+                  AtlasCOG_lat = mean(cell_lat),
                   dataset = unique(dataset))
 
 
@@ -329,7 +328,7 @@ for (a in seq_along(presence_sf_list)){
       atlas_sp <- atlas_y %>% filter(verbatim_name == sp[s]) 
       
       # Species centroids:
-      points_species <- atlas_sp %>% 
+      sp_centroid <- atlas_sp %>% 
         st_drop_geometry() %>% 
         distinct(cell_long, cell_lat, verbatim_name, dataset, tp) %>%
         group_by(dataset, tp, verbatim_name) %>%
@@ -341,42 +340,43 @@ for (a in seq_along(presence_sf_list)){
         vect(geom = c("x", "y"))
 
         # Data to calculate geometries on:
-      species_df <- atlas_sp %>% 
+      sp_range <- atlas_sp %>% 
           select(geom, cell_label)%>% 
           summarise() %>% 
           vect()
 
         # Calculate distances:
-       atlas_lines <- lines_l[[a]]
-       Dist_centroid_to_COG <- distance(crds(points_species), crds(points_atlas), lonlat = T)
-       minDist_toBorder_centr <- min(distance(crds(points_species), crds(atlas_lines), lonlat=T))
-       maxDist_toBorder_centr <- max(distance(crds(points_species), crds(atlas_lines), lonlat=T))
-       minDist_toBorder_border <- min(distance(crds(species_df), crds(atlas_lines), lonlat=T))
-       maxDist_toBorder_border <- max(distance(crds(species_df), crds(atlas_lines), lonlat=T))
+       atlas_lines <- atlas_border_lines[[a]]
+       Dist_centroid_to_COG <- distance(crds(sp_centroid), crds(AtlasCOG), lonlat = T)
+       minDist_toBorder_centr <- min(distance(crds(sp_centroid), crds(atlas_lines), lonlat=T))
+       maxDist_toBorder_centr <- max(distance(crds(sp_centroid), crds(atlas_lines), lonlat=T))
+       minDist_toBorder_border <- min(distance(crds(sp_range), crds(atlas_lines), lonlat=T))
+       maxDist_toBorder_border <- max(distance(crds(sp_range), crds(atlas_lines), lonlat=T))
        
        Geom_attributes <- data_frame(dataset = atlas_names[a],
                                     tp = time_periods[y],
                                     verbatim_name = sp[s],
-                                    nsDist = poly_attr(species_df, "nsDist"),
-                                    ewDist = poly_attr(species_df, "ewDist"),
-                                    maxDist = poly_attr(species_df, "maxDist"),
-                                    lengthMinRect = poly_attr(species_df, "lengthMinRect"),
-                                    widthMinRect = poly_attr(species_df, "widthMinRect"),
-                                    elonMinRect = poly_attr(species_df, "elonMinRect"),
-                                    elonRatio = poly_attr(species_df, "elonRatio"),
-                                    circ = poly_attr(species_df, "circ"),
-                                    circNorm = poly_attr(species_df, "circNorm"),
-                                    relCirc = poly_attr(species_df, "relCirc"),
-                                    lin = poly_attr(species_df, "lin"),
-                                    bearingMinRect = poly_attr(species_df, "bearingMinRect"), 
-                                    bearing = poly_attr(species_df, "bearing"),
+                                    nsDist = poly_attr(sp_range, "nsDist"),
+                                    ewDist = poly_attr(sp_range, "ewDist"),
+                                    maxDist = poly_attr(sp_range, "maxDist"),
+                                    lengthMinRect = poly_attr(sp_range, "lengthMinRect"),
+                                    widthMinRect = poly_attr(sp_range, "widthMinRect"),
+                                    elonMinRect = poly_attr(sp_range, "elonMinRect"),
+                                    elonRatio = poly_attr(sp_range, "elonRatio"),
+                                    circ = poly_attr(sp_range, "circ"),
+                                    circNorm = poly_attr(sp_range, "circNorm"),
+                                    relCirc = poly_attr(sp_range, "relCirc"),
+                                    lin = poly_attr(sp_range, "lin"),
+                                    bearingMinRect = poly_attr(sp_range, "bearingMinRect"), 
+                                    bearing = poly_attr(sp_range, "bearing"),
                                     Dist_centroid_to_COG = Dist_centroid_to_COG[1],
                                     minDist_toBorder_border = minDist_toBorder_border,
                                     maxDist_toBorder_border = maxDist_toBorder_border,
                                     minDist_toBorder_centr = minDist_toBorder_centr,
                                     maxDist_toBorder_centr = maxDist_toBorder_centr)
+       
       colSums(is.na(Geom_attributes))
-      Geom_attributes2 <- cbind(Geom_attributes, crds(points_species))
+      Geom_attributes2 <- cbind(Geom_attributes, crds(sp_centroid))
        colSums(is.na(Geom_attributes2))
       
       
@@ -387,15 +387,15 @@ for (a in seq_along(presence_sf_list)){
     year_species_geom[[y]] <- species_geom_df 
     }
     
-    COG_a[[a]] <- plyr::rbind.fill(COG_all)
+    AtlasCOG_all[[a]] <- plyr::rbind.fill(AtlasCOG_list)
     year_species_geom_df <- plyr::rbind.fill(year_species_geom) 
     atlas_all_sp_geom[[a]] <- year_species_geom_df
 }
 
-COG_df <- plyr::rbind.fill(COG_a, fill =T) %>% rename("Atlas_COG_lon" = "x", "Atlas_COG_lat" = "y")
+AtlasCOG_df <- plyr::rbind.fill(AtlasCOG_all, fill =T) 
 Species_geom_attributes <- plyr::rbind.fill(atlas_all_sp_geom) %>% rename("sp_centr_lon" = "x", "sp_centr_lat" = "y")
 
-Atlas_geom <- full_join(countries_geom_attributes, COG_df) %>% 
+Atlas_geom <- full_join(countries_geom_attributes, AtlasCOG_df) %>% 
     group_by(dataset) %>% 
     distinct(dataset, .keep_all=T) %>% na.omit()
 
@@ -437,8 +437,11 @@ Geometries_final2 <- Geometries_final %>% mutate(
 colSums(is.na(Geometries_final2))
 
 
-saveRDS(Geometries_final2, "Geometries.rds")
-save.image("Geometry.RData")
+presence_sf_list %>% unlist
+Geometries_final2 %>% distinct(verbatim_name)
+
+saveRDS(Geometries_final2, "../../out/predictors/Geometries.rds")
+save.image("../../out/RData/Geometry.RData")
 tictoc::toc()
 ```
 

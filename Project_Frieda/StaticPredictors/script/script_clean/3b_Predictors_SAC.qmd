@@ -30,7 +30,11 @@ atlas_names <- c("Birds_Atlas_Czechia",
                  "Birds_Atlas_New_York",
                  "Birds_atlas_Japan", 
                  "Birds_atlas_EBBA")
-df <- readRDS("../../out/rds/presence_data_all.rds")
+df <- readRDS("../../out/rds/pres_dat_all.rds")
+
+
+unique(df[[1]]$num_periods_cells) # reduced data
+
 ```
 
 ## Spatial Autocorrelation
@@ -54,7 +58,7 @@ for (a in seq_along(atlas_names)){
         filter(cell_grouping == 1) %>%
         select(
             dataset, tp, verbatim_name, 
-            area, area_cropped, cell_lat, cell_long, cell_label) %>%
+            area, cell_lat, cell_long, cell_label) %>%
         distinct(dataset, tp, verbatim_name, cell_label, .keep_all = T) 
 
     for (y in seq_along(time_periods)){
@@ -86,10 +90,9 @@ for (a in seq_along(atlas_names)){
 
             data_reduced <- dd_y %>% 
                 filter(verbatim_name == sp_list[s]) %>% 
-                select(verbatim_name, dataset, tp, area, area_cropped) %>% 
+                select(verbatim_name, dataset, tp, area) %>% 
                 distinct() %>% 
                 mutate(mean_area = mean(area),
-                    mean_area_cropped = mean(area_cropped),
                     mean_cell_length = sqrt(mean_area)) %>% 
                 mutate(
                     increment2 = mean_cell_length * 1.75) %>% 
@@ -145,9 +148,8 @@ colSums(is.na(data_df_all))
 ls()
 rm(a, y, s, sp_list, data_species, data_reduced, df_y, dd, morans_cor )
 # Save Output:
-saveRDS(morans_list3, "SAC_MoransList.rds")
-saveRDS(data_df_all, "SAC_DataDf.rds")
+saveRDS(morans_list3, "../../out/rds/SAC_MoransList.rds")
+saveRDS(data_df_all, "../../out/predictors/SAC_DataDf.rds")
 
-save.image("SAC.RData")
-load("SAC.RData")
+save.image("../../out/RData/SAC.RData")
 ```

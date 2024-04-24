@@ -13,13 +13,13 @@ format:
 ---
 
 # Clean Environment
-```{r, message = F}
+```{r, message = F, results='hide',warning=FALSE}
 rm(list=ls())
 gc()
 ```
 
 # Libraries
-```{r, mesaage = F}
+```{r, mesaage = F, warning=FALSE}
 # Spatial:
 library(sf) 
 sf_use_s2(FALSE) # switch spherical geometry off
@@ -72,12 +72,6 @@ time_periods <- c(1,2)
 desired_levels <- factor(c("1", "2","4", "8", "16", "32", "64", "128"), ordered = T,  
                          levels = c("1", "2","4", "8", "16", "32", "64", "128")) 
 
-# list of crs in order of atlas_names
-crs_list <- list( "EPSG:5514", # CZ
-                  "EPSG:32118", # NY
-                  "EPSG:6668", # JP
-                  "EPSG:3035") # EU
-names(crs_list) <- c("CZ", "NY", "JP", "EU")
 
 ```
 
@@ -142,27 +136,25 @@ rm(pres_dat, sy, pres_dat2)
   (Note: this is not identical to cells that have never been sampled. Those are generally excluded here)
 - remove species that were only sampled once in the cells that were sampled twice (because we don't have change data for them anyway).
 
-```{r}
+```{r, mesaage = F, warning=FALSE}
 ## Filter level 1: Cells sampled twice 
 common_cells <- presence_data2 %>% 
   ungroup() %>% 
-  distinct(dataset, cell_grouping, cell_label, tp) %>% ungroup() %>%
-  group_by(dataset, cell_grouping, cell_label) %>%
-  # How often each cell was sampled:
-  mutate(num_periods_cells = n_distinct(tp)) %>% 
-  # Dummy variable for easy filtering of cells that were sampled repeatedly
-  mutate(repeated = case_when(
-    num_periods_cells == 2 ~ 1, 
-    num_periods_cells %in% c(1,2) ~ 0)) %>% 
-  ungroup() %>% 
-  group_by(dataset) %>% 
-  select(dataset, cell_grouping, cell_label, num_periods_cells, repeated) %>% 
-  distinct()
+    distinct(dataset, cell_grouping, cell_label, tp) %>% 
+    group_by(dataset, cell_grouping, cell_label) %>%
+    # How often each cell was sampled:
+    mutate(num_periods_cells = n_distinct(tp)) %>% 
+    select(cell_grouping, cell_label, num_periods_cells, dataset) %>% 
+    distinct()
+
+
+colSums(is.na(common_cells))
+
 
 presence_data_rep <- full_join(presence_data2, common_cells)
 
 excluded_cells <- common_cells %>% 
-  filter(num_periods_cells == 1) %>% 
+  filter(num_periods_cells %in% c(1,0)) %>% 
   distinct(dataset, cell_grouping, cell_label)
 
 
@@ -181,12 +173,12 @@ table(excluded_cells$dataset) # EBBA: 66 (1706?), JP: 3, NY = 20
 ```
 
 ## Filter 2: Species sampled twice in those cells
-```{r}
+```{r, mesaage = F, warning=FALSE}
 ## Filter level 2: Species sampled twice in the remaining cells
-common_sp <- presence_data_rep %>% filter(repeated == 1 & cell_grouping == 1) %>% 
-    group_by(dataset, verbatim_name) %>%
-    summarise(num_periods_sp = n_distinct(tp)) %>% 
-  ungroup() %>% group_by(dataset, num_periods_sp)
+common_sp <- presence_data_rep %>% 
+  filter(num_periods_cells == 2 & cell_grouping == 1) %>% 
+  group_by(dataset, verbatim_name) %>%
+  summarise(num_periods_sp = n_distinct(tp)) 
 
 excluded_sp <- common_sp %>% 
   filter(num_periods_sp == 1) %>% 
@@ -206,29 +198,12 @@ excluded_sp %>% write.csv("../../Documents/documentation_methods/ExcludedSpecies
 # ============================================================================= #
 ```
 
-## Add: Diversity Metrics per Area
 
-```{r}
-# Add Diversity Metris to data: 
+## Filter Data
+```{r, mesaage = F, warning = F}
+
 presence_data_filt <- full_join(presence_data_rep, common_sp)  %>%  
-    filter(num_periods_cells == 2 & num_periods_sp == 2 & repeated == 1) %>% 
-    select(-num_periods_cells, -num_periods_sp, -repeated)
-
-# Subset with only repeated cells
-presence_data_filt2 <- presence_data_filt %>% 
-    group_by(dataset, tp, cell_grouping) %>% # Gamma is per atlas
-    mutate(Gamma = n_distinct(verbatim_name)) %>% 
-    ungroup() %>% 
-    # Alpha and Beta are per cell
-    group_by(dataset, tp, cell_grouping, cell_label) %>% 
-    mutate(Alpha = mean(n_distinct(verbatim_name))) %>% 
-    mutate(Beta = Gamma / Alpha) %>%
-    ungroup() %>% 
-    # Mean Beta and Mean Alpha are per atlas
-    group_by(dataset, tp, cell_grouping) %>%  
-    mutate(Mean_Alpha = mean(Alpha),
-           Mean_Beta = Gamma / Mean_Alpha) %>% 
-    ungroup()
+    filter(num_periods_cells == 2 & num_periods_sp == 2) 
 ```
 
 ### Data checks
@@ -248,10 +223,10 @@ presence_data_filt %>%
     n_cells = n_distinct(cell_label))
 
 
-presence_data_filt %>% distinct(verbatim_name) # 841 species 
+presence_data_filt %>% distinct(verbatim_name) %>% nrow() # 841 species 
 
 # ==================== Save output & clean up environment ===================== #  
-# saveRDS(presence_data_filt, "Presence_data_filtered.rds") ## this is the most up to date name for this file !!
+ saveRDS(presence_data_filt, "../../out/rds/Presence_data_filtered.rds") ## this is the most up to date name for this file !!
 # saveRDS(presence_data_filt, paste0(out_path, "rds/presence_data_reduced.rds"))
 rm(common_sp, presence_data_rep, presence_data2, excluded_cells, excluded_sp, presence_data, i )
 ```
@@ -273,7 +248,6 @@ grid_list <- list()
 for (a in seq_along(grid_paths)) {
     grids <- sapply(layers_list[[a]], function(i) {
       st_read(grid_paths[[a]], paste(i), quiet = TRUE) %>% 
-        st_transform(crs = crs_list[[a]]) %>% 
         reorder_levels( cell_grouping, order=desired_levels)
       }, simplify = FALSE)
     grid_list[[a]] <- grids
@@ -291,12 +265,13 @@ for (a in seq_along(grid_list)){
   for (scale in seq_along(length(grid_list[[a]]))){
   t_common_cells <- common_cells %>% 
     filter(dataset == atlas_names[[a]] & cell_grouping == scale) %>% 
-    mutate(repeated = as.factor(repeated))
+    mutate(num_periods_cells = as.factor(num_periods_cells))
   t_grid <- grid_list[[a]][[scale]]
   t_grid2 <- full_join(t_grid, t_common_cells) %>% 
-    mutate(repeated = case_when(is.na(repeated) ~ "never",
-                                repeated == 1 ~ "both",
-                                repeated == 0 ~ "once")) %>% 
+    mutate(repeated = case_when(is.na(num_periods_cells) ~ "never",
+                                num_periods_cells == 1 ~ "once",
+                                num_periods_cells == 0 ~ "never",
+                                num_periods_cells == 2 ~ "both")) %>% 
     mutate(repeated = as.factor(repeated)) %>% 
     reorder_levels(repeated, order = c("never", "once", "both"))
   plot(t_grid2["repeated"], pal = hcl.colors(3, hcl.pals(type = "divergingx")[13], alpha = 0.7))
@@ -304,7 +279,7 @@ for (a in seq_along(grid_list)){
   print(t_grid2 %>% 
     filter(repeated == "both" & cell_grouping == 1) %>% 
     mutate(Total_area_sampled = sum(area)) %>% 
-    distinct(Total_area_sampled))
+    pull(Total_area_sampled) %>% unique() )
   }
 }
 
@@ -313,19 +288,16 @@ for (a in seq_along(grid_list)){
 rm(t_common_cells, t_grid, t_grid2, common_cells, a, scale)
 ```
 
-```{r}
-presence_data_filt2 ## Plot something
-rm(presence_data_filt2)
-```
 
 # Save Objects to RDS
 ```{r}
 
 save.image("1_Atlas_Data_clean.RData")
+
 ## We need these:
 #atlas_names
 #time_periods
 #grid_list
-#presence_data_filt # I have to filter this completely ! ## TO DO
-load("1_Atlas_Data_clean.RData")
+#presence_data_filt
+#load("1_Atlas_Data_clean.RData")
 ```

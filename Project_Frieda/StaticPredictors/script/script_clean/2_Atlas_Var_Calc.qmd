@@ -49,7 +49,7 @@ ls()
 # Calculations
 ## 1. Occupancy
 ### 1.1 Calculate Areas from Atlases
-```{r}
+```{r,mesaage = F, warning = F}
 pres_dat_full_grain <- list()
 pres_dat_full_atlas <- list()
 

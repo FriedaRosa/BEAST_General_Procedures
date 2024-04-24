@@ -68,15 +68,6 @@ time_periods <- c(1,2)
 atlas_names <- c("Birds_Atlas_Czechia", "Birds_Atlas_New_York","Birds_atlas_Japan", "Birds_atlas_EBBA")
 desired_levels <- factor(c("1", "2", "4", "8", "16", "32", "64", "128"), ordered = T,
   levels = c("1", "2", "4", "8", "16", "32", "64", "128"))
-
-# list of crs in order of atlas_names
-# Define CRS for each region
-crs_list <- list( "EPSG:5514", # CZ
-                  "EPSG:32118", # NY
-                  "EPSG:6668", # JP
-                  "EPSG:3035") # EU
-names(crs_list) <- c("CZ", "NY", "JP", "EU")
-
 ```
 
 ---
@@ -84,88 +75,108 @@ names(crs_list) <- c("CZ", "NY", "JP", "EU")
 # Data & Grids
 We need the highest resolution data = cell_grouping = 1
 ```{r, message = F}
-# grid data =====================
-grids <- list()
-for (a in seq_along(grid_paths)) {
-    grids_a <-sapply("cell1grid", function(i) {
-      st_read(grid_paths[[a]], paste(i), quiet = TRUE)  %>% 
-        st_transform(crs = crs_list[[a]]) %>% 
-        reorder_levels( cell_grouping, order=desired_levels)
-      }, simplify = FALSE)
-    grids[[a]] <- grids_a$cell1grid
-}
+grid_list <- list()
+df_filtered_list <- list()
+presence_sf_list <- list()
 
-# Species data  =====================
-presence_data_all <- list()
-for (i in seq_along(data_paths)) {
-  pres_dat <- readRDS(data_paths[i]) %>% filter(cell_grouping == 1)
-  sy <- sort(unique(pres_dat$start_year)) # sy = start_year
-
-  ## Add time-period column
-  pres_dat2 <- pres_dat %>% 
-    mutate(tp = case_when(start_year == sy[1] ~ 1,
+for (i in seq_along(data_paths)){
+  pres_dat <- readRDS(data_paths[i])
+  sy <- sort(unique(pres_dat$start_year))
+  
+  pres_dat2 <- pres_dat %>%     
+    ungroup() %>%
+    # Add time-period column
+    mutate(tp = case_when(start_year == sy[1] ~ 1, 
                           start_year == sy[2] ~ 2)) %>% 
     filter(tp %in% c(1,2)) %>%
-    filter(!is.na(cell_label)) %>%
-    reorder_levels(cell_grouping, order=desired_levels)
-
-  ## Cells sampled twice (column: repeated)
-common_cells <- pres_dat2 %>% 
-  ungroup() %>% 
-  distinct(dataset, cell_grouping, cell_label, tp) %>% ungroup() %>%
-  group_by(dataset, cell_grouping, cell_label) %>%
-  # How often each cell was sampled:
-  mutate(num_periods_cells = n_distinct(tp)) %>% 
-  # Dummy variable for easy filtering of cells that were sampled repeatedly
-  mutate(repeated = case_when(
-    num_periods_cells == 2 ~ 1, 
-    num_periods_cells %in% c(1,2) ~ 0)) %>% 
-  ungroup() %>% 
-  group_by(dataset) %>% 
-  select(dataset, cell_grouping, cell_label, num_periods_cells, repeated) %>% 
-  distinct()
-
-  common_cells %>%
-    group_by(dataset, cell_grouping, repeated, num_periods_cells) %>%
-    summarise(n = n())
-
+    # Reorder spatial scales from small to large
+    reorder_levels(cell_grouping, order=desired_levels) %>% 
+    select(dataset, tp, cell_grouping, 
+           cell_label, cell_lat, cell_long, area, 
+           verbatim_name) 
+  
+  ## Data Checks:
+  # Summary sp and site numbers: Before reduction
+  pres_dat2 %>% 
+    filter(cell_grouping == 1) %>% 
+    group_by(tp) %>% 
+    summarise(n_sp = n_distinct(verbatim_name),
+              n_sites = n_distinct(cell_label))
+  pres_dat2 %>% 
+    ungroup() %>% 
+    summarise(n_sp = n_distinct(verbatim_name)) # 989 sp in total (before reduction)
+  ## End
+  
+  ## Filter level 1: Cells sampled twice 
+  common_cells <- pres_dat2 %>% 
+    ungroup() %>% 
+    distinct(dataset, cell_grouping, cell_label, tp) %>% 
+    group_by(cell_grouping, cell_label) %>%
+    # How often each cell was sampled:
+    mutate(num_periods_cells = n_distinct(tp)) %>% 
+    select(cell_grouping, cell_label, num_periods_cells, dataset) %>% 
+    distinct()
   presence_data_rep <- full_join(pres_dat2, common_cells)
-
-  # Species sampled twice in the remaining cells
-  common_sp <- presence_data_rep %>%
-    filter(repeated == 1 & cell_grouping == 1) %>%
+  
+  ## Data Checks: 
+  common_cells %>% 
+    filter(num_periods_cells == 2 & cell_grouping == 1) %>%
+    group_by(dataset, cell_grouping) %>% 
+    summarise(n = n_distinct(cell_label))
+  
+  excluded_cells <- common_cells %>% 
+    filter(num_periods_cells %in% c(0, 1)) %>% 
+    distinct(dataset, cell_grouping, cell_label)
+  ## End
+  
+  ## Filter level 2: Species sampled twice in the remaining cells
+  common_sp <- presence_data_rep %>% 
+    filter(num_periods_cells == 2 & cell_grouping == 1) %>% 
     group_by(dataset, verbatim_name) %>%
-    summarise(num_periods_sp = n_distinct(tp)) %>%
-    ungroup() 
-  presence_data3 <- full_join(presence_data_rep, common_sp) 
-
-  presence_data_all[[i]] <- presence_data3 %>%  
-    filter(num_periods_cells == 2 & num_periods_sp == 2 & repeated == 1) %>% 
-    select(-num_periods_cells, -num_periods_sp, -repeated)
-}
-
-
-
-# Create list of spatial objects ==========================
-presence_sf_list <- list()
-for (a in seq_along(atlas_names)){
-  grid <- grids[[a]]
-  presence_data <- presence_data_all[[a]]
-  presence_sf <- left_join(grid, presence_data) 
-  dd <- presence_sf %>% filter(dataset == atlas_names[a]) %>% # remove unsampled cells
-    group_by(dataset,tp) %>%
-    mutate(GammaSR = sum(n_distinct(verbatim_name))) %>% 
-    ungroup()
-  presence_sf_list[[a]] <- dd 
+    summarise(num_periods_sp = n_distinct(tp))
+  
+  ## Data Checks:
+  excluded_sp <- common_sp %>% 
+    filter(num_periods_sp == 1) %>% 
+    distinct(verbatim_name)
+  ## End
+  
+  presence_data_filt <- full_join(presence_data_rep, common_sp)  %>%  
+    filter(num_periods_cells == 2 & num_periods_sp == 2)
+  
+  df_filtered_list[[i]] <- presence_data_filt
+  
+  ## Grids
+  grids <- sapply("cell1grid", function(a){
+    st_read(grid_paths[[i]], paste(a), quiet = TRUE) %>% 
+      reorder_levels(cell_grouping, order=desired_levels) %>%
+      select(cell_grouping, cell_label)
+  }, simplify = FALSE)
+  grid_list[[i]] <- grids$cell1grid
+  
+  
+  presence_sf <- full_join(grids$cell1grid, presence_data_filt %>% filter(cell_grouping == 1)) %>%
+    mutate(exclude_cell = case_when(is.na(dataset) | is.na(verbatim_name) ~ 1,
+                                    .default = 0))
+  
+  presence_sf_list[[i]] <- presence_sf
+    
   }
+  
+presence_data_all <- df_filtered_list
+sp_cell_dat <- plyr::rbind.fill(df_filtered_list)
 names(presence_sf_list) <- atlas_names
 
 
 
 # ============================================================ ##
+sp_cell_dat %>% ungroup() %>% distinct(verbatim_name) %>% nrow()
 
-
-rm(common_cells, common_sp, dd, pres_dat, pres_dat2, presence_data_rep, presence_data3, a, grids_a, i, presence_sf, sy)
+saveRDS(sp_cell_dat, "../../out/rds/SpeciesDatPerCell.rds")
+saveRDS(presence_data_all, "../../out/rds/pres_dat_all.rds")
+saveRDS(presence_sf_list, "../../out/rds/presence_sf_list.rds")
+plyr::rbind.fill(presence_sf_list) %>% distinct(verbatim_name) %>% nrow()
+rm(common_cells, common_sp, pres_dat, pres_dat2, presence_data_rep, i, presence_sf, sy)
 
 # ============================================================ ##
 
@@ -215,7 +226,7 @@ rm(GammaAlphaBeta_Atlas)
 # Co-occurrence probabilities
 Creation of the community matrices takes a while.
 
-```{r}
+```{r, eval = FALSE}
 tictoc::tic()
 species_data <- sp_cell_dat %>% 
   filter(cell_grouping == 1) %>% 
@@ -289,7 +300,7 @@ tictoc::toc()
 ```
 
 
-```{r}
+```{r, eval = F}
 saveRDS(presence_data_all, "../../out/rds/presence_data_all.rds")
 saveRDS(presence_sf_list, "../../out/rds/presence_sf_list.rds")
 
