@@ -35,6 +35,11 @@ df <- readRDS("../../out/rds/pres_dat_all.rds")
 
 unique(df[[1]]$num_periods_cells) # reduced data
 
+
+## Reduce to only EBBA data:
+# df <- df[4]
+# atlas_names <- atlas_names[4]
+
 ```
 
 ## Spatial Autocorrelation
@@ -76,7 +81,7 @@ for (a in seq_along(atlas_names)){
                 "sp = ", sp_list[s]))
 
             # Obtain a df for each species that indicates the presence (1) or absence (0) of the species
-      
+            ## Credits: Dr. Carmen Diana Soria González de Buitrago  wrote the following code chunk to obtain presence-absence df for each species:
             data_species <- dd_y %>% 
                 distinct(verbatim_name, cell_label, cell_lat, cell_long) %>% 
                 ungroup() %>% unique() %>%

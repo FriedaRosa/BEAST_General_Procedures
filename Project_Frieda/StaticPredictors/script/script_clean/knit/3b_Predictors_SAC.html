@@ -130,8 +130,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells  576282 30.8    1316310 70.3   660420 35.3
-Vcells 1045010  8.0    8388608 64.0  1770238 13.6</code></pre>
+Ncells  572333 30.6    1306237 69.8   658000 35.2
+Vcells 1040137  8.0    8388608 64.0  1768422 13.5</code></pre>
 </div>
 </div>
 </section>
@@ -148,124 +148,140 @@ Vcells 1045010  8.0    8388608 64.0  1770238 13.6</code></pre>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>                 <span class="st">"Birds_Atlas_New_York"</span>,</span>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                 <span class="st">"Birds_atlas_Japan"</span>, </span>
 <span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>                 <span class="st">"Birds_atlas_EBBA"</span>)</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"../../out/rds/presence_data_all.rds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"../../out/rds/pres_dat_all.rds"</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="fu">unique</span>(df[[<span class="dv">1</span>]]<span class="sc">$</span>num_periods_cells) <span class="co"># reduced data</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="do">## Reduce to only EBBA data:</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># df &lt;- df[4]</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># atlas_names &lt;- atlas_names[4]</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="spatial-autocorrelation-1" class="level2" data-number="1.3">
 <h2 data-number="1.3" class="anchored" data-anchor-id="spatial-autocorrelation-1"><span class="header-section-number">1.3</span> Spatial Autocorrelation</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Species </span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>morans_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>data_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Years</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>morans_list2 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>data_list2 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Atlases</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>morans_list3 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>data_list3 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop:</span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(atlas_names)){</span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    dd <span class="ot">&lt;-</span> df[[a]] <span class="sc">%&gt;%</span></span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>        <span class="fu">filter</span>(cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>        <span class="fu">select</span>(</span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>            dataset, tp, verbatim_name, </span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>            area, area_cropped, cell_lat, cell_long, cell_label) <span class="sc">%&gt;%</span></span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        <span class="fu">distinct</span>(dataset, tp, verbatim_name, cell_label, <span class="at">.keep_all =</span> T) </span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (y <span class="cf">in</span> <span class="fu">seq_along</span>(time_periods)){</span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>        dd_y <span class="ot">&lt;-</span> dd <span class="sc">%&gt;%</span> <span class="fu">filter</span>(tp <span class="sc">==</span> time_periods[y]) </span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>        sp_list <span class="ot">&lt;-</span> <span class="fu">unique</span>(dd_y<span class="sc">$</span>verbatim_name)</span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> (s <span class="cf">in</span> <span class="fu">seq_along</span>(sp_list)){</span>
-<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Print progress </span></span>
-<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>            <span class="fu">print</span>(<span class="fu">paste</span>(</span>
-<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>                <span class="st">"atlas ="</span>, <span class="fu">unique</span>(dd_y<span class="sc">$</span>dataset), </span>
-<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>                <span class="st">"tp ="</span>, <span class="fu">unique</span>(dd_y<span class="sc">$</span>tp), </span>
-<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>                <span class="st">"N = "</span>, s, <span class="st">"/"</span>, <span class="fu">length</span>(sp_list), </span>
-<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>                <span class="st">"sp = "</span>, sp_list[s]))</span>
-<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Obtain a df for each species that indicates the presence (1) or absence (0) of the species</span></span>
-<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>      </span>
-<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>            data_species <span class="ot">&lt;-</span> dd_y <span class="sc">%&gt;%</span> </span>
-<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>                <span class="fu">distinct</span>(verbatim_name, cell_label, cell_lat, cell_long) <span class="sc">%&gt;%</span> </span>
-<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>                <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> <span class="fu">unique</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>                <span class="fu">mutate</span>(</span>
-<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a>                    <span class="at">verbatim_name =</span> <span class="fu">ifelse</span>(verbatim_name <span class="sc">!=</span> sp_list[s], <span class="cn">NA</span>, verbatim_name)) <span class="sc">%&gt;%</span></span>
-<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>                <span class="fu">group_by</span>(<span class="fu">across</span>(<span class="sc">-</span>verbatim_name)) <span class="sc">%&gt;%</span></span>
-<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>                <span class="fu">slice</span>(<span class="fu">which.max</span>(<span class="sc">!</span><span class="fu">is.na</span>(verbatim_name))) <span class="sc">%&gt;%</span> </span>
-<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>                <span class="fu">distinct</span>(verbatim_name, cell_label, <span class="at">.keep_all=</span>T) <span class="sc">%&gt;%</span></span>
-<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>                <span class="fu">mutate</span>(</span>
-<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>                    <span class="at">presence =</span> <span class="fu">ifelse</span>(<span class="sc">!</span><span class="fu">is.na</span>(verbatim_name), <span class="dv">1</span>, <span class="dv">0</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>                <span class="fu">ungroup</span>()</span>
-<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>            data_reduced <span class="ot">&lt;-</span> dd_y <span class="sc">%&gt;%</span> </span>
-<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a>                <span class="fu">filter</span>(verbatim_name <span class="sc">==</span> sp_list[s]) <span class="sc">%&gt;%</span> </span>
-<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a>                <span class="fu">select</span>(verbatim_name, dataset, tp, area, area_cropped) <span class="sc">%&gt;%</span> </span>
-<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a>                <span class="fu">distinct</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a>                <span class="fu">mutate</span>(<span class="at">mean_area =</span> <span class="fu">mean</span>(area),</span>
-<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a>                    <span class="at">mean_area_cropped =</span> <span class="fu">mean</span>(area_cropped),</span>
-<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a>                    <span class="at">mean_cell_length =</span> <span class="fu">sqrt</span>(mean_area)) <span class="sc">%&gt;%</span> </span>
-<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a>                <span class="fu">mutate</span>(</span>
-<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a>                    <span class="at">increment2 =</span> mean_cell_length <span class="sc">*</span> <span class="fl">1.75</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a>                <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a>                <span class="fu">distinct</span>(verbatim_name, <span class="at">.keep_all =</span> T)</span>
-<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a>      </span>
-<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>            data_species<span class="sc">$</span>increment <span class="ot">&lt;-</span> data_reduced<span class="sc">$</span>increment2</span>
-<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a>            <span class="fu">tryCatch</span>({</span>
-<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a>                <span class="fu">print</span>(<span class="st">"Attempting to calculate Moran's I"</span>)</span>
-<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a>                morans_cor <span class="ot">&lt;-</span> <span class="fu">correlog</span>(<span class="at">x =</span> data_species<span class="sc">$</span>cell_long, </span>
-<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a>                         <span class="at">y =</span> data_species<span class="sc">$</span>cell_lat, </span>
-<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a>                         <span class="at">z =</span> data_species<span class="sc">$</span>presence, </span>
-<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a>                         <span class="at">latlon =</span> <span class="cn">TRUE</span>, </span>
-<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a>                         <span class="at">increment =</span> <span class="fu">unique</span>(data_species<span class="sc">$</span>increment), </span>
-<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a>                         <span class="at">resamp =</span> <span class="dv">0</span>)</span>
-<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a>                data_reduced<span class="sc">$</span>moran <span class="ot">&lt;-</span> morans_cor<span class="sc">$</span>correlation[<span class="dv">1</span>]</span>
-<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a>                data_reduced<span class="sc">$</span>x_intercept <span class="ot">&lt;-</span> morans_cor<span class="sc">$</span>x.intercept</span>
-<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a>                <span class="fu">print</span>(<span class="st">"Moran's I calculated successfully"</span>)</span>
-<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a>                }, </span>
-<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a>                <span class="at">error =</span> <span class="cf">function</span>(e) {</span>
-<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a>                    <span class="fu">print</span>(<span class="st">"Error occurred while calculating Moran's I"</span>)</span>
-<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a>                    <span class="fu">print</span>(<span class="fu">paste</span>(<span class="st">"Error message:"</span>, e))</span>
-<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a>                    morans_cor <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
-<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a>                    data_reduced<span class="sc">$</span>moran <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
-<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a>                    data_reduced<span class="sc">$</span>x_intercept <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
-<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a>            })</span>
-<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a>            data_list[[s]] <span class="ot">&lt;-</span> data_reduced</span>
-<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a>            morans_list[[s]] <span class="ot">&lt;-</span> morans_cor </span>
-<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a>        } <span class="co"># species loop closing</span></span>
-<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a>        morans_list2[[y]] <span class="ot">&lt;-</span> morans_list</span>
-<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a>        data_df <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(data_list)</span>
-<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a>        data_list2[[y]] <span class="ot">&lt;-</span> data_df</span>
-<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a>    } <span class="co"># year loop closing</span></span>
-<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a>    morans_list3[[a]] <span class="ot">&lt;-</span> morans_list2</span>
-<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a>    data_df2 <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(data_list2)</span>
-<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a>    data_list3[[a]] <span class="ot">&lt;-</span> data_df2</span>
-<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a>} <span class="co"># atlas loop closing</span></span>
-<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a>data_df_all <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(data_list3) </span>
-<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a><span class="co"># saveRDS(data_df_all, paste0(out_path, "rds/SAC_final.rds"))</span></span>
-<span id="cb6-102"><a href="#cb6-102" aria-hidden="true" tabindex="-1"></a> </span>
-<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a><span class="co"># Data Checks:</span></span>
-<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a><span class="fu">colSums</span>(<span class="fu">is.na</span>(data_df_all))</span>
-<span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a><span class="fu">ls</span>()</span>
-<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(a, y, s, sp_list, data_species, data_reduced, df_y, dd, morans_cor )</span>
-<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a><span class="co"># Save Output:</span></span>
-<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(morans_list3, <span class="st">"SAC_MoransList.rds"</span>)</span>
-<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(data_df_all, <span class="st">"SAC_DataDf.rds"</span>)</span>
-<span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a><span class="fu">save.image</span>(<span class="st">"SAC.RData"</span>)</span>
-<span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"SAC.RData"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">tic</span>()</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Species </span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>morans_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>data_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Years</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>morans_list2 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>data_list2 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Atlases</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>morans_list3 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>data_list3 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop:</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(atlas_names)){</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    dd <span class="ot">&lt;-</span> df[[a]] <span class="sc">%&gt;%</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>        <span class="fu">filter</span>(cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>        <span class="fu">select</span>(</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>            dataset, tp, verbatim_name, </span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>            area, cell_lat, cell_long, cell_label) <span class="sc">%&gt;%</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="fu">distinct</span>(dataset, tp, verbatim_name, cell_label, <span class="at">.keep_all =</span> T) </span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (y <span class="cf">in</span> <span class="fu">seq_along</span>(time_periods)){</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        dd_y <span class="ot">&lt;-</span> dd <span class="sc">%&gt;%</span> <span class="fu">filter</span>(tp <span class="sc">==</span> time_periods[y]) </span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>        sp_list <span class="ot">&lt;-</span> <span class="fu">unique</span>(dd_y<span class="sc">$</span>verbatim_name)</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> (s <span class="cf">in</span> <span class="fu">seq_along</span>(sp_list)){</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Print progress </span></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>            <span class="fu">print</span>(<span class="fu">paste</span>(</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>                <span class="st">"atlas ="</span>, <span class="fu">unique</span>(dd_y<span class="sc">$</span>dataset), </span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>                <span class="st">"tp ="</span>, <span class="fu">unique</span>(dd_y<span class="sc">$</span>tp), </span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>                <span class="st">"N = "</span>, s, <span class="st">"/"</span>, <span class="fu">length</span>(sp_list), </span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>                <span class="st">"sp = "</span>, sp_list[s]))</span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Obtain a df for each species that indicates the presence (1) or absence (0) of the species</span></span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>            data_species <span class="ot">&lt;-</span> dd_y <span class="sc">%&gt;%</span> </span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>                <span class="fu">distinct</span>(verbatim_name, cell_label, cell_lat, cell_long) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>                <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> <span class="fu">unique</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>                <span class="fu">mutate</span>(</span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>                    <span class="at">verbatim_name =</span> <span class="fu">ifelse</span>(verbatim_name <span class="sc">!=</span> sp_list[s], <span class="cn">NA</span>, verbatim_name)) <span class="sc">%&gt;%</span></span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>                <span class="fu">group_by</span>(<span class="fu">across</span>(<span class="sc">-</span>verbatim_name)) <span class="sc">%&gt;%</span></span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>                <span class="fu">slice</span>(<span class="fu">which.max</span>(<span class="sc">!</span><span class="fu">is.na</span>(verbatim_name))) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>                <span class="fu">distinct</span>(verbatim_name, cell_label, <span class="at">.keep_all=</span>T) <span class="sc">%&gt;%</span></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>                <span class="fu">mutate</span>(</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>                    <span class="at">presence =</span> <span class="fu">ifelse</span>(<span class="sc">!</span><span class="fu">is.na</span>(verbatim_name), <span class="dv">1</span>, <span class="dv">0</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>                <span class="fu">ungroup</span>()</span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a>            data_reduced <span class="ot">&lt;-</span> dd_y <span class="sc">%&gt;%</span> </span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>                <span class="fu">filter</span>(verbatim_name <span class="sc">==</span> sp_list[s]) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a>                <span class="fu">select</span>(verbatim_name, dataset, tp, area) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a>                <span class="fu">distinct</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a>                <span class="fu">mutate</span>(<span class="at">mean_area =</span> <span class="fu">mean</span>(area),</span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a>                    <span class="at">mean_cell_length =</span> <span class="fu">sqrt</span>(mean_area)) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a>                <span class="fu">mutate</span>(</span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a>                    <span class="at">increment2 =</span> mean_cell_length <span class="sc">*</span> <span class="fl">1.75</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a>                <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a>                <span class="fu">distinct</span>(verbatim_name, <span class="at">.keep_all =</span> T)</span>
+<span id="cb8-60"><a href="#cb8-60" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a>            data_species<span class="sc">$</span>increment <span class="ot">&lt;-</span> data_reduced<span class="sc">$</span>increment2</span>
+<span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-63"><a href="#cb8-63" aria-hidden="true" tabindex="-1"></a>            <span class="fu">tryCatch</span>({</span>
+<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a>                <span class="fu">print</span>(<span class="st">"Attempting to calculate Moran's I"</span>)</span>
+<span id="cb8-65"><a href="#cb8-65" aria-hidden="true" tabindex="-1"></a>                morans_cor <span class="ot">&lt;-</span> <span class="fu">correlog</span>(<span class="at">x =</span> data_species<span class="sc">$</span>cell_long, </span>
+<span id="cb8-66"><a href="#cb8-66" aria-hidden="true" tabindex="-1"></a>                         <span class="at">y =</span> data_species<span class="sc">$</span>cell_lat, </span>
+<span id="cb8-67"><a href="#cb8-67" aria-hidden="true" tabindex="-1"></a>                         <span class="at">z =</span> data_species<span class="sc">$</span>presence, </span>
+<span id="cb8-68"><a href="#cb8-68" aria-hidden="true" tabindex="-1"></a>                         <span class="at">latlon =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb8-69"><a href="#cb8-69" aria-hidden="true" tabindex="-1"></a>                         <span class="at">increment =</span> <span class="fu">unique</span>(data_species<span class="sc">$</span>increment), </span>
+<span id="cb8-70"><a href="#cb8-70" aria-hidden="true" tabindex="-1"></a>                         <span class="at">resamp =</span> <span class="dv">0</span>)</span>
+<span id="cb8-71"><a href="#cb8-71" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-72"><a href="#cb8-72" aria-hidden="true" tabindex="-1"></a>                data_reduced<span class="sc">$</span>moran <span class="ot">&lt;-</span> morans_cor<span class="sc">$</span>correlation[<span class="dv">1</span>]</span>
+<span id="cb8-73"><a href="#cb8-73" aria-hidden="true" tabindex="-1"></a>                data_reduced<span class="sc">$</span>x_intercept <span class="ot">&lt;-</span> morans_cor<span class="sc">$</span>x.intercept</span>
+<span id="cb8-74"><a href="#cb8-74" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-75"><a href="#cb8-75" aria-hidden="true" tabindex="-1"></a>                <span class="fu">print</span>(<span class="st">"Moran's I calculated successfully"</span>)</span>
+<span id="cb8-76"><a href="#cb8-76" aria-hidden="true" tabindex="-1"></a>                }, </span>
+<span id="cb8-77"><a href="#cb8-77" aria-hidden="true" tabindex="-1"></a>                <span class="at">error =</span> <span class="cf">function</span>(e) {</span>
+<span id="cb8-78"><a href="#cb8-78" aria-hidden="true" tabindex="-1"></a>                    <span class="fu">print</span>(<span class="st">"Error occurred while calculating Moran's I"</span>)</span>
+<span id="cb8-79"><a href="#cb8-79" aria-hidden="true" tabindex="-1"></a>                    <span class="fu">print</span>(<span class="fu">paste</span>(<span class="st">"Error message:"</span>, e))</span>
+<span id="cb8-80"><a href="#cb8-80" aria-hidden="true" tabindex="-1"></a>                    morans_cor <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb8-81"><a href="#cb8-81" aria-hidden="true" tabindex="-1"></a>                    data_reduced<span class="sc">$</span>moran <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb8-82"><a href="#cb8-82" aria-hidden="true" tabindex="-1"></a>                    data_reduced<span class="sc">$</span>x_intercept <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb8-83"><a href="#cb8-83" aria-hidden="true" tabindex="-1"></a>            })</span>
+<span id="cb8-84"><a href="#cb8-84" aria-hidden="true" tabindex="-1"></a>            data_list[[s]] <span class="ot">&lt;-</span> data_reduced</span>
+<span id="cb8-85"><a href="#cb8-85" aria-hidden="true" tabindex="-1"></a>            morans_list[[s]] <span class="ot">&lt;-</span> morans_cor </span>
+<span id="cb8-86"><a href="#cb8-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-87"><a href="#cb8-87" aria-hidden="true" tabindex="-1"></a>        } <span class="co"># species loop closing</span></span>
+<span id="cb8-88"><a href="#cb8-88" aria-hidden="true" tabindex="-1"></a>        morans_list2[[y]] <span class="ot">&lt;-</span> morans_list</span>
+<span id="cb8-89"><a href="#cb8-89" aria-hidden="true" tabindex="-1"></a>        data_df <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(data_list)</span>
+<span id="cb8-90"><a href="#cb8-90" aria-hidden="true" tabindex="-1"></a>        data_list2[[y]] <span class="ot">&lt;-</span> data_df</span>
+<span id="cb8-91"><a href="#cb8-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-92"><a href="#cb8-92" aria-hidden="true" tabindex="-1"></a>    } <span class="co"># year loop closing</span></span>
+<span id="cb8-93"><a href="#cb8-93" aria-hidden="true" tabindex="-1"></a>    morans_list3[[a]] <span class="ot">&lt;-</span> morans_list2</span>
+<span id="cb8-94"><a href="#cb8-94" aria-hidden="true" tabindex="-1"></a>    data_df2 <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(data_list2)</span>
+<span id="cb8-95"><a href="#cb8-95" aria-hidden="true" tabindex="-1"></a>    data_list3[[a]] <span class="ot">&lt;-</span> data_df2</span>
+<span id="cb8-96"><a href="#cb8-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-97"><a href="#cb8-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-98"><a href="#cb8-98" aria-hidden="true" tabindex="-1"></a>} <span class="co"># atlas loop closing</span></span>
+<span id="cb8-99"><a href="#cb8-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-100"><a href="#cb8-100" aria-hidden="true" tabindex="-1"></a>data_df_all <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(data_list3) </span>
+<span id="cb8-101"><a href="#cb8-101" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb8-102"><a href="#cb8-102" aria-hidden="true" tabindex="-1"></a><span class="co"># Data Checks:</span></span>
+<span id="cb8-103"><a href="#cb8-103" aria-hidden="true" tabindex="-1"></a><span class="fu">colSums</span>(<span class="fu">is.na</span>(data_df_all))</span>
+<span id="cb8-104"><a href="#cb8-104" aria-hidden="true" tabindex="-1"></a><span class="fu">ls</span>()</span>
+<span id="cb8-105"><a href="#cb8-105" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(a, y, s, sp_list, data_species, data_reduced, dd_y, dd, morans_cor )</span>
+<span id="cb8-106"><a href="#cb8-106" aria-hidden="true" tabindex="-1"></a><span class="co"># Save Output:</span></span>
+<span id="cb8-107"><a href="#cb8-107" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(morans_list3, <span class="st">"../../out/rds/SAC_MoransList.rds"</span>)</span>
+<span id="cb8-108"><a href="#cb8-108" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(data_df_all, <span class="st">"../../out/predictors/SAC_DataDf.rds"</span>)</span>
+<span id="cb8-109"><a href="#cb8-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-110"><a href="#cb8-110" aria-hidden="true" tabindex="-1"></a><span class="fu">save.image</span>(<span class="st">"../../out/RData/SAC.RData"</span>)</span>
+<span id="cb8-111"><a href="#cb8-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-112"><a href="#cb8-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-113"><a href="#cb8-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-114"><a href="#cb8-114" aria-hidden="true" tabindex="-1"></a>data_df_all <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(dataset, tp) <span class="sc">%&gt;%</span> rstatix<span class="sc">::</span><span class="fu">get_summary_stats</span>(<span class="fu">c</span>(moran,x_intercept), <span class="at">type =</span> <span class="st">"robust"</span>)</span>
+<span id="cb8-115"><a href="#cb8-115" aria-hidden="true" tabindex="-1"></a>data_df_all <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">nrow</span>()</span>
+<span id="cb8-116"><a href="#cb8-116" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">toc</span>()</span>
+<span id="cb8-117"><a href="#cb8-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-118"><a href="#cb8-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-119"><a href="#cb8-119" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(data_df_all<span class="sc">$</span>moran, data_df_all<span class="sc">$</span>x_intercept)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>

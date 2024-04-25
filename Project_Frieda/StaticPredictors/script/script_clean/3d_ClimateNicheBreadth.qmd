@@ -58,7 +58,7 @@ Tax <- st_read(fgdb, layer = "Taxonomic_checklist") %>%
 Tax[Tax == "<NA>"] = NA
 
 # Atlas species names
-spData <- read.csv("out/csv/SpeciesNamesData.csv") %>% pull(x) 
+spData <- read.csv("../../out/csv/SpeciesNamesData.csv") %>% pull(verbatim_name) 
 
 ```
 
@@ -214,8 +214,8 @@ Tax_LookUp <- Atlas_merged4 %>% distinct(AtlasSp, ScientificName)
 unique(Tax_LookUp$ScientificName)
 
 ## Save Output:
-Atlas_merged4 %>% filter(ScientificName %in% dups) %>% write.csv("out/csv/SynonymsAtlasData.csv")
-write.csv(Atlas_merged4, "out/csv/full_BirdLife2018_TaxonomicLookup.csv")
+Atlas_merged4 %>% filter(ScientificName %in% dups) %>% write.csv("../../Documents/documentation_methods/SynonymsAtlasData.csv")
+write.csv(Atlas_merged4, "../../out/csv/full_BirdLife2018_TaxonomicLookup.csv")
   
 ```
 
@@ -225,7 +225,7 @@ RedListCat <- Tax %>% filter(ScientificName %in% Tax_LookUp$ScientificName) %>% 
 
 unique(RedListCat$AtlasSp) %>% length()
 colSums(is.na(RedListCat))
-saveRDS(RedListCat, "out/predictors/RedListCatBL.rds")
+saveRDS(RedListCat, "../../out/predictors/RedListCatBL.rds")
 
 
 ```
@@ -250,8 +250,8 @@ BirdLife <- All_sp %>%
            origin %in% c(1,2) & # Native or reintroduced (not introduced or vagrant)
            presence %in% c(1,2,3))  # Extant, probably extant, possibly extant (not possibly extinct or extinct)
 
-# Save Reduced Version as Shapefile
-st_write(BirdLife, "out/shp/BirdLife_810sp.shp", append=F)
+# Save Reduced Version as Shapefile (takes a while)
+ st_write(BirdLife, "out/shp/BirdLife_810sp.shp", append=F)
 
 # Rasterize species range polygons  ======================================================
 tictoc::tic() ## Takes about 18 minutes on my local machine
@@ -306,18 +306,18 @@ RangeSizeBOTW$GlobRangeSize_km2 <- as.numeric(RangeSizeBOTW$GlobRangeSize_km2 )
 head(RangeSizeBOTW)
 unique(RangeSizeBOTW$AtlasSp) %>% length()
 colSums(is.na(RangeSizeBOTW))
-saveRDS(RangeSizeBOTW, "out/predictors/RangeSizeBOTW_df.rds")
+saveRDS(RangeSizeBOTW, "../../out/predictors/RangeSizeBOTW_df.rds")
 tictoc::toc()
 ```
 
 ```{r}
 ## Read bird shapefiles back in ===========================================================
-sp_v <- stringr::str_split_i(list.files("data/species_rasters/"), 
+sp_v <- stringr::str_split_i(list.files("../../data/species_rasters/"), 
                            pattern = ".tif", 1)
 sp_v <- gsub("_1", "", sp_v) # remove 1 (1 degree resolution)
 sp_v <- gsub("_", " ", sp_v)
 
-r_birds <- rast(paste0("data/species_rasters/", list.files("data/species_rasters/", pattern =".tif")))
+r_birds <- rast(paste0("../../data/species_rasters/", list.files("../../data/species_rasters/", pattern =".tif")))
 names(r_birds) <- sp_v
 ```
 
@@ -325,7 +325,7 @@ names(r_birds) <- sp_v
 
 ### Aggregate CHELSA to 1° resolution
 
-```{r}
+```{r, eval = F}
 # read shapefiles:
 climate_stack <- rast(paste0(CHELSA_path, tif_files))
 
@@ -336,14 +336,14 @@ climate_stack_agg <- aggregate(climate_stack, ## This takes ca. 4 minutes on my 
                                fact = target_resolution, 
                                fun = mean,
                                na.rm=T)
-saveRDS(climate_stack_agg, "out/rds/ClimateStack.rds")
+saveRDS(climate_stack_agg, "../../out/rds/ClimateStack.rds")
 
 ```
 
 ## Extract Bird Coordinates
 
 ```{r}
-climate_stack_agg <- readRDS("out/rds/ClimateStack.rds")
+climate_stack_agg <- readRDS("../../out/rds/ClimateStack.rds")
 names(climate_stack_agg) <- c("MAT", "AnnualPrec", "PrecWettestMonth", "PrecDriestMonth", "PrecSeas", "MeanDiurnalTempRange", "Isotherm", "TempSeas", "MeanDailyTempWarmestMonth", "MeanDailyTempColdestMonth", "AnnualTempRange")
 
 # Extract species coordinates ===========================================================
@@ -373,7 +373,7 @@ pca_res <- prcomp(climate_stack_agg, scale. = T)
 summary(pca_res)
 
 # extract loadings from PCA for documentation
-pca_res$rotation %>% write.csv("documents/documentation_methods/PCA_loadings_climNiche.csv")
+pca_res$rotation %>% write.csv("../../Documents/documentation_methods/PCA_loadings_climNiche.csv")
 
 ```
 
@@ -400,7 +400,7 @@ for (i in seq_along(sp_v)){
 
 clim_vals_all <- do.call(rbind, clim_vals_list) 
 colSums(is.na(clim_vals_all))
-saveRDS(pca_all, "out/rds/pca_all.rds") 
+saveRDS(pca_all, "../../out/rds/pca_all.rds") 
 
 ```
 
@@ -418,13 +418,13 @@ ggplot()+
     geom_point(aes(x=PC1, y=PC2), col = "#440154", alpha = 0.3, data = pca_all[[5]])+
   theme_bw()
 
-ggsave("out/figures/BirdsClimateSpace.pdf")
+ggsave("../../out/figures/BirdsClimateSpace.pdf")
 ```
 
 # Calculate Niche Breadth
 
 ```{r}
-pca_all <-  readRDS("out/rds/pca_all.rds") # Predicted values in PCA for species
+pca_all <-  readRDS("../../out/rds/pca_all.rds") # Predicted values in PCA for species
 all_niches <- list()
 # Calculate niche breadth
 for (i in seq_along(pca_all)){
@@ -446,11 +446,11 @@ mutate(ScientificName = case_when(
 left_join(Tax_LookUp) %>% 
 group_by(ScientificName) 
 
-saveRDS(Niches_df, "out/rds/Niches_df.rds")
+saveRDS(Niches_df, "../../out/rds/Niches_df.rds")
 
 colSums(is.na(Niches_df))
 head(Niches_df)
-
+RangeSizeBOTW <- readRDS("../../out/rds/RangeSizeBOTW_df.rds")
 BirdLife_Predictors <- Niches_df %>% ungroup() %>% select(-ScientificName) %>%
     left_join(RangeSizeBOTW) %>%
     left_join(RedListCat) %>%
@@ -461,7 +461,7 @@ BirdLife_Predictors %>% distinct(verbatim_name) %>% nrow()
 colSums(is.na(BirdLife_Predictors))
 
 
-saveRDS(BirdLife_Predictors, "out/predictors/BirdLife2018_Predictors.rds")
+saveRDS(BirdLife_Predictors, "../../out/predictors/BirdLife2018_Predictors.rds")
 
 ```
 

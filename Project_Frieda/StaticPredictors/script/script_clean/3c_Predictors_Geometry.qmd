@@ -26,7 +26,8 @@ pacman::p_load(dplyr, sf, rstatix, geosphere, geodata, terra, tidyterra)
 sf_use_s2(FALSE)
 ```
 
-## Function to calculate Geometries
+## Function to calculate Geometries 
+# Credits: Dr. Gabriel Ortega Solís wrote this function 
 ```{r} 
 
 # Function to get the max elongation per polygon, north-south length or east-west length, circularity, etc...
@@ -285,7 +286,7 @@ rm(a, atlas_xhalf, atlas_xmax, atlas_xmin, atlas_ymax, atlas_yhalf, atlas_ymin, 
 # Species Ranges Geometries
 
 
-```{r}
+```{r, eval =F}
 tictoc::tic()
 
 

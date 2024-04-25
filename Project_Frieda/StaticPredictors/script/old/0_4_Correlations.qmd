@@ -5,41 +5,134 @@ format: html
 editor: visual
 ---
 
-## Correlation Analysis - Static Predictors
+# Correlation Analysis - Static Predictors
+
+## Prepare data
 
 ```{r}
 rm(list=ls())
-
 library(dplyr); library(ggplot2);library(ggcorrplot)
 
-df <- readRDS("out/rds/All_predictors.rds")
-df2 <- readRDS("out/rds/All_predictors_relativeGeom.rds")
+df <- readRDS("../../out/rds/AllPredictors.rds") 
 str(df)
 colSums(is.na(df))
 
+
+# Save NA file to documentation
 df %>% group_by(dataset, tp) %>% 
   summarise(across(everything(), ~ sum(is.na(.x)))) %>% 
-  write.csv("out/csv/Summary_NAs_All_predictors.csv")
+  write.csv("../../Documents/documentation_methods/Summary_NAs_All_predictors.csv")
+## 
+
 
 str(df)
-df2 <- df2 %>% 
-  select(-Family, -Order, -verbatim_name)%>% unique() %>%
-  mutate(HWI = as.numeric(as.character(HWI)),
+df2 <- df %>% 
+  select(-Family1, -Order1,  -tip.label, -ScientificName2018, -ScientificName2010,
+         -exclude, -cell_grouping, -available_scales, -minDist_toBorder_border,
+         -atlas_ymin, -atlas_ymax, -atlas_xmin, -atlas_xmin, -atlas_xhalf, -atlas_yhalf)%>% unique() %>%
+  mutate(HWI = as.numeric(as.character(Hand.Wing.Index)),
          Mass = as.numeric(as.character(Mass)),
          Range.Size = as.numeric(as.character(Range.Size)),
          FP = as.numeric(FP),
-         tp = as.integer(tp),
+         tp = as.factor(tp),
          dataset = as.factor(dataset),
          Habitat = as.factor(Habitat),
          RL_Category = as.factor(RL_Category),
+         IUCN = as.factor(IUCN),
          Habitat.Density = as.factor(Habitat.Density),
          Migration = as.factor(Migration),
          Trophic.Level = as.factor(Trophic.Level),
          Trophic.Niche = as.factor(Trophic.Niche),
-         Primary.Lifestyle = as.factor(Primary.Lifestyle)) 
+         Primary.Lifestyle = as.factor(Primary.Lifestyle)) %>% select(-Hand.Wing.Index)
 str(df2)
+colSums(is.na(df2))
+
+
+df %>% select(verbatim_name, FP) %>% distinct()
+```
+
+## Explore variable distributions
+
+```{r}
+library(caret)
+
+table(df$RL_Category)
+table(df$IUCN)
+
+nearZeroVar(df2, freqCut = 4, uniqueCut = 10, names = T)
+
+
+library(ggplot2)
+ggplot(df2)+
+  geom_boxplot(aes(y = log_R2_1, x = IUCN, col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+ggplot(df2)+
+  geom_boxplot(aes(y = log_R2_1, x = factor(Migration), col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+
+ggplot(df2)+
+  geom_boxplot(aes(y = log_R2_1, x = Habitat, col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+ggplot(df2)+
+  geom_boxplot(aes(y = log_R2_1, x = factor(Habitat.Density), col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+ggplot(df2)+
+  geom_boxplot(aes(y = log_R2_1, x = factor(Habitat.Density), col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+ggplot(df2)+
+  geom_point(aes(y = log_R2_1, x = Mass, col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+
+ggplot(df2)+
+  geom_point(aes(y = log_R2_1, x = HWI, col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+
+ggplot(df2)+
+  geom_boxplot(aes(y = log_R2_1, x = IUCN, col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+
+ggplot(df2)+
+  geom_point(aes(y = log_R2_1, x = FP , col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+
+ggplot(df2)+
+  geom_point(aes(y = log_R2_1, x = AlphaSR_sp , col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+
+ggplot(df2)+
+  geom_point(aes(y = log_R2_1, x = rel_maxDist , col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
+
+
+ggplot(df2)+
+  geom_point(aes(y = log_R2_1, x = D_AOO_a , col = tp))+
+  facet_wrap(dataset~.)+
+  geom_hline( yintercept = 0, col = "red")
 
 ```
+
+## Plot cor plots
 
 ```{r}
 
@@ -48,7 +141,7 @@ cor_df_num <- cor_df %>% select(where(is.numeric)) %>% na.omit()
 
 # Check correlation in all predictors
 p.mat <-  model.matrix(~0+., data=cor_df) %>% ggcorrplot::cor_pmat()
-pdf(file="out/figures/Correlation_matrix_all.pdf", paper = "a4")
+pdf(file="../../out/figures/Correlation_matrix_all.pdf", paper = "a4")
 model.matrix(~0+., data=cor_df) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(lab=TRUE, 
@@ -65,7 +158,7 @@ dev.off()
 
 # Check correlation in all predictors
 p.mat <-  model.matrix(~0+., data=cor_df_num) %>% ggcorrplot::cor_pmat()
-pdf(file="out/figures/Correlation_matrix_num.pdf", paper = "a4")
+pdf(file="../../out/figures/Correlation_matrix_num.pdf", paper = "a4")
 model.matrix(~0+., data=cor_df_num) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(lab=TRUE, 
@@ -75,10 +168,27 @@ model.matrix(~0+., data=cor_df_num) %>%
   insig ="blank",
   #p.mat = p.mat, 
   tl.cex = 5, 
-  type = "upper", 
+  type = "full", 
   digits = 1)
 dev.off()
 
+
+
+
+
+# save final data
+saveRDS(df2, "../../out/rds/Final_data.rds")
+
+dim(df2)
+colSums(is.na(df2))
+
+dim(df2 %>% na.omit())
+
+```
+
+## Reduce Predictors (exclude highly cor)
+
+```{r}
 # Find highly correlated variables
 highCor <- caret::findCorrelation(cor(cor_df_num), cutoff = 0.8, names=T, exact = F) 
 
@@ -86,12 +196,30 @@ highCor <- caret::findCorrelation(cor(cor_df_num), cutoff = 0.8, names=T, exact 
 df2 <- cor_df %>% 
   select(-all_of(highCor)) 
 
+df_red_clean <- readRDS("../../out/rds/Final_data.rds") %>%
+  unique() %>% 
+  mutate(HWI = as.numeric(as.character(HWI)),
+         Mass = as.numeric(as.character(Mass)),
+         Range.Size = as.numeric(as.character(Range.Size)),
+         FP = as.numeric(FP),
+         tp = as.factor(tp),
+         dataset = as.factor(dataset),
+         verbatim_name = as.factor(verbatim_name),
+         Habitat = as.factor(Habitat),
+         RL_Category = as.factor(RL_Category),
+         Habitat.Density = as.factor(Habitat.Density),
+         Migration = as.factor(Migration),
+         Trophic.Level = as.factor(Trophic.Level),
+         Trophic.Niche = as.factor(Trophic.Niche),
+         Primary.Lifestyle = as.factor(Primary.Lifestyle)) %>%
+  select(-all_of(highCor)) %>% distinct(tp, dataset, verbatim_name, .keep_all = T)
+
 
 # Check correlation again
 
-p.mat <-  model.matrix(~0+., data=df2%>% select(where(is.numeric))) %>% ggcorrplot::cor_pmat()
-pdf(file="out/figures/Correlation_matrix_reduced.pdf", paper = "a4")
-model.matrix(~0+., data=df2%>% select(where(is.numeric))) %>% 
+p.mat <-  model.matrix(~0+., data=df_red_clean%>% select(where(is.numeric))) %>% ggcorrplot::cor_pmat()
+pdf(file="../../out/figures/Correlation_matrix_reduced.pdf", paper = "a4")
+model.matrix(~0+., data=df_red_clean%>% select(where(is.numeric))) %>% 
   cor(use="pairwise.complete.obs") %>% 
   ggcorrplot(lab=TRUE, 
   method = "square", 
@@ -104,36 +232,5 @@ model.matrix(~0+., data=df2%>% select(where(is.numeric))) %>%
   digits = 2)
 dev.off()
 
-# save final data
-saveRDS(df2, "out/rds/Final_data.rds")
-
-dim(df2)
-colSums(is.na(df2))
-
-dim(df2 %>% na.omit())
-
-```
-
-```{r}
-df_red_clean <- readRDS("out/rds/All_predictors_relativeGeom.rds") %>%
-  unique() %>% 
-  mutate(HWI = as.numeric(as.character(HWI)),
-         Mass = as.numeric(as.character(Mass)),
-         Range.Size = as.numeric(as.character(Range.Size)),
-         FP = as.numeric(FP),
-         tp = as.integer(tp),
-         dataset = as.factor(dataset),
-         Order = as.factor(Order),
-         Family = as.factor(Family),
-         verbatim_name = as.factor(verbatim_name),
-         Habitat = as.factor(Habitat),
-         RL_Category = as.factor(RL_Category),
-         Habitat.Density = as.factor(Habitat.Density),
-         Migration = as.factor(Migration),
-         Trophic.Level = as.factor(Trophic.Level),
-         Trophic.Niche = as.factor(Trophic.Niche),
-         Primary.Lifestyle = as.factor(Primary.Lifestyle)) %>%
-  select(-all_of(highCor)) %>% distinct(tp, dataset, verbatim_name, .keep_all = T)
-
-saveRDS(df_red_clean, "out/rds/Predictors_cleaned.rds")
+saveRDS(df_red_clean, "../../out/rds/Predictors_cleaned.rds")
 ```
