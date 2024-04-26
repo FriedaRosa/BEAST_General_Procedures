@@ -145,8 +145,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells  576711 30.8    1317535 70.4   660420 35.3
-Vcells 1050583  8.1    8388608 64.0  1770238 13.6</code></pre>
+Ncells  576713 30.8    1317541 70.4   660420 35.3
+Vcells 1050630  8.1    8388608 64.0  1770238 13.6</code></pre>
 </div>
 </div>
 </section>
@@ -220,11 +220,10 @@ Attache Paket: 'Matrix'</code></pre>
 <div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"../../out/RData/1_Atlas_Data_clean.RData"</span>)</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ls</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code> [1] "atlas_names"        "crs_list"           "data_paths"        
- [4] "desired_levels"     "grid_list"          "grid_paths"        
- [7] "out_path"           "presence_data_filt" "source_atlas"      
-[10] "source_Git"         "source_paths"       "source_predictors" 
-[13] "time_periods"      </code></pre>
+<pre><code> [1] "atlas_names"        "data_paths"         "desired_levels"    
+ [4] "grid_list"          "grid_paths"         "out_path"          
+ [7] "presence_data_filt" "source_atlas"       "source_Git"        
+[10] "source_paths"       "source_predictors"  "time_periods"      </code></pre>
 </div>
 </div>
 </section>
@@ -554,7 +553,7 @@ Total_Ncells_samp           dataset                tp     verbatim_name
 <span id="cb27-53"><a href="#cb27-53" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb27-54"><a href="#cb27-54" aria-hidden="true" tabindex="-1"></a><span class="fu">str</span>(atlas_df)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>'data.frame':   2354 obs. of  6 variables:
+<pre><code>'data.frame':   2212 obs. of  6 variables:
  $ verbatim_name   : chr  "Accipiter gentilis" "Accipiter nisus" "Acrocephalus palustris" "Acrocephalus scirpaceus" ...
  $ dataset         : chr  "Birds_Atlas_Czechia" "Birds_Atlas_Czechia" "Birds_Atlas_Czechia" "Birds_Atlas_Czechia" ...
  $ tp              : num  1 1 1 1 1 1 1 1 1 1 ...
@@ -564,27 +563,27 @@ Total_Ncells_samp           dataset                tp     verbatim_name
 </div>
 <div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">str</span>(species_data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>gropd_df [17,968 × 14] (S3: grouped_df/tbl_df/tbl/data.frame)
- $ dataset          : chr [1:17968] "Birds_Atlas_Czechia" "Birds_Atlas_Czechia" "Birds_Atlas_Czechia" "Birds_Atlas_Czechia" ...
- $ tp               : num [1:17968] 1 2 1 2 2 1 2 1 2 1 ...
+<pre><code>gropd_df [16,832 × 14] (S3: grouped_df/tbl_df/tbl/data.frame)
+ $ dataset          : chr [1:16832] "Birds_Atlas_Czechia" "Birds_Atlas_Czechia" "Birds_Atlas_Czechia" "Birds_Atlas_Czechia" ...
+ $ tp               : num [1:16832] 1 2 1 2 2 1 2 1 2 1 ...
  $ cell_grouping    : Factor w/ 8 levels "1","2","4","8",..: 1 1 1 1 1 1 1 1 1 1 ...
- $ verbatim_name    : chr [1:17968] "Accipiter gentilis" "Accipiter gentilis" "Accipiter nisus" "Accipiter nisus" ...
- $ mean_area        : num [1:17968] 134 134 134 134 134 ...
- $ Total_area       : num [1:17968] 90569 90569 90569 90569 90569 ...
- $ Total_area_samp  : num [1:17968] 83908 83908 83908 83908 83908 ...
- $ Total_Ncells     : int [1:17968] 678 678 678 678 678 678 678 678 678 678 ...
- $ Total_Ncells_samp: int [1:17968] 628 628 628 628 628 628 628 628 628 628 ...
- $ Gamma            : int [1:17968] 200 200 200 200 200 200 200 200 200 200 ...
- $ AOO              : num [1:17968] 77122 75241 76443 80030 33714 ...
- $ occ_Ncells       : int [1:17968] 577 563 572 599 252 542 576 434 452 570 ...
- $ rel_occ_Ncells   : num [1:17968] 0.919 0.896 0.911 0.954 0.401 ...
- $ rel_AOO          : num [1:17968] 0.919 0.897 0.911 0.954 0.402 ...
+ $ verbatim_name    : chr [1:16832] "Accipiter gentilis" "Accipiter gentilis" "Accipiter nisus" "Accipiter nisus" ...
+ $ mean_area        : num [1:16832] 134 134 134 134 134 ...
+ $ Total_area       : num [1:16832] 90569 90569 90569 90569 90569 ...
+ $ Total_area_samp  : num [1:16832] 83908 83908 83908 83908 83908 ...
+ $ Total_Ncells     : int [1:16832] 678 678 678 678 678 678 678 678 678 678 ...
+ $ Total_Ncells_samp: int [1:16832] 628 628 628 628 628 628 628 628 628 628 ...
+ $ Gamma            : int [1:16832] 200 200 200 200 200 200 200 200 200 200 ...
+ $ AOO              : num [1:16832] 77122 75241 76443 80030 33714 ...
+ $ occ_Ncells       : int [1:16832] 577 563 572 599 252 542 576 434 452 570 ...
+ $ rel_occ_Ncells   : num [1:16832] 0.919 0.896 0.911 0.954 0.401 ...
+ $ rel_AOO          : num [1:16832] 0.919 0.897 0.911 0.954 0.402 ...
  - attr(*, "groups")= tibble [4 × 2] (S3: tbl_df/tbl/data.frame)
   ..$ dataset: chr [1:4] "Birds_Atlas_Czechia" "Birds_Atlas_New_York" "Birds_atlas_EBBA" "Birds_atlas_Japan"
   ..$ .rows  : list&lt;int&gt; [1:4] 
   .. ..$ : int [1:2800] 1 2 3 4 5 6 7 8 9 10 ...
   .. ..$ : int [1:3792] 2801 2802 2803 2804 2805 2806 2807 2808 2809 2810 ...
-  .. ..$ : int [1:8048] 9921 9922 9923 9924 9925 9926 9927 9928 9929 9930 ...
+  .. ..$ : int [1:6912] 9921 9922 9923 9924 9925 9926 9927 9928 9929 9930 ...
   .. ..$ : int [1:3328] 6593 6594 6595 6596 6597 6598 6599 6600 6601 6602 ...
   .. ..@ ptype: int(0) 
   ..- attr(*, ".drop")= logi TRUE</code></pre>
@@ -805,18 +804,43 @@ Total_Ncells_samp             Gamma               AOO        occ_Ncells
 <div class="cell-output cell-output-stderr">
 <pre><code>Joining with `by = join_by(dataset, verbatim_name)`</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span>
-<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(logRatio,sp_dat_wide)</span>
-<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>big_table <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(dataset, tp) <span class="sc">%&gt;%</span> </span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="fu">across</span>(<span class="fu">everything</span>(), <span class="sc">~</span> <span class="fu">sum</span>(<span class="fu">is.na</span>(.x))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`summarise()` has grouped output by 'dataset'. You can override using the
+`.groups` argument.</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 8 × 22
+# Groups:   dataset [4]
+  dataset    tp verbatim_name cell_grouping mean_area Total_area Total_area_samp
+  &lt;chr&gt;   &lt;dbl&gt;         &lt;int&gt;         &lt;int&gt;     &lt;int&gt;      &lt;int&gt;           &lt;int&gt;
+1 Birds_…     1             0             0         0          0               0
+2 Birds_…     2             0             0         0          0               0
+3 Birds_…     1             0             0         0          0               0
+4 Birds_…     2             0             0         0          0               0
+5 Birds_…     1             0             0         0          0               0
+6 Birds_…     2             0             0         0          0               0
+7 Birds_…     1             0             0         0          0               0
+8 Birds_…     2             0             0         0          0               0
+# ℹ 15 more variables: Total_Ncells &lt;int&gt;, Total_Ncells_samp &lt;int&gt;,
+#   Gamma &lt;int&gt;, AOO &lt;int&gt;, occ_Ncells &lt;int&gt;, rel_occ_Ncells &lt;int&gt;,
+#   rel_AOO &lt;int&gt;, exclude &lt;int&gt;, available_scales &lt;int&gt;, mean_relAOO &lt;int&gt;,
+#   m_AOO_a &lt;int&gt;, b_AOO_a &lt;int&gt;, D_AOO_a &lt;int&gt;, Telfer_1_2 &lt;int&gt;,
+#   log_R2_1 &lt;int&gt;</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(logRatio,sp_dat_wide)</span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a><span class="do">### =============================================== </span><span class="al">###</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
 <section id="save-output" class="level1" data-number="5">
 <h1 data-number="5"><span class="header-section-number">5</span> Save Output:</h1>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(occ_data_final, <span class="st">"../../out/rds/SpeciesDatPerCell.rds"</span>) <span class="co"># data per cell</span></span>
-<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(big_table, <span class="st">"../../out/predictors/BigTable.rds"</span>) <span class="co"># data per species</span></span>
-<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a><span class="fu">save.image</span>(<span class="st">"../../out/RData/2_Atlas_Var_Calc.RData"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(occ_data_final, <span class="st">"../../out/rds/SpeciesDatPerCell.rds"</span>) <span class="co"># data per cell</span></span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(big_table, <span class="st">"../../out/predictors/BigTable.rds"</span>) <span class="co"># data per species</span></span>
+<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a><span class="fu">save.image</span>(<span class="st">"../../out/RData/2_Atlas_Var_Calc.RData"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 

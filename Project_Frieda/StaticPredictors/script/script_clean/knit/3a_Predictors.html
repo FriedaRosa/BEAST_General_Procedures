@@ -218,7 +218,7 @@ Attache Paket: 'shapefiles'</code></pre>
 <span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>data_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_paths[<span class="dv">1</span>],<span class="st">"Birds_Atlas_Czechia_beast_data.rds"</span>), </span>
 <span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">2</span>], <span class="st">"Birds_Atlas_New_York_beast_data.rds"</span>), </span>
 <span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">3</span>], <span class="st">"Birds_atlas_Japan_beast_data.rds"</span>),</span>
-<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">4</span>], <span class="st">"2Birds_atlas_EBBA_beast_data.rds"</span>))</span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">4</span>], <span class="st">"Birds_atlas_EBBA_beast_data_CHANGE.rds"</span>))</span>
 <span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>grid_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
 <span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">paste0</span>(source_paths[<span class="dv">1</span>], <span class="st">"Birds_Atlas_Czechia_grid.gpkg"</span>),</span>
@@ -329,154 +329,159 @@ Attache Paket: 'shapefiles'</code></pre>
 <span id="cb22-84"><a href="#cb22-84" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-85"><a href="#cb22-85" aria-hidden="true" tabindex="-1"></a>  presence_sf_list[[i]] <span class="ot">&lt;-</span> presence_sf</span>
 <span id="cb22-86"><a href="#cb22-86" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb22-87"><a href="#cb22-87" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb22-88"><a href="#cb22-88" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb22-89"><a href="#cb22-89" aria-hidden="true" tabindex="-1"></a>presence_data_all <span class="ot">&lt;-</span> df_filtered_list</span>
-<span id="cb22-90"><a href="#cb22-90" aria-hidden="true" tabindex="-1"></a>sp_cell_dat <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(df_filtered_list)</span>
-<span id="cb22-91"><a href="#cb22-91" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(presence_sf_list) <span class="ot">&lt;-</span> atlas_names</span>
-<span id="cb22-92"><a href="#cb22-92" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-93"><a href="#cb22-93" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-94"><a href="#cb22-94" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-95"><a href="#cb22-95" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================ ##</span></span>
-<span id="cb22-96"><a href="#cb22-96" aria-hidden="true" tabindex="-1"></a>sp_cell_dat <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">nrow</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] 841</code></pre>
+<span id="cb22-87"><a href="#cb22-87" aria-hidden="true" tabindex="-1"></a>  }</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in CPL_read_ogr(dsn, layer, query, as.character(options), quiet, : GDAL
+Message 1: unable to open database file: this file is a WAL-enabled database.
+It cannot be opened because it is presumably read-only or in a read-only
+directory. Retrying with IMMUTABLE=YES open option</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(sp_cell_dat, <span class="st">"../../out/rds/SpeciesDatPerCell.rds"</span>)</span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(presence_data_all, <span class="st">"../../out/rds/pres_dat_all.rds"</span>)</span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(presence_sf_list, <span class="st">"../../out/rds/presence_sf_list.rds"</span>)</span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(presence_sf_list) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">nrow</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>presence_data_all <span class="ot">&lt;-</span> df_filtered_list</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>sp_cell_dat <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(df_filtered_list)</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(presence_sf_list) <span class="ot">&lt;-</span> atlas_names</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================ ##</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>sp_cell_dat <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">nrow</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 842</code></pre>
+<pre><code>[1] 774</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(common_cells, common_sp, pres_dat, pres_dat2, presence_data_rep, i, presence_sf, sy)</span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================ ##</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(sp_cell_dat, <span class="st">"../../out/rds/SpeciesDatPerCell.rds"</span>)</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(presence_data_all, <span class="st">"../../out/rds/pres_dat_all.rds"</span>)</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(presence_sf_list, <span class="st">"../../out/rds/presence_sf_list.rds"</span>)</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(presence_sf_list) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">nrow</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 775</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(common_cells, common_sp, pres_dat, pres_dat2, presence_data_rep, i, presence_sf, sy)</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================ ##</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="diversity-metrics" class="level1" data-number="6">
 <h1 data-number="6"><span class="header-section-number">6</span> Diversity Metrics</h1>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># readRDS("../../out/rds/Presence_data_filtered.rds") %&gt;% distinct(verbatim_name) %&gt;% write.csv("../../out/csv/SpeciesNamesData.csv", row.names = F)</span></span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>sp_cell_dat <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"../../out/rds/SpeciesDatPerCell.rds"</span>)</span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="do">## Calculate Diversity Measures ======================</span></span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="do">## Per Cell:</span></span>
-<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>GammaAlphaBeta_Atlas <span class="ot">&lt;-</span> sp_cell_dat <span class="sc">%&gt;%</span></span>
-<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dataset, tp, cell_label, verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Gamma is the total SR of the atlas per sampling period</span></span>
-<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset,tp) <span class="sc">%&gt;%</span></span>
-<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">GammaSR =</span> <span class="fu">sum</span>(<span class="fu">n_distinct</span>(verbatim_name))) <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># AlphaSR (per cell) is the number of distinct species for each grid cell</span></span>
-<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, tp, cell_label) <span class="sc">%&gt;%</span></span>
-<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">AlphaSR =</span> <span class="fu">sum</span>(<span class="fu">n_distinct</span>(verbatim_name))) <span class="sc">%&gt;%</span></span>
-<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># BetaSR (per cell) is the product of global Gamma and local Alpha</span></span>
-<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">BetaSR =</span> GammaSR<span class="sc">/</span>AlphaSR)</span>
-<span id="cb27-20"><a href="#cb27-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-21"><a href="#cb27-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-22"><a href="#cb27-22" aria-hidden="true" tabindex="-1"></a><span class="do">## Per Species:  </span></span>
-<span id="cb27-23"><a href="#cb27-23" aria-hidden="true" tabindex="-1"></a><span class="co"># These measures are mean Alpha &amp; Beta for a single species across all cells in which it is found</span></span>
-<span id="cb27-24"><a href="#cb27-24" aria-hidden="true" tabindex="-1"></a>GammaAlphaBeta_Species <span class="ot">&lt;-</span> GammaAlphaBeta_Atlas <span class="sc">%&gt;%</span>   </span>
-<span id="cb27-25"><a href="#cb27-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb27-26"><a href="#cb27-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, tp, verbatim_name) <span class="sc">%&gt;%</span></span>
-<span id="cb27-27"><a href="#cb27-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb27-28"><a href="#cb27-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">AlphaSR_sp =</span> <span class="fu">mean</span>(AlphaSR)) <span class="sc">%&gt;%</span></span>
-<span id="cb27-29"><a href="#cb27-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb27-30"><a href="#cb27-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">BetaSR_sp =</span> GammaSR<span class="sc">/</span>AlphaSR_sp) <span class="sc">%&gt;%</span></span>
-<span id="cb27-31"><a href="#cb27-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dataset, tp, verbatim_name, AlphaSR_sp, BetaSR_sp, GammaSR) <span class="sc">%&gt;%</span> </span>
-<span id="cb27-32"><a href="#cb27-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>()</span>
-<span id="cb27-33"><a href="#cb27-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-34"><a href="#cb27-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-35"><a href="#cb27-35" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(GammaAlphaBeta_Atlas)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># readRDS("../../out/rds/Presence_data_filtered.rds") %&gt;% distinct(verbatim_name) %&gt;% write.csv("../../out/csv/SpeciesNamesData.csv", row.names = F)</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>sp_cell_dat <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"../../out/rds/SpeciesDatPerCell.rds"</span>)</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a><span class="do">## Calculate Diversity Measures ======================</span></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="do">## Per Cell:</span></span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>GammaAlphaBeta_Atlas <span class="ot">&lt;-</span> sp_cell_dat <span class="sc">%&gt;%</span></span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dataset, tp, cell_label, verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Gamma is the total SR of the atlas per sampling period</span></span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset,tp) <span class="sc">%&gt;%</span></span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">GammaSR =</span> <span class="fu">sum</span>(<span class="fu">n_distinct</span>(verbatim_name))) <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># AlphaSR (per cell) is the number of distinct species for each grid cell</span></span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, tp, cell_label) <span class="sc">%&gt;%</span></span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">AlphaSR =</span> <span class="fu">sum</span>(<span class="fu">n_distinct</span>(verbatim_name))) <span class="sc">%&gt;%</span></span>
+<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># BetaSR (per cell) is the product of global Gamma and local Alpha</span></span>
+<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">BetaSR =</span> GammaSR<span class="sc">/</span>AlphaSR)</span>
+<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a><span class="do">## Per Species:  </span></span>
+<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a><span class="co"># These measures are mean Alpha &amp; Beta for a single species across all cells in which it is found</span></span>
+<span id="cb29-24"><a href="#cb29-24" aria-hidden="true" tabindex="-1"></a>GammaAlphaBeta_Species <span class="ot">&lt;-</span> GammaAlphaBeta_Atlas <span class="sc">%&gt;%</span>   </span>
+<span id="cb29-25"><a href="#cb29-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb29-26"><a href="#cb29-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, tp, verbatim_name) <span class="sc">%&gt;%</span></span>
+<span id="cb29-27"><a href="#cb29-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb29-28"><a href="#cb29-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">AlphaSR_sp =</span> <span class="fu">mean</span>(AlphaSR)) <span class="sc">%&gt;%</span></span>
+<span id="cb29-29"><a href="#cb29-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb29-30"><a href="#cb29-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">BetaSR_sp =</span> GammaSR<span class="sc">/</span>AlphaSR_sp) <span class="sc">%&gt;%</span></span>
+<span id="cb29-31"><a href="#cb29-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dataset, tp, verbatim_name, AlphaSR_sp, BetaSR_sp, GammaSR) <span class="sc">%&gt;%</span> </span>
+<span id="cb29-32"><a href="#cb29-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>()</span>
+<span id="cb29-33"><a href="#cb29-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-34"><a href="#cb29-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-35"><a href="#cb29-35" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(GammaAlphaBeta_Atlas)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="co-occurrence-probabilities" class="level1" data-number="7">
 <h1 data-number="7"><span class="header-section-number">7</span> Co-occurrence probabilities</h1>
 <p>Creation of the community matrices takes a while.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">tic</span>()</span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>species_data <span class="ot">&lt;-</span> sp_cell_dat <span class="sc">%&gt;%</span> </span>
-<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(dataset, tp, verbatim_name, cell_label) </span>
-<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a><span class="fu">colSums</span>(<span class="fu">is.na</span>(species_data))</span>
-<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ----------------------------------------------------------- #</span></span>
-<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>co_occ_list1 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(atlas_names)){</span>
-<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># create community dataframe</span></span>
-<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>  species_data_a <span class="ot">&lt;-</span> species_data <span class="sc">%&gt;%</span> <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_names[a])</span>
-<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a>  comm_dat <span class="ot">&lt;-</span> species_data_a <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">select</span>(tp, verbatim_name, cell_label) <span class="sc">%&gt;%</span>    </span>
-<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(tp) <span class="sc">%&gt;%</span> </span>
-<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
-<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">distinct</span>()</span>
-<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a>  comm_dat <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(comm_dat)</span>
-<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Convert data frame to Species X sites matrix</span></span>
-<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a>  comm_matrix_tp1 <span class="ot">&lt;-</span> fossil<span class="sc">::</span><span class="fu">create.matrix</span>(comm_dat, </span>
-<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">tax.name =</span> <span class="st">"verbatim_name"</span>, </span>
-<span id="cb28-22"><a href="#cb28-22" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">locality =</span> <span class="st">"cell_label"</span>, </span>
-<span id="cb28-23"><a href="#cb28-23" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">time.col =</span> <span class="st">"tp"</span>, </span>
-<span id="cb28-24"><a href="#cb28-24" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">time =</span> <span class="st">"1"</span>, </span>
-<span id="cb28-25"><a href="#cb28-25" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">abund =</span> F)</span>
-<span id="cb28-26"><a href="#cb28-26" aria-hidden="true" tabindex="-1"></a>  comm_matrix_tp2 <span class="ot">&lt;-</span> fossil<span class="sc">::</span><span class="fu">create.matrix</span>(comm_dat, </span>
-<span id="cb28-27"><a href="#cb28-27" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">tax.name =</span> <span class="st">"verbatim_name"</span>, </span>
-<span id="cb28-28"><a href="#cb28-28" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">locality =</span> <span class="st">"cell_label"</span>, </span>
-<span id="cb28-29"><a href="#cb28-29" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">time.col =</span> <span class="st">"tp"</span>, </span>
-<span id="cb28-30"><a href="#cb28-30" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">time =</span> <span class="st">"2"</span>, </span>
-<span id="cb28-31"><a href="#cb28-31" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">abund =</span> F)</span>
-<span id="cb28-32"><a href="#cb28-32" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb28-33"><a href="#cb28-33" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Calculate probability of pairwise co-occurrence of species: ----------- #</span></span>
-<span id="cb28-34"><a href="#cb28-34" aria-hidden="true" tabindex="-1"></a>  co_occurrence_tp1 <span class="ot">&lt;-</span> cooccur<span class="sc">::</span><span class="fu">cooccur</span>(comm_matrix_tp1, <span class="at">spp_names =</span> T)</span>
-<span id="cb28-35"><a href="#cb28-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="fu">length</span>(<span class="fu">unique</span>(co_occurrence_tp1<span class="sc">$</span>spp.names))) </span>
-<span id="cb28-36"><a href="#cb28-36" aria-hidden="true" tabindex="-1"></a>  co_occurrence_tp2 <span class="ot">&lt;-</span> cooccur<span class="sc">::</span><span class="fu">cooccur</span>(comm_matrix_tp2, <span class="at">spp_names =</span> T)</span>
-<span id="cb28-37"><a href="#cb28-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="fu">length</span>(<span class="fu">unique</span>(co_occurrence_tp2<span class="sc">$</span>spp.names)))</span>
-<span id="cb28-38"><a href="#cb28-38" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb28-39"><a href="#cb28-39" aria-hidden="true" tabindex="-1"></a>  co_occ_list1[[a]] <span class="ot">&lt;-</span> <span class="fu">list</span>(co_occurrence_tp1, co_occurrence_tp2)</span>
-<span id="cb28-40"><a href="#cb28-40" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb28-41"><a href="#cb28-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-42"><a href="#cb28-42" aria-hidden="true" tabindex="-1"></a>co_occ_list2 <span class="ot">&lt;-</span><span class="fu">list</span>()</span>
-<span id="cb28-43"><a href="#cb28-43" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(atlas_names)){</span>
-<span id="cb28-44"><a href="#cb28-44" aria-hidden="true" tabindex="-1"></a>  species_data_a <span class="ot">&lt;-</span> species_data <span class="sc">%&gt;%</span> <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_names[a])</span>
-<span id="cb28-45"><a href="#cb28-45" aria-hidden="true" tabindex="-1"></a>  species_data_a1 <span class="ot">&lt;-</span> species_data_a <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>cell_label) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>()</span>
-<span id="cb28-46"><a href="#cb28-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-47"><a href="#cb28-47" aria-hidden="true" tabindex="-1"></a>  res1 <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(co_occ_list1[[a]][[<span class="dv">1</span>]]<span class="sc">$</span>results) </span>
-<span id="cb28-48"><a href="#cb28-48" aria-hidden="true" tabindex="-1"></a>  res1 <span class="ot">&lt;-</span> res1 <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(sp1_name) <span class="sc">%&gt;%</span></span>
-<span id="cb28-49"><a href="#cb28-49" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">mean_prob_cooccur =</span> <span class="fu">mean</span>(prob_cooccur), <span class="at">tp =</span> <span class="st">"1"</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb28-50"><a href="#cb28-50" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">select</span>(sp1_name, mean_prob_cooccur, tp) <span class="sc">%&gt;%</span> </span>
-<span id="cb28-51"><a href="#cb28-51" aria-hidden="true" tabindex="-1"></a>    <span class="fu">distinct</span>()</span>
-<span id="cb28-52"><a href="#cb28-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-53"><a href="#cb28-53" aria-hidden="true" tabindex="-1"></a>  res2 <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(co_occ_list1[[a]][[<span class="dv">2</span>]]<span class="sc">$</span>results) </span>
-<span id="cb28-54"><a href="#cb28-54" aria-hidden="true" tabindex="-1"></a>  res2 <span class="ot">&lt;-</span> res2 <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(sp1_name) <span class="sc">%&gt;%</span></span>
-<span id="cb28-55"><a href="#cb28-55" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">mean_prob_cooccur =</span> <span class="fu">mean</span>(prob_cooccur), <span class="at">tp =</span> <span class="st">"2"</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb28-56"><a href="#cb28-56" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">select</span>(sp1_name, mean_prob_cooccur, tp) <span class="sc">%&gt;%</span> </span>
-<span id="cb28-57"><a href="#cb28-57" aria-hidden="true" tabindex="-1"></a>    <span class="fu">distinct</span>()</span>
-<span id="cb28-58"><a href="#cb28-58" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb28-59"><a href="#cb28-59" aria-hidden="true" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">full_join</span>(res1,res2)</span>
-<span id="cb28-60"><a href="#cb28-60" aria-hidden="true" tabindex="-1"></a>  species_data_a1_2 <span class="ot">&lt;-</span> <span class="fu">merge</span>(species_data_a1, results, <span class="at">by.x=</span><span class="fu">c</span>(<span class="st">"verbatim_name"</span>, <span class="st">"tp"</span>), <span class="at">by.y =</span> <span class="fu">c</span>(<span class="st">"sp1_name"</span>, <span class="st">"tp"</span>), <span class="at">all =</span> T)</span>
-<span id="cb28-61"><a href="#cb28-61" aria-hidden="true" tabindex="-1"></a>  co_occ_list2[[a]] <span class="ot">&lt;-</span> species_data_a1_2</span>
-<span id="cb28-62"><a href="#cb28-62" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb28-63"><a href="#cb28-63" aria-hidden="true" tabindex="-1"></a> </span>
-<span id="cb28-64"><a href="#cb28-64" aria-hidden="true" tabindex="-1"></a>Co_Occ_df_final <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(co_occ_list2)</span>
-<span id="cb28-65"><a href="#cb28-65" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-66"><a href="#cb28-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-67"><a href="#cb28-67" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-68"><a href="#cb28-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-69"><a href="#cb28-69" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(co_occ_list2, comm_dat, comm_matrix_tp1, comm_matrix_tp2, species_data, species_data_a, species_data_a1, species_data_a1_2, a, co_occ_list1, co_occurrence_tp1, co_occurrence_tp2)</span>
-<span id="cb28-70"><a href="#cb28-70" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">toc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">tic</span>()</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>species_data <span class="ot">&lt;-</span> sp_cell_dat <span class="sc">%&gt;%</span> </span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(dataset, tp, verbatim_name, cell_label) </span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a><span class="fu">colSums</span>(<span class="fu">is.na</span>(species_data))</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ----------------------------------------------------------- #</span></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>co_occ_list1 <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(atlas_names)){</span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># create community dataframe</span></span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>  species_data_a <span class="ot">&lt;-</span> species_data <span class="sc">%&gt;%</span> <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_names[a])</span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>  comm_dat <span class="ot">&lt;-</span> species_data_a <span class="sc">%&gt;%</span> <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">select</span>(tp, verbatim_name, cell_label) <span class="sc">%&gt;%</span>    </span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(tp) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">distinct</span>()</span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>  comm_dat <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(comm_dat)</span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Convert data frame to Species X sites matrix</span></span>
+<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a>  comm_matrix_tp1 <span class="ot">&lt;-</span> fossil<span class="sc">::</span><span class="fu">create.matrix</span>(comm_dat, </span>
+<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">tax.name =</span> <span class="st">"verbatim_name"</span>, </span>
+<span id="cb30-22"><a href="#cb30-22" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">locality =</span> <span class="st">"cell_label"</span>, </span>
+<span id="cb30-23"><a href="#cb30-23" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">time.col =</span> <span class="st">"tp"</span>, </span>
+<span id="cb30-24"><a href="#cb30-24" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">time =</span> <span class="st">"1"</span>, </span>
+<span id="cb30-25"><a href="#cb30-25" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">abund =</span> F)</span>
+<span id="cb30-26"><a href="#cb30-26" aria-hidden="true" tabindex="-1"></a>  comm_matrix_tp2 <span class="ot">&lt;-</span> fossil<span class="sc">::</span><span class="fu">create.matrix</span>(comm_dat, </span>
+<span id="cb30-27"><a href="#cb30-27" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">tax.name =</span> <span class="st">"verbatim_name"</span>, </span>
+<span id="cb30-28"><a href="#cb30-28" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">locality =</span> <span class="st">"cell_label"</span>, </span>
+<span id="cb30-29"><a href="#cb30-29" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">time.col =</span> <span class="st">"tp"</span>, </span>
+<span id="cb30-30"><a href="#cb30-30" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">time =</span> <span class="st">"2"</span>, </span>
+<span id="cb30-31"><a href="#cb30-31" aria-hidden="true" tabindex="-1"></a>                                           <span class="at">abund =</span> F)</span>
+<span id="cb30-32"><a href="#cb30-32" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-33"><a href="#cb30-33" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Calculate probability of pairwise co-occurrence of species: ----------- #</span></span>
+<span id="cb30-34"><a href="#cb30-34" aria-hidden="true" tabindex="-1"></a>  co_occurrence_tp1 <span class="ot">&lt;-</span> cooccur<span class="sc">::</span><span class="fu">cooccur</span>(comm_matrix_tp1, <span class="at">spp_names =</span> T)</span>
+<span id="cb30-35"><a href="#cb30-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="fu">length</span>(<span class="fu">unique</span>(co_occurrence_tp1<span class="sc">$</span>spp.names))) </span>
+<span id="cb30-36"><a href="#cb30-36" aria-hidden="true" tabindex="-1"></a>  co_occurrence_tp2 <span class="ot">&lt;-</span> cooccur<span class="sc">::</span><span class="fu">cooccur</span>(comm_matrix_tp2, <span class="at">spp_names =</span> T)</span>
+<span id="cb30-37"><a href="#cb30-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="fu">length</span>(<span class="fu">unique</span>(co_occurrence_tp2<span class="sc">$</span>spp.names)))</span>
+<span id="cb30-38"><a href="#cb30-38" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-39"><a href="#cb30-39" aria-hidden="true" tabindex="-1"></a>  co_occ_list1[[a]] <span class="ot">&lt;-</span> <span class="fu">list</span>(co_occurrence_tp1, co_occurrence_tp2)</span>
+<span id="cb30-40"><a href="#cb30-40" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb30-41"><a href="#cb30-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-42"><a href="#cb30-42" aria-hidden="true" tabindex="-1"></a>co_occ_list2 <span class="ot">&lt;-</span><span class="fu">list</span>()</span>
+<span id="cb30-43"><a href="#cb30-43" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(atlas_names)){</span>
+<span id="cb30-44"><a href="#cb30-44" aria-hidden="true" tabindex="-1"></a>  species_data_a <span class="ot">&lt;-</span> species_data <span class="sc">%&gt;%</span> <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_names[a])</span>
+<span id="cb30-45"><a href="#cb30-45" aria-hidden="true" tabindex="-1"></a>  species_data_a1 <span class="ot">&lt;-</span> species_data_a <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>cell_label) <span class="sc">%&gt;%</span> <span class="fu">distinct</span>()</span>
+<span id="cb30-46"><a href="#cb30-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-47"><a href="#cb30-47" aria-hidden="true" tabindex="-1"></a>  res1 <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(co_occ_list1[[a]][[<span class="dv">1</span>]]<span class="sc">$</span>results) </span>
+<span id="cb30-48"><a href="#cb30-48" aria-hidden="true" tabindex="-1"></a>  res1 <span class="ot">&lt;-</span> res1 <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(sp1_name) <span class="sc">%&gt;%</span></span>
+<span id="cb30-49"><a href="#cb30-49" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">mean_prob_cooccur =</span> <span class="fu">mean</span>(prob_cooccur), <span class="at">tp =</span> <span class="st">"1"</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-50"><a href="#cb30-50" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">select</span>(sp1_name, mean_prob_cooccur, tp) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-51"><a href="#cb30-51" aria-hidden="true" tabindex="-1"></a>    <span class="fu">distinct</span>()</span>
+<span id="cb30-52"><a href="#cb30-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-53"><a href="#cb30-53" aria-hidden="true" tabindex="-1"></a>  res2 <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(co_occ_list1[[a]][[<span class="dv">2</span>]]<span class="sc">$</span>results) </span>
+<span id="cb30-54"><a href="#cb30-54" aria-hidden="true" tabindex="-1"></a>  res2 <span class="ot">&lt;-</span> res2 <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(sp1_name) <span class="sc">%&gt;%</span></span>
+<span id="cb30-55"><a href="#cb30-55" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">mean_prob_cooccur =</span> <span class="fu">mean</span>(prob_cooccur), <span class="at">tp =</span> <span class="st">"2"</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-56"><a href="#cb30-56" aria-hidden="true" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">select</span>(sp1_name, mean_prob_cooccur, tp) <span class="sc">%&gt;%</span> </span>
+<span id="cb30-57"><a href="#cb30-57" aria-hidden="true" tabindex="-1"></a>    <span class="fu">distinct</span>()</span>
+<span id="cb30-58"><a href="#cb30-58" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb30-59"><a href="#cb30-59" aria-hidden="true" tabindex="-1"></a>  results <span class="ot">&lt;-</span> <span class="fu">full_join</span>(res1,res2)</span>
+<span id="cb30-60"><a href="#cb30-60" aria-hidden="true" tabindex="-1"></a>  species_data_a1_2 <span class="ot">&lt;-</span> <span class="fu">merge</span>(species_data_a1, results, <span class="at">by.x=</span><span class="fu">c</span>(<span class="st">"verbatim_name"</span>, <span class="st">"tp"</span>), <span class="at">by.y =</span> <span class="fu">c</span>(<span class="st">"sp1_name"</span>, <span class="st">"tp"</span>), <span class="at">all =</span> T)</span>
+<span id="cb30-61"><a href="#cb30-61" aria-hidden="true" tabindex="-1"></a>  co_occ_list2[[a]] <span class="ot">&lt;-</span> species_data_a1_2</span>
+<span id="cb30-62"><a href="#cb30-62" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb30-63"><a href="#cb30-63" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb30-64"><a href="#cb30-64" aria-hidden="true" tabindex="-1"></a>Co_Occ_df_final <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(co_occ_list2)</span>
+<span id="cb30-65"><a href="#cb30-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-66"><a href="#cb30-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-67"><a href="#cb30-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-68"><a href="#cb30-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-69"><a href="#cb30-69" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(co_occ_list2, comm_dat, comm_matrix_tp1, comm_matrix_tp2, species_data, species_data_a, species_data_a1, species_data_a1_2, a, co_occ_list1, co_occurrence_tp1, co_occurrence_tp2)</span>
+<span id="cb30-70"><a href="#cb30-70" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">toc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(presence_data_all, <span class="st">"../../out/rds/presence_data_all.rds"</span>)</span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(presence_sf_list, <span class="st">"../../out/rds/presence_sf_list.rds"</span>)</span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(Co_Occ_df_final, <span class="st">"../../out/predictors/Co_Occ_df_final.rds"</span>)</span>
-<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(GammaAlphaBeta_Species, <span class="st">"../../out/predictors/GammaAlphaBeta_Species.rds"</span>)</span>
-<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a><span class="fu">save.image</span>(<span class="st">"../../out/RData/3a_Predictors.RData"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(presence_data_all, <span class="st">"../../out/rds/presence_data_all.rds"</span>)</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(presence_sf_list, <span class="st">"../../out/rds/presence_sf_list.rds"</span>)</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(Co_Occ_df_final, <span class="st">"../../out/predictors/Co_Occ_df_final.rds"</span>)</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(GammaAlphaBeta_Species, <span class="st">"../../out/predictors/GammaAlphaBeta_Species.rds"</span>)</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a><span class="fu">save.image</span>(<span class="st">"../../out/RData/3a_Predictors.RData"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 

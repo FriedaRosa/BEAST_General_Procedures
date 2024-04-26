@@ -217,7 +217,7 @@ Attache Paket: 'dplyr'</code></pre>
 <span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>data_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_paths[<span class="dv">1</span>],<span class="st">"Birds_Atlas_Czechia_beast_data.rds"</span>), </span>
 <span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">2</span>], <span class="st">"Birds_Atlas_New_York_beast_data.rds"</span>), </span>
 <span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">3</span>], <span class="st">"Birds_atlas_Japan_beast_data.rds"</span>),</span>
-<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">4</span>], <span class="st">"2Birds_atlas_EBBA_beast_data.rds"</span>))</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">4</span>], <span class="st">"Birds_atlas_EBBA_beast_data_CHANGE.rds"</span>))</span>
 <span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>grid_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_paths[<span class="dv">1</span>],<span class="st">"Birds_Atlas_Czechia_grid.gpkg"</span>), </span>
 <span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">2</span>], <span class="st">"Birds_Atlas_New_York_grid.gpkg"</span>), </span>
@@ -297,8 +297,8 @@ Attache Paket: 'dplyr'</code></pre>
 2 Birds_Atlas_Czechia      2   213     628
 3 Birds_Atlas_New_York     1   242    5323
 4 Birds_Atlas_New_York     2   248    5332
-5 Birds_atlas_EBBA         1   511    3909
-6 Birds_atlas_EBBA         2   617    5041
+5 Birds_atlas_EBBA         1   432    2826
+6 Birds_atlas_EBBA         2   446    2868
 7 Birds_atlas_Japan        1   221    1095
 8 Birds_atlas_Japan        2   227    1098</code></pre>
 </div>
@@ -307,7 +307,7 @@ Attache Paket: 'dplyr'</code></pre>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_sp =</span> <span class="fu">n_distinct</span>(verbatim_name)) <span class="co"># 989 sp in total (before reduction)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  n_sp
-1  989</code></pre>
+1  826</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ==================== Save output &amp; clean up environment ===================== #</span></span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -368,14 +368,14 @@ Attache Paket: 'dplyr'</code></pre>
   &lt;chr&gt;                &lt;fct&gt;         &lt;int&gt;
 1 Birds_Atlas_Czechia  1               628
 2 Birds_Atlas_New_York 1              5320
-3 Birds_atlas_EBBA     1              3792
+3 Birds_atlas_EBBA     1              2821
 4 Birds_atlas_Japan    1              1095</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(excluded_cells<span class="sc">$</span>dataset) <span class="co"># EBBA: 66 (1706?), JP: 3, NY = 20</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
     Birds_atlas_EBBA    Birds_atlas_Japan Birds_Atlas_New_York 
-                1706                    3                   20 </code></pre>
+                  64                    3                   20 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================================= #</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
@@ -411,14 +411,14 @@ Attache Paket: 'dplyr'</code></pre>
   &lt;chr&gt;                &lt;int&gt;
 1 Birds_Atlas_Czechia    200
 2 Birds_Atlas_New_York   237
-3 Birds_atlas_EBBA       503
+3 Birds_atlas_EBBA       432
 4 Birds_atlas_Japan      208</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(excluded_sp<span class="sc">$</span>dataset)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
  Birds_Atlas_Czechia     Birds_atlas_EBBA    Birds_atlas_Japan 
-                  19                   94                   32 
+                  19                   14                   32 
 Birds_Atlas_New_York 
                   16 </code></pre>
 </div>
@@ -479,14 +479,14 @@ Birds_Atlas_New_York
 2 Birds_Atlas_Czechia      2   200     628
 3 Birds_Atlas_New_York     1   237    5320
 4 Birds_Atlas_New_York     2   237    5320
-5 Birds_atlas_EBBA         1   503    3791
-6 Birds_atlas_EBBA         2   503    3792
+5 Birds_atlas_EBBA         1   432    2821
+6 Birds_atlas_EBBA         2   432    2821
 7 Birds_atlas_Japan        1   208    1095
 8 Birds_atlas_Japan        2   208    1095</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a>presence_data_filt <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">nrow</span>() <span class="co"># 841 species </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 841</code></pre>
+<pre><code>[1] 774</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ==================== Save output &amp; clean up environment ===================== #  </span></span>
 <span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a> <span class="fu">saveRDS</span>(presence_data_filt, <span class="st">"../../out/rds/Presence_data_filtered.rds"</span>) <span class="do">## this is the most up to date name for this file !!</span></span>
@@ -509,47 +509,94 @@ Birds_Atlas_New_York
 <span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(grid_paths)){</span>
 <span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>  layers <span class="ot">&lt;-</span> <span class="fu">st_layers</span>(grid_paths[i])<span class="sc">$</span>name</span>
 <span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a>  layers_list[[i]] <span class="ot">&lt;-</span> layers</span>
-<span id="cb54-6"><a href="#cb54-6" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb54-7"><a href="#cb54-7" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(layers_list) <span class="ot">&lt;-</span> atlas_names</span>
-<span id="cb54-8"><a href="#cb54-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb54-9"><a href="#cb54-9" aria-hidden="true" tabindex="-1"></a><span class="co"># read grids to list</span></span>
-<span id="cb54-10"><a href="#cb54-10" aria-hidden="true" tabindex="-1"></a>grid_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
-<span id="cb54-11"><a href="#cb54-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(grid_paths)) {</span>
-<span id="cb54-12"><a href="#cb54-12" aria-hidden="true" tabindex="-1"></a>    grids <span class="ot">&lt;-</span> <span class="fu">sapply</span>(layers_list[[a]], <span class="cf">function</span>(i) {</span>
-<span id="cb54-13"><a href="#cb54-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">st_read</span>(grid_paths[[a]], <span class="fu">paste</span>(i), <span class="at">quiet =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb54-14"><a href="#cb54-14" aria-hidden="true" tabindex="-1"></a>        <span class="fu">reorder_levels</span>( cell_grouping, <span class="at">order=</span>desired_levels)</span>
-<span id="cb54-15"><a href="#cb54-15" aria-hidden="true" tabindex="-1"></a>      }, <span class="at">simplify =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb54-16"><a href="#cb54-16" aria-hidden="true" tabindex="-1"></a>    grid_list[[a]] <span class="ot">&lt;-</span> grids</span>
-<span id="cb54-17"><a href="#cb54-17" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb54-18"><a href="#cb54-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb54-19"><a href="#cb54-19" aria-hidden="true" tabindex="-1"></a><span class="co"># clear space</span></span>
-<span id="cb54-20"><a href="#cb54-20" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(a, i, layers, layers_list, grids)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb54-6"><a href="#cb54-6" aria-hidden="true" tabindex="-1"></a>  }</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in CPL_get_layers(dsn, options, do_count): GDAL Message 1: unable to
+open database file: this file is a WAL-enabled database. It cannot be opened
+because it is presumably read-only or in a read-only directory. Retrying with
+IMMUTABLE=YES open option</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(layers_list) <span class="ot">&lt;-</span> atlas_names</span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a><span class="co"># read grids to list</span></span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a>grid_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(grid_paths)) {</span>
+<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a>    grids <span class="ot">&lt;-</span> <span class="fu">sapply</span>(layers_list[[a]], <span class="cf">function</span>(i) {</span>
+<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">st_read</span>(grid_paths[[a]], <span class="fu">paste</span>(i), <span class="at">quiet =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">reorder_levels</span>( cell_grouping, <span class="at">order=</span>desired_levels)</span>
+<span id="cb56-9"><a href="#cb56-9" aria-hidden="true" tabindex="-1"></a>      }, <span class="at">simplify =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb56-10"><a href="#cb56-10" aria-hidden="true" tabindex="-1"></a>    grid_list[[a]] <span class="ot">&lt;-</span> grids</span>
+<span id="cb56-11"><a href="#cb56-11" aria-hidden="true" tabindex="-1"></a>    }</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in CPL_read_ogr(dsn, layer, query, as.character(options), quiet, : GDAL
+Message 1: unable to open database file: this file is a WAL-enabled database.
+It cannot be opened because it is presumably read-only or in a read-only
+directory. Retrying with IMMUTABLE=YES open option</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in CPL_read_ogr(dsn, layer, query, as.character(options), quiet, : GDAL
+Message 1: unable to open database file: this file is a WAL-enabled database.
+It cannot be opened because it is presumably read-only or in a read-only
+directory. Retrying with IMMUTABLE=YES open option
+
+Warning in CPL_read_ogr(dsn, layer, query, as.character(options), quiet, : GDAL
+Message 1: unable to open database file: this file is a WAL-enabled database.
+It cannot be opened because it is presumably read-only or in a read-only
+directory. Retrying with IMMUTABLE=YES open option
+
+Warning in CPL_read_ogr(dsn, layer, query, as.character(options), quiet, : GDAL
+Message 1: unable to open database file: this file is a WAL-enabled database.
+It cannot be opened because it is presumably read-only or in a read-only
+directory. Retrying with IMMUTABLE=YES open option
+
+Warning in CPL_read_ogr(dsn, layer, query, as.character(options), quiet, : GDAL
+Message 1: unable to open database file: this file is a WAL-enabled database.
+It cannot be opened because it is presumably read-only or in a read-only
+directory. Retrying with IMMUTABLE=YES open option
+
+Warning in CPL_read_ogr(dsn, layer, query, as.character(options), quiet, : GDAL
+Message 1: unable to open database file: this file is a WAL-enabled database.
+It cannot be opened because it is presumably read-only or in a read-only
+directory. Retrying with IMMUTABLE=YES open option
+
+Warning in CPL_read_ogr(dsn, layer, query, as.character(options), quiet, : GDAL
+Message 1: unable to open database file: this file is a WAL-enabled database.
+It cannot be opened because it is presumably read-only or in a read-only
+directory. Retrying with IMMUTABLE=YES open option
+
+Warning in CPL_read_ogr(dsn, layer, query, as.character(options), quiet, : GDAL
+Message 1: unable to open database file: this file is a WAL-enabled database.
+It cannot be opened because it is presumably read-only or in a read-only
+directory. Retrying with IMMUTABLE=YES open option</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="co"># clear space</span></span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(a, i, layers, layers_list, grids)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <section id="mapping-replicated-cells" class="level3" data-number="6.1.1">
 <h3 data-number="6.1.1" class="anchored" data-anchor-id="mapping-replicated-cells"><span class="header-section-number">6.1.1</span> Mapping replicated cells</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="co"># pdf(file = "out/figures/CellsSampledMaps.pdf", onefile = T, paper = "a4")</span></span>
-<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(grid_list)){</span>
-<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (scale <span class="cf">in</span> <span class="fu">seq_along</span>(<span class="fu">length</span>(grid_list[[a]]))){</span>
-<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>  t_common_cells <span class="ot">&lt;-</span> common_cells <span class="sc">%&gt;%</span> </span>
-<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_names[[a]] <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> scale) <span class="sc">%&gt;%</span> </span>
-<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">num_periods_cells =</span> <span class="fu">as.factor</span>(num_periods_cells))</span>
-<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>  t_grid <span class="ot">&lt;-</span> grid_list[[a]][[scale]]</span>
-<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a>  t_grid2 <span class="ot">&lt;-</span> <span class="fu">full_join</span>(t_grid, t_common_cells) <span class="sc">%&gt;%</span> </span>
-<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">repeated =</span> <span class="fu">case_when</span>(<span class="fu">is.na</span>(num_periods_cells) <span class="sc">~</span> <span class="st">"never"</span>,</span>
-<span id="cb55-10"><a href="#cb55-10" aria-hidden="true" tabindex="-1"></a>                                num_periods_cells <span class="sc">==</span> <span class="dv">1</span> <span class="sc">~</span> <span class="st">"once"</span>,</span>
-<span id="cb55-11"><a href="#cb55-11" aria-hidden="true" tabindex="-1"></a>                                num_periods_cells <span class="sc">==</span> <span class="dv">0</span> <span class="sc">~</span> <span class="st">"never"</span>,</span>
-<span id="cb55-12"><a href="#cb55-12" aria-hidden="true" tabindex="-1"></a>                                num_periods_cells <span class="sc">==</span> <span class="dv">2</span> <span class="sc">~</span> <span class="st">"both"</span>)) <span class="sc">%&gt;%</span> </span>
-<span id="cb55-13"><a href="#cb55-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">repeated =</span> <span class="fu">as.factor</span>(repeated)) <span class="sc">%&gt;%</span> </span>
-<span id="cb55-14"><a href="#cb55-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">reorder_levels</span>(repeated, <span class="at">order =</span> <span class="fu">c</span>(<span class="st">"never"</span>, <span class="st">"once"</span>, <span class="st">"both"</span>))</span>
-<span id="cb55-15"><a href="#cb55-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(t_grid2[<span class="st">"repeated"</span>], <span class="at">pal =</span> <span class="fu">hcl.colors</span>(<span class="dv">3</span>, <span class="fu">hcl.pals</span>(<span class="at">type =</span> <span class="st">"divergingx"</span>)[<span class="dv">13</span>], <span class="at">alpha =</span> <span class="fl">0.7</span>))</span>
-<span id="cb55-16"><a href="#cb55-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">#tmap::qtm(t_grid2, "repeated", style = "col_blind", fill = c("black"))</span></span>
-<span id="cb55-17"><a href="#cb55-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(t_grid2 <span class="sc">%&gt;%</span> </span>
-<span id="cb55-18"><a href="#cb55-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(repeated <span class="sc">==</span> <span class="st">"both"</span> <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
-<span id="cb55-19"><a href="#cb55-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Total_area_sampled =</span> <span class="fu">sum</span>(area)) <span class="sc">%&gt;%</span> </span>
-<span id="cb55-20"><a href="#cb55-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">pull</span>(Total_area_sampled) <span class="sc">%&gt;%</span> <span class="fu">unique</span>() )</span>
-<span id="cb55-21"><a href="#cb55-21" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb55-22"><a href="#cb55-22" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="co"># pdf(file = "out/figures/CellsSampledMaps.pdf", onefile = T, paper = "a4")</span></span>
+<span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(grid_list)){</span>
+<span id="cb60-3"><a href="#cb60-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (scale <span class="cf">in</span> <span class="fu">seq_along</span>(<span class="fu">length</span>(grid_list[[a]]))){</span>
+<span id="cb60-4"><a href="#cb60-4" aria-hidden="true" tabindex="-1"></a>  t_common_cells <span class="ot">&lt;-</span> common_cells <span class="sc">%&gt;%</span> </span>
+<span id="cb60-5"><a href="#cb60-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(dataset <span class="sc">==</span> atlas_names[[a]] <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> scale) <span class="sc">%&gt;%</span> </span>
+<span id="cb60-6"><a href="#cb60-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">num_periods_cells =</span> <span class="fu">as.factor</span>(num_periods_cells))</span>
+<span id="cb60-7"><a href="#cb60-7" aria-hidden="true" tabindex="-1"></a>  t_grid <span class="ot">&lt;-</span> grid_list[[a]][[scale]]</span>
+<span id="cb60-8"><a href="#cb60-8" aria-hidden="true" tabindex="-1"></a>  t_grid2 <span class="ot">&lt;-</span> <span class="fu">full_join</span>(t_grid, t_common_cells) <span class="sc">%&gt;%</span> </span>
+<span id="cb60-9"><a href="#cb60-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">repeated =</span> <span class="fu">case_when</span>(<span class="fu">is.na</span>(num_periods_cells) <span class="sc">~</span> <span class="st">"never"</span>,</span>
+<span id="cb60-10"><a href="#cb60-10" aria-hidden="true" tabindex="-1"></a>                                num_periods_cells <span class="sc">==</span> <span class="dv">1</span> <span class="sc">~</span> <span class="st">"once"</span>,</span>
+<span id="cb60-11"><a href="#cb60-11" aria-hidden="true" tabindex="-1"></a>                                num_periods_cells <span class="sc">==</span> <span class="dv">0</span> <span class="sc">~</span> <span class="st">"never"</span>,</span>
+<span id="cb60-12"><a href="#cb60-12" aria-hidden="true" tabindex="-1"></a>                                num_periods_cells <span class="sc">==</span> <span class="dv">2</span> <span class="sc">~</span> <span class="st">"both"</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb60-13"><a href="#cb60-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">repeated =</span> <span class="fu">as.factor</span>(repeated)) <span class="sc">%&gt;%</span> </span>
+<span id="cb60-14"><a href="#cb60-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">reorder_levels</span>(repeated, <span class="at">order =</span> <span class="fu">c</span>(<span class="st">"never"</span>, <span class="st">"once"</span>, <span class="st">"both"</span>))</span>
+<span id="cb60-15"><a href="#cb60-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot</span>(t_grid2[<span class="st">"repeated"</span>], <span class="at">pal =</span> <span class="fu">hcl.colors</span>(<span class="dv">3</span>, <span class="fu">hcl.pals</span>(<span class="at">type =</span> <span class="st">"divergingx"</span>)[<span class="dv">13</span>], <span class="at">alpha =</span> <span class="fl">0.7</span>))</span>
+<span id="cb60-16"><a href="#cb60-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">#tmap::qtm(t_grid2, "repeated", style = "col_blind", fill = c("black"))</span></span>
+<span id="cb60-17"><a href="#cb60-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(t_grid2 <span class="sc">%&gt;%</span> </span>
+<span id="cb60-18"><a href="#cb60-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(repeated <span class="sc">==</span> <span class="st">"both"</span> <span class="sc">&amp;</span> cell_grouping <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb60-19"><a href="#cb60-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Total_area_sampled =</span> <span class="fu">sum</span>(area)) <span class="sc">%&gt;%</span> </span>
+<span id="cb60-20"><a href="#cb60-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">pull</span>(Total_area_sampled) <span class="sc">%&gt;%</span> <span class="fu">unique</span>() )</span>
+<span id="cb60-21"><a href="#cb60-21" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb60-22"><a href="#cb60-22" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Joining with `by = join_by(cell_grouping, cell_label)`</code></pre>
 </div>
@@ -584,11 +631,11 @@ Birds_Atlas_New_York
 <p><img src="1_Atlas_Data_files/figure-html/unnamed-chunk-14-4.png" class="img-fluid" width="672"></p>
 </div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 9781678</code></pre>
+<pre><code>[1] 7467749</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb64"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a><span class="co"># dev.off()</span></span>
-<span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb64-3"><a href="#cb64-3" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(t_common_cells, t_grid, t_grid2, common_cells, a, scale)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb69"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a><span class="co"># dev.off()</span></span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(t_common_cells, t_grid, t_grid2, common_cells, a, scale)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
@@ -596,14 +643,14 @@ Birds_Atlas_New_York
 <section id="save-objects-to-rds" class="level1" data-number="7">
 <h1 data-number="7"><span class="header-section-number">7</span> Save Objects to RDS</h1>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb65"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a><span class="fu">save.image</span>(<span class="st">"1_Atlas_Data_clean.RData"</span>)</span>
-<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a><span class="do">## We need these:</span></span>
-<span id="cb65-4"><a href="#cb65-4" aria-hidden="true" tabindex="-1"></a><span class="co">#atlas_names</span></span>
-<span id="cb65-5"><a href="#cb65-5" aria-hidden="true" tabindex="-1"></a><span class="co">#time_periods</span></span>
-<span id="cb65-6"><a href="#cb65-6" aria-hidden="true" tabindex="-1"></a><span class="co">#grid_list</span></span>
-<span id="cb65-7"><a href="#cb65-7" aria-hidden="true" tabindex="-1"></a><span class="co">#presence_data_filt</span></span>
-<span id="cb65-8"><a href="#cb65-8" aria-hidden="true" tabindex="-1"></a><span class="co">#load("1_Atlas_Data_clean.RData")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb70"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="fu">save.image</span>(<span class="st">"../../out/RData/1_Atlas_Data_clean.RData"</span>)</span>
+<span id="cb70-2"><a href="#cb70-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb70-3"><a href="#cb70-3" aria-hidden="true" tabindex="-1"></a><span class="do">## We need these:</span></span>
+<span id="cb70-4"><a href="#cb70-4" aria-hidden="true" tabindex="-1"></a><span class="co">#atlas_names</span></span>
+<span id="cb70-5"><a href="#cb70-5" aria-hidden="true" tabindex="-1"></a><span class="co">#time_periods</span></span>
+<span id="cb70-6"><a href="#cb70-6" aria-hidden="true" tabindex="-1"></a><span class="co">#grid_list</span></span>
+<span id="cb70-7"><a href="#cb70-7" aria-hidden="true" tabindex="-1"></a><span class="co">#presence_data_filt</span></span>
+<span id="cb70-8"><a href="#cb70-8" aria-hidden="true" tabindex="-1"></a><span class="co">#load("1_Atlas_Data_clean.RData")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 
