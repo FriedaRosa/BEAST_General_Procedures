@@ -426,6 +426,9 @@ big_table <- full_join(species_data_new2, logRatio) %>% filter(cell_grouping == 
     mutate_if(is.numeric, round, 3)
 
 
+big_table %>% group_by(dataset, tp) %>% 
+  summarise(across(everything(), ~ sum(is.na(.x))))
+
 ### =============================================== ###
 rm(logRatio,sp_dat_wide)
 ### =============================================== ###
