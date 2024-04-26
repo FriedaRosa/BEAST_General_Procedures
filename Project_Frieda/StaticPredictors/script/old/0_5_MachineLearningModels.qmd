@@ -1,0 +1,283 @@
+---
+title: "MachineLearning Models"
+author: "Frieda"
+format: html
+editor: visual
+---
+
+## Libraries
+
+```{r, message = F}
+
+## Machine Learning models ------------------- #
+library(randomForest)
+library(randomForestExplainer) # plotting
+library(pdp)
+library(dplyr)
+library(vip)
+library(ggplot2)
+
+```
+
+## Variables
+
+```{r}
+rm(list=ls())
+source_Git <- c("c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/")
+
+# folder path to output folder
+out_path <- c(paste0(source_Git, "out/"))
+
+```
+
+## Create model dataframes
+
+```{r}
+df <- readRDS(paste0(out_path, "rds/All_predictors.rds")) %>% 
+  unique() %>% 
+  select(-sp_atlas.adapted1, -avgEffort)%>% unique() %>%
+  mutate(HWI = as.numeric(as.character(HWI)),
+         Mass = as.numeric(as.character(Mass)),
+         Range.Size = as.numeric(as.character(Range.Size)),
+         FP = as.numeric(FP),
+         tp = as.integer(tp),
+         dataset = as.factor(dataset),
+         Habitat = as.factor(Habitat),
+         RL_Category = as.factor(RL_Category),
+         Habitat.Density = as.factor(Habitat.Density),
+         Migration = as.factor(Migration),
+         Trophic.Level = as.factor(Trophic.Level),
+         Trophic.Niche = as.factor(Trophic.Niche),
+         Primary.Lifestyle = as.factor(Primary.Lifestyle),
+         grain = as.integer(grain)) %>%
+  select(-Total_Ncells_samp, -atlas_bearing, -atlas_bearingMinRect, -atlas_circ, -atlas_elonMinRect, -atlas_widthMinRect, -atlas_lengthMinRect, -atlas_xmin, -atlas_ymin, -atlas_xmax, -atlas_ymax, -atlas_yhalf, -atlas_xhalf, -bearing, -bearingMinRect, -circ, -elonMinRect, -widthMinRect, -lengthMinRect, -increment2)
+
+rownames(df) <- NULL
+str(df)
+
+highly_correlated <- caret::findCorrelation(cor(df %>% 
+                                                  select(-log_R2_1, -Telfer_1_2, -Family, -Order, -verbatim_name) %>% 
+                                                  select_if(is.numeric), use="pairwise.complete.obs"), 
+                                            cutoff = 0.8, names = T)
+
+df_red_clean <- df %>% select(-all_of(highly_correlated)) %>% distinct(tp, dataset, verbatim_name, .keep_all = T)
+
+saveRDS(df_red_clean, paste0(out_path, "rds/Predictors_cleaned.rds"))
+
+```
+
+## Create list of data frame for model loop
+
+```{r}
+# Create grouping variables for modelling in loop:
+cols <- names(df_red_clean)
+
+# Response:
+cols_logR <- cols[-which(cols == "Telfer_1_2")]
+cols_telfer <- cols[-which(cols == "log_R2_1")]
+
+# Group for predictor columns:
+# Geometry
+cols_g1 <- c("D_AOO_a", # Fractal dimension
+             "nsDist", "elonRatio", "circNorm", "relCirc", "lin",  # Species distribution geometric features
+             "minDist_toBorder", "minDist_toBorder_centr", # Distances
+             "Southernness", "Westernness", 
+             "moran", "x_intercept", # Spatial autocorrelation
+             "atlas_circNorm", "atlas_relCirc", # Atlas predictors
+             "dataset") # captures most of the geometry of the atlases (highly correlated)
+
+# Traits
+cols_g2 <- c("relative_occupancy_Ncells", # Occupancy 
+             "RL_Category", # Global red list categories
+             "Family", "Order", "FP", # Evolutionary relationships
+             "HWI", # Dispersal
+             "Mass", 
+             "Habitat", "Habitat.Density", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", # Life history traits
+             "Range.Size", # Global range size (Breeding & Resident)
+             "sd_PC1", "sd_PC2") # Climatic Niche Breadth
+
+# Diversity
+cols_g3 <- c("AlphaSR_sp", "BetaSR_sp", #Alpha and beta diversity
+             "Dist_toCOD",  # Distance from species centroid to center of gravity of the atlas
+             "CenterOfGravity_Atlas_lat", # latitude of center of gravity of the atlas
+             "sp_COG_long","sp_COG_lat") # species distribution centroid coordinates) # Distance from species centroid to center of gravity of the atlas
+
+
+
+# Log Ratio df
+df_log_R <-  df_red_clean %>% 
+  select(all_of(cols_logR)) %>%
+  distinct(tp, dataset, verbatim_name, .keep_all = T) %>%
+  filter(!is.na(log_R2_1))
+
+df_log_R1 <- df_log_R %>% filter(tp == 1) %>% select(-tp, -verbatim_name) # Future Change
+df_log_R2 <- df_log_R %>% filter(tp == 2) %>% select(-tp, -verbatim_name) # Past Change
+
+
+
+# Telfer df
+df_telfer <- df_red_clean %>% 
+  select(all_of(cols_telfer)) %>%
+  distinct(tp, dataset, verbatim_name, .keep_all = T) %>%
+  filter(!is.na(Telfer_1_2))
+
+df_telfer1 <- df_telfer %>% filter(tp == 1) %>% select(-tp, -verbatim_name) # Future Change
+df_telfer2 <- df_telfer %>% filter(tp == 2) %>% select(-tp, -verbatim_name) # Past Change
+
+
+
+# Create list of data frame:
+dfs_list <- list(df_log_R1, df_log_R2, df_telfer1, df_telfer2)
+names(dfs_list) <- c("df_log_R1", "df_log_R2", "df_telfer1", "df_telfer2")
+
+```
+
+# Run models for log ratio and telfer
+
+```{r}
+models_list <- list()
+models_res_list <-list()
+pred_list <- list()
+
+for (dd in seq_along(dfs_list)){
+  model_df <- dfs_list[[dd]]
+  
+  # split into test and train #
+  set.seed(123)
+  samp <- sample(nrow(model_df), 0.8 * nrow(model_df))
+  train <- model_df[samp, ]; dim(train) 
+  test <- model_df[-samp, ]; dim(test) 
+
+  # create response variable
+  response_var <- if ("log_R2_1" %in% names(train)) "log_R2_1" else if ("Telfer_1_2" %in% names(train)) "Telfer_1_2" 
+
+  # build models # 
+  model <- randomForest(as.formula(paste(response_var, "~ .")), data = train,
+                         ntree=150, importance=TRUE, na.action = "na.omit")
+  data_pred <- data.frame(Predicted = predict(model, newdata = test), Observed = test[[response_var]])
+  models_list[[dd]] <- model    
+  pred_list[[dd]] <- data_pred
+
+  # extract model results # 
+  imp <- as.data.frame(model$importance[,1])
+  names(imp) <- c("Importance")
+  imp$var <- rownames(imp)
+  imp2 <- imp %>% 
+    tidyr::pivot_wider(names_from = var,
+                       values_from = Importance)
+  # create summary df
+  model_res <- data.frame(
+    df = names(dfs_list)[[dd]],
+    mean_pseudo_R2 = mean(model$rsq),
+    mean_mse = mean(model$mse),
+    imp2)
+  
+  
+  models_res_list[[dd]] <- model_res
+  
+  
+}
+
+saveRDS(models_list, paste0(out_path, "models_list.rds"))
+saveRDS(models_res_list, paste0(out_path, "models_res_list.rds"))
+saveRDS(pred_list, paste0(out_path, "pred_list.rds"))
+
+
+```
+
+## Decrease in OOB MSE plot
+
+Similar to Fig 4 in *Storch et al. 2023 - Decomposing trends in bird populations*
+
+```{r}
+# Decrease of OOB MSE
+decrease_mse1 <- data.frame(Decr_OOB_MSE = importance(models_list[[1]], type = 1),
+                            data = "log_R_future")
+decrease_mse1$var <- rownames(decrease_mse1)
+decrease_mse2 <- data.frame(Decr_OOB_MSE = importance(models_list[[2]], type = 1),
+                            data = "log_R_past")
+decrease_mse2$var <- rownames(decrease_mse2)
+decrease_mse3 <- data.frame(Decr_OOB_MSE = importance(models_list[[3]], type = 1),
+                            data = "telfer_future")
+decrease_mse3$var <- rownames(decrease_mse3)
+decrease_mse4 <- data.frame(Decr_OOB_MSE = importance(models_list[[4]], type = 1),
+                            data = "telfer_past")
+decrease_mse4$var <- rownames(decrease_mse4)
+# Merge
+decrease_mse <- rbind(decrease_mse1, decrease_mse2, decrease_mse3, decrease_mse4) %>% 
+  rename("Decr_OOB_MSE" = "X.IncMSE") %>%
+  mutate(group = case_when(var %in% cols_g1 ~ "geometry",
+                           var %in% cols_g2 ~ "traits",
+                           var %in% cols_g3 ~ "diversity"))
+decrease_mse %>% 
+  group_by(data) %>%
+  filter(data %in% c("log_R_future", "log_R_past")) %>%
+  ggplot2::ggplot(aes(y = forcats::fct_reorder(var, Decr_OOB_MSE), x = Decr_OOB_MSE, fill = group))+
+  geom_col()+
+  facet_wrap(data~.)+
+  xlab("Decrease of out-of-bag MSE")+
+  ylab("Predictor")+
+  theme_minimal()
+
+ggsave(filename = paste0(out_path, "figures/Decr_OOB_MSE.pdf"))
+
+
+```
+
+## Differences between models:
+
+```{r}
+# transform to long format for plotting
+df_long <- plyr::rbind.fill(models_res_list) %>% tidyr::pivot_longer(cols = 2:40)
+
+
+df_long %>% filter(name != "mean_mse") %>%   
+  mutate(group = case_when(name %in% cols_g1 ~ "geometry",
+                           name %in% cols_g2 ~ "traits",
+                           name %in% cols_g3 ~ "diversity"))
+  ggplot2::ggplot(aes(y = fct_reorder(name, value), x = value))+ geom_col()+facet_wrap(df~.)
+# Points
+df_long %>% 
+  ggplot2::ggplot(aes(x = df, y = value, col = name))+
+  geom_point(show.legend = F)+
+  viridis::scale_color_viridis(discrete = T, option="C") + 
+  facet_wrap(name~., scales = "free" )
+
+# Bars
+df_long %>% 
+  ggplot2::ggplot(aes(x = df, y = value, fill = name))+
+  geom_col(show.legend = F)+
+  viridis::scale_fill_viridis(discrete = T, option="C") + 
+  facet_wrap(name~., scales = "free", ncol = 4, nrow=10, strip.position = "right") 
+
+ggsave(filename = paste0(out_path, "figures/Barchart.pdf"), height = 20, width = 10)
+
+
+
+
+## Comparison between Log Ratio and Telfer models:
+
+df_long1 <- df_long %>% filter(df %in% c("df_log_R1", "df_telfer1")) # Tp 1: log ratio vs. telfer
+df_long2 <- df_long %>% filter(df %in% c("df_log_R2", "df_telfer2")) # tp 2: log ratio vs. telfer
+
+# Compare log ratio and telfer for tp1
+df_long1 %>% 
+  ggplot2::ggplot(aes(x = df, y = value, fill = name))+
+  geom_col(show.legend = F)+
+  viridis::scale_fill_viridis(discrete = T, option="C") + 
+  facet_wrap(name~., scales = "free", ncol = 4, nrow=10, strip.position = "right") 
+
+ggsave(filename = paste0(out_path, "figures/Barchart_tp1.pdf"), height = 20, width = 10)
+
+
+# Compare log ratio and telfer for tp2
+df_long2 %>% filter(name != "mean_mse" ) %>%
+  ggplot2::ggplot(aes(x = df, y = value, fill = name))+
+  geom_col(show.legend = F)+
+  viridis::scale_fill_viridis(discrete = T, option="C") + 
+  facet_wrap(name~., scales = "free", ncol = 4, nrow=10, strip.position = "right") 
+
+ggsave(filename = paste0(out_path, "figures/Barchart_tp2.pdf"), height = 20, width = 10)
+
+
+```

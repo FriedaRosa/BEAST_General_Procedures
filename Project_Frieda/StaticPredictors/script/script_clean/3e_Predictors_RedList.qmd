@@ -1,0 +1,42 @@
+---
+title: "Predictor Variables Calculations 5"
+author: "Friederike Wölke"
+date: "2024-04-20"
+output:
+  html_document:
+    code_folding: hide
+format:
+  html:
+    toc: true
+    number-sections: true
+    colorlinks: true
+---
+
+# Red List Status
+retrieved at IUCN using the API on 22.04.2024
+
+```{r}
+pacman::p_load("taxize", "tidyverse")
+Tax <- read.csv("out/csv/BirdLife2018_TaxonomicLookup.csv") 
+spData2 <- Tax %>% pull(ScientificName)
+
+```
+
+
+```{r}
+
+IUCN.list2 <- iucn_summary(spData2, distr.detail = F, key = IUCN_REDLIST_KEY)
+IUCN <- iucn_status(IUCN.list2) 
+IUCN_df <- as.data.frame(IUCN, row.names = names(IUCN)) %>% rownames_to_column(var = "ScientificName") %>% left_join(Tax) %>% distinct(AtlasSp, IUCN)
+
+```
+
+```{r}
+## Save Output
+saveRDS(IUCN_df, "out/predictors/RedListCat_IUCN2024.rds")
+pred_list <- readRDS("out/pred_list_3d.rds")
+names_v <- names(pred_list)
+pred_list[[6]] <- IUCN_df
+names(pred_list) <- c(names_v, "RedListIUCN2024")
+saveRDS(pred_list, "out/pred_list_3e.rds")
+```

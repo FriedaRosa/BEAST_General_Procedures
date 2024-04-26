@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.450">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Friederike Wölke">
+<meta name="dcterms.date" content="2024-04-20">
+
+<title>Predictor Variables Calculations 3</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="3c_Predictors_Geometry_files/libs/clipboard/clipboard.min.js"></script>
+<script src="3c_Predictors_Geometry_files/libs/quarto-html/quarto.js"></script>
+<script src="3c_Predictors_Geometry_files/libs/quarto-html/popper.min.js"></script>
+<script src="3c_Predictors_Geometry_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="3c_Predictors_Geometry_files/libs/quarto-html/anchor.min.js"></script>
+<link href="3c_Predictors_Geometry_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="3c_Predictors_Geometry_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="3c_Predictors_Geometry_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="3c_Predictors_Geometry_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="3c_Predictors_Geometry_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#geometries" id="toc-geometries" class="nav-link active" data-scroll-target="#geometries"><span class="header-section-number">1</span> Geometries</a>
+  <ul class="collapse">
+  <li><a href="#clean-environment" id="toc-clean-environment" class="nav-link" data-scroll-target="#clean-environment"><span class="header-section-number">1.1</span> Clean environment</a></li>
+  <li><a href="#libraries" id="toc-libraries" class="nav-link" data-scroll-target="#libraries"><span class="header-section-number">1.2</span> Libraries</a></li>
+  <li><a href="#function-to-calculate-geometries" id="toc-function-to-calculate-geometries" class="nav-link" data-scroll-target="#function-to-calculate-geometries"><span class="header-section-number">1.3</span> Function to calculate Geometries</a></li>
+  <li><a href="#data" id="toc-data" class="nav-link" data-scroll-target="#data"><span class="header-section-number">1.4</span> Data</a></li>
+  </ul></li>
+  <li><a href="#set-variables" id="toc-set-variables" class="nav-link" data-scroll-target="#set-variables"><span class="header-section-number">2</span> Set Variables</a></li>
+  <li><a href="#atlas-geometries" id="toc-atlas-geometries" class="nav-link" data-scroll-target="#atlas-geometries"><span class="header-section-number">3</span> Atlas Geometries</a></li>
+  <li><a href="#species-ranges-geometries" id="toc-species-ranges-geometries" class="nav-link" data-scroll-target="#species-ranges-geometries"><span class="header-section-number">4</span> Species Ranges Geometries</a></li>
+  <li><a href="#no-more-nas" id="toc-no-more-nas" class="nav-link" data-scroll-target="#no-more-nas"><span class="header-section-number">5</span> No More NAs !!</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Predictor Variables Calculations 3</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Friederike Wölke </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 20, 2024</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="geometries" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Geometries</h1>
+<section id="clean-environment" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="clean-environment"><span class="header-section-number">1.1</span> Clean environment</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(<span class="at">list=</span><span class="fu">ls</span>())</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          used (Mb) gc trigger (Mb) max used (Mb)
+Ncells  572668 30.6    1307194 69.9   658000 35.2
+Vcells 1046079  8.0    8388608 64.0  1768422 13.5</code></pre>
+</div>
+</div>
+</section>
+<section id="libraries" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="libraries"><span class="header-section-number">1.2</span> Libraries</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>pacman<span class="sc">::</span><span class="fu">p_load</span>(dplyr, sf, rstatix, geosphere, geodata, terra, tidyterra)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sf_use_s2</span>(<span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Spherical geometry (s2) switched off</code></pre>
+</div>
+</div>
+</section>
+<section id="function-to-calculate-geometries" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="function-to-calculate-geometries"><span class="header-section-number">1.3</span> Function to calculate Geometries</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Function to get the max elongation per polygon, north-south length or east-west length, circularity, etc...</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>poly_attr <span class="ot">&lt;-</span> <span class="cf">function</span>(x, <span class="at">type =</span> <span class="cn">NULL</span>) {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Convert "sf" to SpatVector</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">inherits</span>(x, <span class="st">"sf"</span>) <span class="sc">==</span> T) {</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    x <span class="ot">&lt;-</span> <span class="fu">vect</span>(x)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Reproject to WGS84. Currently, "terra" calculate distance in meters when given latitude and longitude points.</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  x <span class="ot">&lt;-</span> <span class="fu">project</span>(x, <span class="st">"epsg:4326"</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Get East-West distance (longitudinal extension)</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"ewDist"</span>) {</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    vert <span class="ot">&lt;-</span> <span class="fu">crds</span>(<span class="fu">as.points</span>(<span class="fu">ext</span>(x)), <span class="at">df =</span> T)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    dimNames <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="fu">c</span>(<span class="st">"point"</span>),<span class="fu">c</span>(<span class="st">"x"</span>,<span class="st">"y"</span>))</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    sw <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="fu">min</span>(vert[[<span class="st">"x"</span>]]), <span class="fu">min</span>(vert[[<span class="st">"y"</span>]])), <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">dimnames =</span> dimNames)</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    se <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="fu">max</span>(vert[[<span class="st">"x"</span>]]), <span class="fu">min</span>(vert[[<span class="st">"y"</span>]])), <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">dimnames =</span> dimNames)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="fu">distance</span>(sw, se, <span class="at">lonlat =</span> T)[[<span class="dv">1</span>]]</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Get South-North distance (latitudinal extension)</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"nsDist"</span>) {</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    vert <span class="ot">&lt;-</span> <span class="fu">crds</span>(<span class="fu">as.points</span>(<span class="fu">ext</span>(x)), <span class="at">df =</span> T)</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    dimNames <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="fu">c</span>(<span class="st">"point"</span>),<span class="fu">c</span>(<span class="st">"x"</span>,<span class="st">"y"</span>))</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    sw <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="fu">min</span>(vert[[<span class="st">"x"</span>]]), <span class="fu">min</span>(vert[[<span class="st">"y"</span>]])), <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">dimnames =</span> dimNames)</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    nw <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="fu">min</span>(vert[[<span class="st">"x"</span>]]), <span class="fu">max</span>(vert[[<span class="st">"y"</span>]])), <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">dimnames =</span> dimNames)</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="fu">distance</span>(sw, nw, <span class="at">lonlat =</span> T)[[<span class="dv">1</span>]]</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Get max distance between opposite vertices</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"maxDist"</span>) {</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>    vert <span class="ot">&lt;-</span> <span class="fu">crds</span>(<span class="fu">as.points</span>(<span class="fu">convHull</span>(x)))</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="fu">distance</span>(vert, <span class="at">lonlat =</span> T) <span class="sc">%&gt;%</span> <span class="fu">max</span>()</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Get elongation ratio along longest axis</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"elonRatio"</span>) {</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>    convexHull <span class="ot">&lt;-</span> <span class="fu">convHull</span>(x)</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>    vert <span class="ot">&lt;-</span> <span class="fu">crds</span>(<span class="fu">as.points</span>(convexHull), <span class="at">df =</span> T)</span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>    dist <span class="ot">&lt;-</span> <span class="fu">as.data.frame.table</span>(<span class="fu">as.matrix</span>(<span class="fu">distance</span>(vert, <span class="at">lonlat =</span> T)), <span class="at">responseName =</span> <span class="st">"distance"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>      <span class="fu">slice_max</span>(., distance)</span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>    axisPoints <span class="ot">&lt;-</span> vert[<span class="fu">c</span>(dist[[<span class="dv">1</span>]][[<span class="dv">1</span>]],dist[[<span class="dv">2</span>]][[<span class="dv">1</span>]]),]</span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>    axisPoints <span class="ot">&lt;-</span> <span class="fu">arrange</span>(axisPoints, <span class="fu">desc</span>(y))</span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    rotation <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span><span class="sc">*</span><span class="fu">bearing</span>(axisPoints[<span class="dv">2</span>,],axisPoints[<span class="dv">1</span>,])</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>    rotHull <span class="ot">&lt;-</span> <span class="fu">spin</span>(convexHull, rotation)</span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>    ext <span class="ot">&lt;-</span> <span class="fu">ext</span>(convexHull)</span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>    df <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(<span class="fu">distance</span>(<span class="fu">crds</span>(<span class="fu">as.points</span>(ext)), <span class="at">lonlat =</span> T))</span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>    df <span class="ot">&lt;-</span> <span class="fu">sort</span>(df)</span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>    length <span class="ot">&lt;-</span> <span class="fu">mean</span>(df[[<span class="dv">3</span>]], df[[<span class="dv">4</span>]])</span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>    width <span class="ot">&lt;-</span> <span class="fu">mean</span>(df[[<span class="dv">1</span>]], df[[<span class="dv">2</span>]])</span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> (width <span class="sc">/</span> length)</span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>    <span class="co"># res &lt;- list()</span></span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>    <span class="co"># res[["vert"]] &lt;- vert</span></span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>    <span class="co"># res[["dist"]] &lt;- dist</span></span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>    <span class="co"># res[["axispoints"]] &lt;- axisPoints</span></span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>    <span class="co"># res[["bearing"]] &lt;- rotation</span></span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>    <span class="co"># res[["rotHull"]] &lt;- rotHull</span></span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Circularity</span></span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"circ"</span>) {</span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>    perimeter <span class="ot">&lt;-</span> <span class="fu">perim</span>(x)</span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>    area <span class="ot">&lt;-</span> <span class="fu">expanse</span>(x)</span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> (perimeter<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> area</span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Normalized circularity</span></span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"circNorm"</span>) {</span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a>    perimeter <span class="ot">&lt;-</span> <span class="fu">perim</span>(x)</span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>    area <span class="ot">&lt;-</span> <span class="fu">expanse</span>(x)</span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> (perimeter<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> (<span class="dv">4</span> <span class="sc">*</span> pi <span class="sc">*</span> area)</span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Major length of the minimum rectangle</span></span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"lengthMinRect"</span>) {</span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a>    minRectangle <span class="ot">&lt;-</span> <span class="fu">minRect</span>(x)</span>
+<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a>    df <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(<span class="fu">distance</span>(<span class="fu">crds</span>(<span class="fu">as.points</span>(minRectangle), <span class="at">df =</span> T), <span class="at">lonlat =</span> T))</span>
+<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a>    df <span class="ot">&lt;-</span> <span class="fu">sort</span>(df)</span>
+<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="fu">mean</span>(df[[<span class="dv">3</span>]], df[[<span class="dv">4</span>]])</span>
+<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Width of the minimum rectangle</span></span>
+<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"widthMinRect"</span>) {</span>
+<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a>    minRectangle <span class="ot">&lt;-</span> <span class="fu">minRect</span>(x)</span>
+<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a>    df <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(<span class="fu">distance</span>(<span class="fu">crds</span>(<span class="fu">as.points</span>(minRectangle), <span class="at">df =</span> T), <span class="at">lonlat =</span> T))</span>
+<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a>    df <span class="ot">&lt;-</span> <span class="fu">sort</span>(df)</span>
+<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="fu">mean</span>(df[[<span class="dv">1</span>]], df[[<span class="dv">2</span>]])</span>
+<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Elongation ratio of minimal encasing rectangle (from here: Dražić, S., Ralević, N., &amp; Žunić, J. (2010). Shape elongation from optimal encasing rectangles. Computers &amp; Mathematics with Applications, 60(7), 2035–2042. https://doi.org/10.1016/j.camwa.2010.07.043)</span></span>
+<span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"elonMinRect"</span>) {</span>
+<span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a>    minRectangle <span class="ot">&lt;-</span> <span class="fu">minRect</span>(x)</span>
+<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a>    df <span class="ot">&lt;-</span> <span class="fu">as.vector</span>(<span class="fu">distance</span>(<span class="fu">crds</span>(<span class="fu">as.points</span>(minRectangle)), <span class="at">lonlat =</span> T))</span>
+<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a>    df <span class="ot">&lt;-</span> <span class="fu">sort</span>(df)</span>
+<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a>    length <span class="ot">&lt;-</span> <span class="fu">mean</span>(df[[<span class="dv">3</span>]], df[[<span class="dv">4</span>]])</span>
+<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a>    width <span class="ot">&lt;-</span> <span class="fu">mean</span>(df[[<span class="dv">1</span>]], df[[<span class="dv">2</span>]])</span>
+<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">-</span> (width <span class="sc">/</span> length)</span>
+<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Related circumscribing circle</span></span>
+<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"relCirc"</span>) {</span>
+<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a>    circle <span class="ot">&lt;-</span> <span class="fu">minCircle</span>(x)</span>
+<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a>    areaCircle <span class="ot">&lt;-</span> <span class="fu">expanse</span>(circle)</span>
+<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a>    area <span class="ot">&lt;-</span> <span class="fu">expanse</span>(x)</span>
+<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">-</span>(area<span class="sc">/</span>areaCircle)</span>
+<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Linearity index</span></span>
+<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"lin"</span>) {</span>
+<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a>    hull <span class="ot">&lt;-</span> <span class="fu">convHull</span>(x)</span>
+<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a>    df <span class="ot">&lt;-</span> <span class="fu">crds</span>(<span class="fu">as.points</span>(hull), <span class="at">df =</span> T)</span>
+<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a>    lm <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> x, <span class="at">data =</span> df)</span>
+<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="fu">summary</span>(lm)<span class="sc">$</span>r.squared</span>
+<span id="cb5-101"><a href="#cb5-101" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-102"><a href="#cb5-102" aria-hidden="true" tabindex="-1"></a>  <span class="co"># North bearing of the minimum rectangle</span></span>
+<span id="cb5-103"><a href="#cb5-103" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"bearingMinRect"</span>) {</span>
+<span id="cb5-104"><a href="#cb5-104" aria-hidden="true" tabindex="-1"></a>    minRectangle <span class="ot">&lt;-</span> <span class="fu">minRect</span>(x)</span>
+<span id="cb5-105"><a href="#cb5-105" aria-hidden="true" tabindex="-1"></a>    df <span class="ot">&lt;-</span> <span class="fu">crds</span>(<span class="fu">as.points</span>(minRectangle), <span class="at">df =</span> T)</span>
+<span id="cb5-106"><a href="#cb5-106" aria-hidden="true" tabindex="-1"></a>    cor <span class="ot">&lt;-</span> <span class="fu">cor</span>(df[[<span class="st">"x"</span>]],df[[<span class="st">"y"</span>]])</span>
+<span id="cb5-107"><a href="#cb5-107" aria-hidden="true" tabindex="-1"></a>    point1 <span class="ot">&lt;-</span> <span class="fu">slice_min</span>(df, y)</span>
+<span id="cb5-108"><a href="#cb5-108" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (cor <span class="sc">&gt;</span> <span class="dv">0</span>){</span>
+<span id="cb5-109"><a href="#cb5-109" aria-hidden="true" tabindex="-1"></a>      point2 <span class="ot">&lt;-</span><span class="fu">slice_max</span>(df, x)</span>
+<span id="cb5-110"><a href="#cb5-110" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span>{</span>
+<span id="cb5-111"><a href="#cb5-111" aria-hidden="true" tabindex="-1"></a>      point2 <span class="ot">&lt;-</span><span class="fu">slice_min</span>(df, x)</span>
+<span id="cb5-112"><a href="#cb5-112" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-113"><a href="#cb5-113" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="fu">bearing</span>(point1, point2)</span>
+<span id="cb5-114"><a href="#cb5-114" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-115"><a href="#cb5-115" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get bearing along longest axis</span></span>
+<span id="cb5-116"><a href="#cb5-116" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (type <span class="sc">==</span> <span class="st">"bearing"</span>) {</span>
+<span id="cb5-117"><a href="#cb5-117" aria-hidden="true" tabindex="-1"></a>    convexHull <span class="ot">&lt;-</span> <span class="fu">convHull</span>(x)</span>
+<span id="cb5-118"><a href="#cb5-118" aria-hidden="true" tabindex="-1"></a>    vert <span class="ot">&lt;-</span> <span class="fu">crds</span>(<span class="fu">as.points</span>(convexHull), <span class="at">df =</span> T)</span>
+<span id="cb5-119"><a href="#cb5-119" aria-hidden="true" tabindex="-1"></a>    dist <span class="ot">&lt;-</span> <span class="fu">as.data.frame.table</span>(<span class="fu">as.matrix</span>(<span class="fu">distance</span>(vert, <span class="at">lonlat =</span> T)), <span class="at">responseName =</span> <span class="st">"distance"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb5-120"><a href="#cb5-120" aria-hidden="true" tabindex="-1"></a>      <span class="fu">slice_max</span>(., distance)</span>
+<span id="cb5-121"><a href="#cb5-121" aria-hidden="true" tabindex="-1"></a>    axisPoints <span class="ot">&lt;-</span> vert[<span class="fu">c</span>(dist[[<span class="dv">1</span>]][[<span class="dv">1</span>]],dist[[<span class="dv">2</span>]][[<span class="dv">1</span>]]),]</span>
+<span id="cb5-122"><a href="#cb5-122" aria-hidden="true" tabindex="-1"></a>    axisPoints <span class="ot">&lt;-</span> <span class="fu">arrange</span>(axisPoints, <span class="fu">desc</span>(y))</span>
+<span id="cb5-123"><a href="#cb5-123" aria-hidden="true" tabindex="-1"></a>    res <span class="ot">&lt;-</span> <span class="fu">bearing</span>(axisPoints[<span class="dv">2</span>,],axisPoints[<span class="dv">1</span>,])</span>
+<span id="cb5-124"><a href="#cb5-124" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-125"><a href="#cb5-125" aria-hidden="true" tabindex="-1"></a>  res <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(res)</span>
+<span id="cb5-126"><a href="#cb5-126" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(res)</span>
+<span id="cb5-127"><a href="#cb5-127" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="data" class="level2" data-number="1.4">
+<h2 data-number="1.4" class="anchored" data-anchor-id="data"><span class="header-section-number">1.4</span> Data</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>source_atlas <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"c:/Users/wolke/OneDrive - CZU v Praze/Datasets/Processed/Atlases/Replicated/"</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>source_Git <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"c:/Users/wolke/OneDrive - CZU v Praze/Dokumenty/GitHub/BEAST_General_Procedures/Project_Frieda/StaticPredictors/"</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>out_path <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_Git, <span class="st">"out/"</span>))</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Folder paths to atlas data</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>source_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_Atlas_Czechia/"</span>), </span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_Atlas_New_York/"</span>), </span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_atlas_Japan/"</span>), </span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">paste0</span>(source_atlas, <span class="st">"Birds_atlas_EBBA/"</span>))</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Folder path to output folder</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>out_path <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_Git, <span class="st">"out/"</span>))</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Paths to data &amp; grids</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>data_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_paths[<span class="dv">1</span>],<span class="st">"Birds_Atlas_Czechia_beast_data.rds"</span>), </span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">2</span>], <span class="st">"Birds_Atlas_New_York_beast_data.rds"</span>), </span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">3</span>], <span class="st">"Birds_atlas_Japan_beast_data.rds"</span>),</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">4</span>], <span class="st">"2Birds_atlas_EBBA_beast_data.rds"</span>))</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>grid_paths <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">paste0</span>(source_paths[<span class="dv">1</span>],<span class="st">"Birds_Atlas_Czechia_grid.gpkg"</span>), </span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">2</span>], <span class="st">"Birds_Atlas_New_York_grid.gpkg"</span>), </span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">3</span>], <span class="st">"Birds_atlas_Japan_grid.gpkg"</span>),</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste0</span>(source_paths[<span class="dv">4</span>], <span class="st">"Birds_atlas_EBBA_grid.gpkg"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="set-variables" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Set Variables</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Vectors for loops:</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>atlas_names <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"Birds_Atlas_Czechia"</span>, <span class="st">"Birds_Atlas_New_York"</span>,<span class="st">"Birds_atlas_Japan"</span>, <span class="st">"Birds_atlas_EBBA"</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>time_periods <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the desired order of factor levels</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>desired_levels <span class="ot">&lt;-</span> <span class="fu">factor</span>(<span class="fu">c</span>(<span class="st">"1"</span>, <span class="st">"2"</span>,<span class="st">"4"</span>, <span class="st">"8"</span>, <span class="st">"16"</span>, <span class="st">"32"</span>, <span class="st">"64"</span>, <span class="st">"128"</span>), <span class="at">ordered =</span> T,  </span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>                         <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"1"</span>, <span class="st">"2"</span>,<span class="st">"4"</span>, <span class="st">"8"</span>, <span class="st">"16"</span>, <span class="st">"32"</span>, <span class="st">"64"</span>, <span class="st">"128"</span>)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="atlas-geometries" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Atlas Geometries</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">tic</span>()</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Atlas Geometries ==============================================================</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>geom_ls <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># grid data =====================</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>grids <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(grid_paths)) {</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    grids_a <span class="ot">&lt;-</span><span class="fu">sapply</span>(<span class="st">"cell1grid"</span>, <span class="cf">function</span>(i) {</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>      <span class="fu">st_read</span>(grid_paths[[a]], <span class="fu">paste</span>(i), <span class="at">quiet =</span> <span class="cn">TRUE</span>)  <span class="sc">%&gt;%</span> </span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(cell_long)) <span class="sc">%&gt;%</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        <span class="fu">reorder_levels</span>( cell_grouping, <span class="at">order=</span>desired_levels)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>      }, <span class="at">simplify =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    grids[[a]] <span class="ot">&lt;-</span> grids_a<span class="sc">$</span>cell1grid</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_along</span>(grids)){</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>  Atlas_Geom <span class="ot">&lt;-</span> grids[[i]] <span class="sc">%&gt;%</span> </span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(geom, cell_label) <span class="sc">%&gt;%</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    terra<span class="sc">::</span><span class="fu">vect</span>()</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    Geom_attributes_atlas <span class="ot">&lt;-</span> <span class="fu">data_frame</span>(<span class="at">dataset =</span> atlas_names[i],</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_nsDist =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"nsDist"</span>),</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_ewDist =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"ewDist"</span>),</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_maxDist =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"maxDist"</span>),</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_lengthMinRect =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"lengthMinRect"</span>),</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_widthMinRect =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"widthMinRect"</span>),</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_elonMinRect =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"elonMinRect"</span>),</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_elonRatio =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"elonRatio"</span>),</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_circ =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"circ"</span>),</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_circNorm =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"circNorm"</span>),</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_relCirc =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"relCirc"</span>),</span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_lin =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"lin"</span>),</span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_bearingMinRect =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"bearingMinRect"</span>), </span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>           <span class="at">atlas_bearing =</span> <span class="fu">poly_attr</span>(Atlas_Geom, <span class="st">"bearing"</span>))</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>           </span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>  <span class="do">## Southernness/Westernness</span></span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>  atlas_xmin <span class="ot">&lt;-</span> <span class="fu">st_bbox</span>(Atlas_Geom)[<span class="dv">1</span>] <span class="co"># most western point</span></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>  atlas_ymin <span class="ot">&lt;-</span> <span class="fu">st_bbox</span>(Atlas_Geom)[<span class="dv">2</span>] <span class="co"># most southern point</span></span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>  atlas_xmax <span class="ot">&lt;-</span> <span class="fu">st_bbox</span>(Atlas_Geom)[<span class="dv">3</span>] <span class="co"># most eastern point</span></span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>  atlas_ymax <span class="ot">&lt;-</span> <span class="fu">st_bbox</span>(Atlas_Geom)[<span class="dv">4</span>] <span class="co"># most northern point</span></span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>  atlas_xhalf <span class="ot">&lt;-</span> atlas_xmax<span class="sc">+</span>(atlas_xmin<span class="sc">-</span>atlas_xmax)<span class="sc">/</span><span class="dv">2</span> <span class="co"># Middle point between west and east</span></span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>  atlas_yhalf <span class="ot">&lt;-</span> atlas_ymax<span class="sc">+</span>(atlas_ymin<span class="sc">-</span>atlas_ymax)<span class="sc">/</span><span class="dv">2</span> <span class="co"># Mittdle point between north and south</span></span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>  atlas_bbox <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>    atlas_xmin, atlas_xmax, atlas_xhalf, </span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>    atlas_ymin, atlas_ymax, atlas_yhalf)</span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a>  atlas_bbox<span class="sc">$</span>dataset <span class="ot">&lt;-</span> atlas_names[i] </span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a>  geom_ls[[i]] <span class="ot">&lt;-</span> <span class="fu">full_join</span>(atlas_bbox, Geom_attributes_atlas)</span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>although coordinates are longitude/latitude, st_union assumes that they are
+planar</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: `data_frame()` was deprecated in tibble 1.1.0.
+ℹ Please use `tibble()` instead.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(dataset)`
+although coordinates are longitude/latitude, st_union assumes that they are
+planar</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Joining with `by = join_by(dataset)`
+although coordinates are longitude/latitude, st_union assumes that they are
+planar
+Joining with `by = join_by(dataset)`
+although coordinates are longitude/latitude, st_union assumes that they are
+planar
+Joining with `by = join_by(dataset)`</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>countries_geom_attributes <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(geom_ls)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="co"># ============================================================== #</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Transform country-borders to lines</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>atlas_border_lines <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(grids)){</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  lines <span class="ot">&lt;-</span> grids[[a]] <span class="sc">%&gt;%</span> </span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">vect</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">as.lines</span>()</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>  atlas_border_lines[[a]] <span class="ot">&lt;-</span> lines</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>although coordinates are longitude/latitude, st_union assumes that they are
+planar
+although coordinates are longitude/latitude, st_union assumes that they are
+planar
+although coordinates are longitude/latitude, st_union assumes that they are
+planar
+although coordinates are longitude/latitude, st_union assumes that they are
+planar</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">toc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>3.86 sec elapsed</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Clean environment</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(a, atlas_xhalf, atlas_xmax, atlas_xmin, atlas_ymax, atlas_yhalf, atlas_ymin, grids_a, i, lines, geom_ls, atlas_bbox)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="species-ranges-geometries" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Species Ranges Geometries</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">tic</span>()</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>species_geom <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>year_species_geom <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>atlas_all_sp_geom <span class="ot">&lt;-</span><span class="fu">list</span>()</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>AtlasCOG_list <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>AtlasCOG_all <span class="ot">&lt;-</span> <span class="fu">list</span>()</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>presence_sf_list0 <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"../../out/rds/presence_sf_list.rds"</span>)</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>presence_sf_list0 <span class="sc">%&gt;%</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>() <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">nrow</span>()</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>presence_sf_list <span class="ot">&lt;-</span> presence_sf_list0</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (a <span class="cf">in</span> <span class="fu">seq_along</span>(presence_sf_list)){</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>  atlas <span class="ot">&lt;-</span> presence_sf_list[[a]] <span class="sc">%&gt;%</span> </span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(exclude_cell <span class="sc">==</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(dataset, tp, cell_label, cell_long, cell_lat, </span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>    verbatim_name)</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (y <span class="cf">in</span> <span class="fu">seq_along</span>(time_periods)){</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>        atlas_y <span class="ot">&lt;-</span> atlas <span class="sc">%&gt;%</span> <span class="fu">filter</span>(tp <span class="sc">==</span> time_periods[y])</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>        sp <span class="ot">&lt;-</span> <span class="fu">unique</span>(atlas_y<span class="sc">$</span>verbatim_name)</span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Calculate center of gravity for all species in each atlas </span></span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>    AtlasCOG <span class="ot">&lt;-</span> atlas_y <span class="sc">%&gt;%</span> </span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>        <span class="fu">st_drop_geometry</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>        <span class="fu">summarise</span>(<span class="at">x =</span> <span class="fu">mean</span>(cell_long),</span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>                  <span class="at">y =</span> <span class="fu">mean</span>(cell_lat),</span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>                  <span class="at">dataset =</span> <span class="fu">unique</span>(dataset)) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a>        <span class="fu">vect</span>(<span class="at">geom =</span> <span class="fu">c</span>(<span class="st">"x"</span>, <span class="st">"y"</span>))</span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a>    AtlasCOG_list[[y]] <span class="ot">&lt;-</span> atlas_y <span class="sc">%&gt;%</span> </span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a>        <span class="fu">st_drop_geometry</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a>        <span class="fu">summarise</span>(<span class="at">AtlasCOG_long =</span> <span class="fu">mean</span>(cell_long),</span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a>                  <span class="at">AtlasCOG_lat =</span> <span class="fu">mean</span>(cell_lat),</span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a>                  <span class="at">dataset =</span> <span class="fu">unique</span>(dataset))</span>
+<span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (s <span class="cf">in</span> <span class="fu">seq_along</span>(sp)){</span>
+<span id="cb18-38"><a href="#cb18-38" aria-hidden="true" tabindex="-1"></a>      <span class="fu">print</span>(<span class="fu">paste</span>(atlas_names[a], time_periods[y], sp[s]))</span>
+<span id="cb18-39"><a href="#cb18-39" aria-hidden="true" tabindex="-1"></a>      atlas_sp <span class="ot">&lt;-</span> atlas_y <span class="sc">%&gt;%</span> <span class="fu">filter</span>(verbatim_name <span class="sc">==</span> sp[s]) </span>
+<span id="cb18-40"><a href="#cb18-40" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb18-41"><a href="#cb18-41" aria-hidden="true" tabindex="-1"></a>      <span class="co"># Species centroids:</span></span>
+<span id="cb18-42"><a href="#cb18-42" aria-hidden="true" tabindex="-1"></a>      sp_centroid <span class="ot">&lt;-</span> atlas_sp <span class="sc">%&gt;%</span> </span>
+<span id="cb18-43"><a href="#cb18-43" aria-hidden="true" tabindex="-1"></a>        <span class="fu">st_drop_geometry</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb18-44"><a href="#cb18-44" aria-hidden="true" tabindex="-1"></a>        <span class="fu">distinct</span>(cell_long, cell_lat, verbatim_name, dataset, tp) <span class="sc">%&gt;%</span></span>
+<span id="cb18-45"><a href="#cb18-45" aria-hidden="true" tabindex="-1"></a>        <span class="fu">group_by</span>(dataset, tp, verbatim_name) <span class="sc">%&gt;%</span></span>
+<span id="cb18-46"><a href="#cb18-46" aria-hidden="true" tabindex="-1"></a>        <span class="fu">summarise</span>(</span>
+<span id="cb18-47"><a href="#cb18-47" aria-hidden="true" tabindex="-1"></a>            <span class="at">x =</span> <span class="fu">mean</span>(cell_long), </span>
+<span id="cb18-48"><a href="#cb18-48" aria-hidden="true" tabindex="-1"></a>            <span class="at">y =</span> <span class="fu">mean</span>(cell_lat)) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-49"><a href="#cb18-49" aria-hidden="true" tabindex="-1"></a>        <span class="fu">distinct</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb18-50"><a href="#cb18-50" aria-hidden="true" tabindex="-1"></a>        <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb18-51"><a href="#cb18-51" aria-hidden="true" tabindex="-1"></a>        <span class="fu">vect</span>(<span class="at">geom =</span> <span class="fu">c</span>(<span class="st">"x"</span>, <span class="st">"y"</span>))</span>
+<span id="cb18-52"><a href="#cb18-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-53"><a href="#cb18-53" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Data to calculate geometries on:</span></span>
+<span id="cb18-54"><a href="#cb18-54" aria-hidden="true" tabindex="-1"></a>      sp_range <span class="ot">&lt;-</span> atlas_sp <span class="sc">%&gt;%</span> </span>
+<span id="cb18-55"><a href="#cb18-55" aria-hidden="true" tabindex="-1"></a>          <span class="fu">select</span>(geom, cell_label)<span class="sc">%&gt;%</span> </span>
+<span id="cb18-56"><a href="#cb18-56" aria-hidden="true" tabindex="-1"></a>          <span class="fu">summarise</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb18-57"><a href="#cb18-57" aria-hidden="true" tabindex="-1"></a>          <span class="fu">vect</span>()</span>
+<span id="cb18-58"><a href="#cb18-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-59"><a href="#cb18-59" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Calculate distances:</span></span>
+<span id="cb18-60"><a href="#cb18-60" aria-hidden="true" tabindex="-1"></a>       atlas_lines <span class="ot">&lt;-</span> atlas_border_lines[[a]]</span>
+<span id="cb18-61"><a href="#cb18-61" aria-hidden="true" tabindex="-1"></a>       Dist_centroid_to_COG <span class="ot">&lt;-</span> <span class="fu">distance</span>(<span class="fu">crds</span>(sp_centroid), <span class="fu">crds</span>(AtlasCOG), <span class="at">lonlat =</span> T)</span>
+<span id="cb18-62"><a href="#cb18-62" aria-hidden="true" tabindex="-1"></a>       minDist_toBorder_centr <span class="ot">&lt;-</span> <span class="fu">min</span>(<span class="fu">distance</span>(<span class="fu">crds</span>(sp_centroid), <span class="fu">crds</span>(atlas_lines), <span class="at">lonlat=</span>T))</span>
+<span id="cb18-63"><a href="#cb18-63" aria-hidden="true" tabindex="-1"></a>       maxDist_toBorder_centr <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">distance</span>(<span class="fu">crds</span>(sp_centroid), <span class="fu">crds</span>(atlas_lines), <span class="at">lonlat=</span>T))</span>
+<span id="cb18-64"><a href="#cb18-64" aria-hidden="true" tabindex="-1"></a>       minDist_toBorder_border <span class="ot">&lt;-</span> <span class="fu">min</span>(<span class="fu">distance</span>(<span class="fu">crds</span>(sp_range), <span class="fu">crds</span>(atlas_lines), <span class="at">lonlat=</span>T))</span>
+<span id="cb18-65"><a href="#cb18-65" aria-hidden="true" tabindex="-1"></a>       maxDist_toBorder_border <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">distance</span>(<span class="fu">crds</span>(sp_range), <span class="fu">crds</span>(atlas_lines), <span class="at">lonlat=</span>T))</span>
+<span id="cb18-66"><a href="#cb18-66" aria-hidden="true" tabindex="-1"></a>       </span>
+<span id="cb18-67"><a href="#cb18-67" aria-hidden="true" tabindex="-1"></a>       Geom_attributes <span class="ot">&lt;-</span> <span class="fu">data_frame</span>(<span class="at">dataset =</span> atlas_names[a],</span>
+<span id="cb18-68"><a href="#cb18-68" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">tp =</span> time_periods[y],</span>
+<span id="cb18-69"><a href="#cb18-69" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">verbatim_name =</span> sp[s],</span>
+<span id="cb18-70"><a href="#cb18-70" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">nsDist =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"nsDist"</span>),</span>
+<span id="cb18-71"><a href="#cb18-71" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">ewDist =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"ewDist"</span>),</span>
+<span id="cb18-72"><a href="#cb18-72" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">maxDist =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"maxDist"</span>),</span>
+<span id="cb18-73"><a href="#cb18-73" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">lengthMinRect =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"lengthMinRect"</span>),</span>
+<span id="cb18-74"><a href="#cb18-74" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">widthMinRect =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"widthMinRect"</span>),</span>
+<span id="cb18-75"><a href="#cb18-75" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">elonMinRect =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"elonMinRect"</span>),</span>
+<span id="cb18-76"><a href="#cb18-76" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">elonRatio =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"elonRatio"</span>),</span>
+<span id="cb18-77"><a href="#cb18-77" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">circ =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"circ"</span>),</span>
+<span id="cb18-78"><a href="#cb18-78" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">circNorm =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"circNorm"</span>),</span>
+<span id="cb18-79"><a href="#cb18-79" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">relCirc =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"relCirc"</span>),</span>
+<span id="cb18-80"><a href="#cb18-80" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">lin =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"lin"</span>),</span>
+<span id="cb18-81"><a href="#cb18-81" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">bearingMinRect =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"bearingMinRect"</span>), </span>
+<span id="cb18-82"><a href="#cb18-82" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">bearing =</span> <span class="fu">poly_attr</span>(sp_range, <span class="st">"bearing"</span>),</span>
+<span id="cb18-83"><a href="#cb18-83" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">Dist_centroid_to_COG =</span> Dist_centroid_to_COG[<span class="dv">1</span>],</span>
+<span id="cb18-84"><a href="#cb18-84" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">minDist_toBorder_border =</span> minDist_toBorder_border,</span>
+<span id="cb18-85"><a href="#cb18-85" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">maxDist_toBorder_border =</span> maxDist_toBorder_border,</span>
+<span id="cb18-86"><a href="#cb18-86" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">minDist_toBorder_centr =</span> minDist_toBorder_centr,</span>
+<span id="cb18-87"><a href="#cb18-87" aria-hidden="true" tabindex="-1"></a>                                    <span class="at">maxDist_toBorder_centr =</span> maxDist_toBorder_centr)</span>
+<span id="cb18-88"><a href="#cb18-88" aria-hidden="true" tabindex="-1"></a>       </span>
+<span id="cb18-89"><a href="#cb18-89" aria-hidden="true" tabindex="-1"></a>      <span class="fu">colSums</span>(<span class="fu">is.na</span>(Geom_attributes))</span>
+<span id="cb18-90"><a href="#cb18-90" aria-hidden="true" tabindex="-1"></a>      Geom_attributes2 <span class="ot">&lt;-</span> <span class="fu">cbind</span>(Geom_attributes, <span class="fu">crds</span>(sp_centroid))</span>
+<span id="cb18-91"><a href="#cb18-91" aria-hidden="true" tabindex="-1"></a>       <span class="fu">colSums</span>(<span class="fu">is.na</span>(Geom_attributes2))</span>
+<span id="cb18-92"><a href="#cb18-92" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb18-93"><a href="#cb18-93" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb18-94"><a href="#cb18-94" aria-hidden="true" tabindex="-1"></a>      species_geom[[s]] <span class="ot">&lt;-</span> Geom_attributes2</span>
+<span id="cb18-95"><a href="#cb18-95" aria-hidden="true" tabindex="-1"></a>      }</span>
+<span id="cb18-96"><a href="#cb18-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-97"><a href="#cb18-97" aria-hidden="true" tabindex="-1"></a>    species_geom_df <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(species_geom)  </span>
+<span id="cb18-98"><a href="#cb18-98" aria-hidden="true" tabindex="-1"></a>    year_species_geom[[y]] <span class="ot">&lt;-</span> species_geom_df </span>
+<span id="cb18-99"><a href="#cb18-99" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb18-100"><a href="#cb18-100" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-101"><a href="#cb18-101" aria-hidden="true" tabindex="-1"></a>    AtlasCOG_all[[a]] <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(AtlasCOG_list)</span>
+<span id="cb18-102"><a href="#cb18-102" aria-hidden="true" tabindex="-1"></a>    year_species_geom_df <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(year_species_geom) </span>
+<span id="cb18-103"><a href="#cb18-103" aria-hidden="true" tabindex="-1"></a>    atlas_all_sp_geom[[a]] <span class="ot">&lt;-</span> year_species_geom_df</span>
+<span id="cb18-104"><a href="#cb18-104" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb18-105"><a href="#cb18-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-106"><a href="#cb18-106" aria-hidden="true" tabindex="-1"></a>AtlasCOG_df <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(AtlasCOG_all, <span class="at">fill =</span>T) </span>
+<span id="cb18-107"><a href="#cb18-107" aria-hidden="true" tabindex="-1"></a>Species_geom_attributes <span class="ot">&lt;-</span> plyr<span class="sc">::</span><span class="fu">rbind.fill</span>(atlas_all_sp_geom) <span class="sc">%&gt;%</span> <span class="fu">rename</span>(<span class="st">"sp_centr_lon"</span> <span class="ot">=</span> <span class="st">"x"</span>, <span class="st">"sp_centr_lat"</span> <span class="ot">=</span> <span class="st">"y"</span>)</span>
+<span id="cb18-108"><a href="#cb18-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-109"><a href="#cb18-109" aria-hidden="true" tabindex="-1"></a>Atlas_geom <span class="ot">&lt;-</span> <span class="fu">full_join</span>(countries_geom_attributes, AtlasCOG_df) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-110"><a href="#cb18-110" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(dataset) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-111"><a href="#cb18-111" aria-hidden="true" tabindex="-1"></a>    <span class="fu">distinct</span>(dataset, <span class="at">.keep_all=</span>T) <span class="sc">%&gt;%</span> <span class="fu">na.omit</span>()</span>
+<span id="cb18-112"><a href="#cb18-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-113"><a href="#cb18-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-114"><a href="#cb18-114" aria-hidden="true" tabindex="-1"></a>Geometries <span class="ot">&lt;-</span> <span class="fu">full_join</span>(Species_geom_attributes, Atlas_geom) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-115"><a href="#cb18-115" aria-hidden="true" tabindex="-1"></a>                <span class="fu">distinct</span>()</span>
+<span id="cb18-116"><a href="#cb18-116" aria-hidden="true" tabindex="-1"></a><span class="fu">colSums</span>(<span class="fu">is.na</span>(Geometries))</span>
+<span id="cb18-117"><a href="#cb18-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-118"><a href="#cb18-118" aria-hidden="true" tabindex="-1"></a><span class="co"># Southerness/Westerness =================================</span></span>
+<span id="cb18-119"><a href="#cb18-119" aria-hidden="true" tabindex="-1"></a>Southernness_Westernness <span class="ot">&lt;-</span> Geometries <span class="sc">%&gt;%</span> </span>
+<span id="cb18-120"><a href="#cb18-120" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(dataset, tp, verbatim_name) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-121"><a href="#cb18-121" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(dataset, tp, verbatim_name, sp_centr_lon, sp_centr_lat, atlas_xmin, atlas_xmax, atlas_xhalf, atlas_ymin, atlas_ymax, atlas_yhalf) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-122"><a href="#cb18-122" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unique</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb18-123"><a href="#cb18-123" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(<span class="at">Southernness =</span> <span class="dv">1</span><span class="sc">-</span>((sp_centr_lat <span class="sc">-</span> atlas_ymin)<span class="sc">/</span>((atlas_ymax <span class="sc">-</span>atlas_ymin))),</span>
+<span id="cb18-124"><a href="#cb18-124" aria-hidden="true" tabindex="-1"></a>            <span class="at">Westernness =</span> <span class="dv">1</span><span class="sc">-</span>((sp_centr_lon <span class="sc">-</span> atlas_xmin)<span class="sc">/</span>((atlas_xmax<span class="sc">-</span>atlas_xmin)))) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-125"><a href="#cb18-125" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() </span>
+<span id="cb18-126"><a href="#cb18-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-127"><a href="#cb18-127" aria-hidden="true" tabindex="-1"></a>Geometries_final <span class="ot">&lt;-</span> <span class="fu">left_join</span>(Geometries, </span>
+<span id="cb18-128"><a href="#cb18-128" aria-hidden="true" tabindex="-1"></a>    Southernness_Westernness, <span class="at">relationship =</span> <span class="st">"many-to-many"</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-129"><a href="#cb18-129" aria-hidden="true" tabindex="-1"></a>    <span class="fu">distinct</span>(dataset, tp, verbatim_name, <span class="at">.keep_all =</span> T)</span>
+<span id="cb18-130"><a href="#cb18-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-131"><a href="#cb18-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-132"><a href="#cb18-132" aria-hidden="true" tabindex="-1"></a>Geometries_final2 <span class="ot">&lt;-</span> Geometries_final <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(</span>
+<span id="cb18-133"><a href="#cb18-133" aria-hidden="true" tabindex="-1"></a>  <span class="at">rel_maxDist =</span> maxDist <span class="sc">/</span> atlas_maxDist,</span>
+<span id="cb18-134"><a href="#cb18-134" aria-hidden="true" tabindex="-1"></a>  <span class="at">rel_ewDist =</span> ewDist <span class="sc">/</span> atlas_ewDist,</span>
+<span id="cb18-135"><a href="#cb18-135" aria-hidden="true" tabindex="-1"></a>  <span class="at">rel_nsDist =</span> nsDist <span class="sc">/</span> atlas_nsDist,</span>
+<span id="cb18-136"><a href="#cb18-136" aria-hidden="true" tabindex="-1"></a>  <span class="at">rel_elonRatio =</span> elonRatio <span class="sc">/</span> atlas_elonRatio,</span>
+<span id="cb18-137"><a href="#cb18-137" aria-hidden="true" tabindex="-1"></a>  <span class="at">rel_relCirc =</span> relCirc <span class="sc">/</span> atlas_relCirc,</span>
+<span id="cb18-138"><a href="#cb18-138" aria-hidden="true" tabindex="-1"></a>  <span class="at">rel_lin =</span> lin <span class="sc">/</span> atlas_lin,</span>
+<span id="cb18-139"><a href="#cb18-139" aria-hidden="true" tabindex="-1"></a>  <span class="at">rel_circNorm =</span> circNorm <span class="sc">/</span> atlas_circNorm) <span class="sc">%&gt;%</span> </span>
+<span id="cb18-140"><a href="#cb18-140" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>maxDist, <span class="sc">-</span>atlas_maxDist, </span>
+<span id="cb18-141"><a href="#cb18-141" aria-hidden="true" tabindex="-1"></a>         <span class="sc">-</span>ewDist, <span class="sc">-</span>atlas_ewDist, </span>
+<span id="cb18-142"><a href="#cb18-142" aria-hidden="true" tabindex="-1"></a>         <span class="sc">-</span>nsDist, <span class="sc">-</span>atlas_nsDist, </span>
+<span id="cb18-143"><a href="#cb18-143" aria-hidden="true" tabindex="-1"></a>         <span class="sc">-</span>elonRatio, <span class="sc">-</span>atlas_elonRatio, </span>
+<span id="cb18-144"><a href="#cb18-144" aria-hidden="true" tabindex="-1"></a>         <span class="sc">-</span>relCirc, <span class="sc">-</span>atlas_relCirc,</span>
+<span id="cb18-145"><a href="#cb18-145" aria-hidden="true" tabindex="-1"></a>         <span class="sc">-</span>lin, <span class="sc">-</span>atlas_lin, </span>
+<span id="cb18-146"><a href="#cb18-146" aria-hidden="true" tabindex="-1"></a>         <span class="sc">-</span>circNorm, <span class="sc">-</span>atlas_circNorm)</span>
+<span id="cb18-147"><a href="#cb18-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-148"><a href="#cb18-148" aria-hidden="true" tabindex="-1"></a><span class="fu">colSums</span>(<span class="fu">is.na</span>(Geometries_final2))</span>
+<span id="cb18-149"><a href="#cb18-149" aria-hidden="true" tabindex="-1"></a>Geometries_final2 <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(verbatim_name) <span class="sc">%&gt;%</span> <span class="fu">nrow</span>()</span>
+<span id="cb18-150"><a href="#cb18-150" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(Geometries_final2)</span>
+<span id="cb18-151"><a href="#cb18-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-152"><a href="#cb18-152" aria-hidden="true" tabindex="-1"></a>Geometries_final2 <span class="sc">%&gt;%</span> <span class="fu">group_by</span>(dataset, tp) <span class="sc">%&gt;%</span> rstatix<span class="sc">::</span><span class="fu">get_summary_stats</span>(<span class="at">type=</span><span class="st">"mean_sd"</span>) <span class="sc">%&gt;%</span> <span class="fu">filter</span>(sd <span class="sc">!=</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span> <span class="fu">View</span>()</span>
+<span id="cb18-153"><a href="#cb18-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-154"><a href="#cb18-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-155"><a href="#cb18-155" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(Geometries_final2, <span class="st">"../../out/predictors/Geometries.rds"</span>)</span>
+<span id="cb18-156"><a href="#cb18-156" aria-hidden="true" tabindex="-1"></a><span class="fu">save.image</span>(<span class="st">"../../out/RData/Geometry.RData"</span>)</span>
+<span id="cb18-157"><a href="#cb18-157" aria-hidden="true" tabindex="-1"></a>tictoc<span class="sc">::</span><span class="fu">toc</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="no-more-nas" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> No More NAs !!</h1>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

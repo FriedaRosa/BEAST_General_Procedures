@@ -1,0 +1,381 @@
+---
+title: "Random Forest cleaned"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    number-sections: true
+    colorlinks: true
+---
+
+```{r, message = F}
+rm(list=ls())
+library(dplyr); library(randomForest); library(forcats); library(ggplot2); library(ggRandomForests)
+```
+
+```{r}
+
+df2 <- readRDS("../out/rds/All_predictors_relativeGeom.rds")
+df2 %>% group_by(dataset, tp) %>% 
+  summarise(across(everything(), ~ sum(is.na(.x)))) %>% 
+  write.csv("../out/csv/Summary_NAs_All_predictors.csv")
+
+str(df)
+df2 <- df2 %>% 
+  select(-Family, -Order, -verbatim_name)%>% unique() %>%
+  mutate(HWI = as.numeric(as.character(HWI)),
+         Mass = as.numeric(as.character(Mass)),
+         Range.Size = as.numeric(as.character(Range.Size)),
+         FP = as.numeric(FP),
+         tp = as.integer(tp),
+         dataset = as.factor(dataset),
+         Habitat = as.factor(Habitat),
+         RL_Category = as.factor(RL_Category),
+         Habitat.Density = as.factor(Habitat.Density),
+         Migration = as.factor(Migration),
+         Trophic.Level = as.factor(Trophic.Level),
+         Trophic.Niche = as.factor(Trophic.Niche),
+         Primary.Lifestyle = as.factor(Primary.Lifestyle)) 
+str(df2)
+
+cor_df <- df2 %>% select(-log_R2_1, -Telfer_1_2)
+cor_df_num <- cor_df %>% select(where(is.numeric)) %>% na.omit()
+
+
+# Find highly correlated variables
+highCor <- caret::findCorrelation(cor(cor_df_num), cutoff = 0.8, names=T, exact = F) 
+
+df_red_clean <- readRDS("../out/rds/All_predictors_relativeGeom.rds") %>%
+  unique() %>% 
+  mutate(HWI = as.numeric(as.character(HWI)),
+         Mass = as.numeric(as.character(Mass)),
+         Range.Size = as.numeric(as.character(Range.Size)),
+         FP = as.numeric(FP),
+         tp = as.integer(tp),
+         dataset = as.factor(dataset),
+         Order = as.factor(Order),
+         Family = as.factor(Family),
+         verbatim_name = as.factor(verbatim_name),
+         Habitat = as.factor(Habitat),
+         RL_Category = as.factor(RL_Category),
+         Habitat.Density = as.factor(Habitat.Density),
+         Migration = as.factor(Migration),
+         Trophic.Level = as.factor(Trophic.Level),
+         Trophic.Niche = as.factor(Trophic.Niche),
+         Primary.Lifestyle = as.factor(Primary.Lifestyle)) %>%
+  select(-all_of(highCor)) %>% distinct(tp, dataset, verbatim_name, .keep_all = T)
+
+saveRDS(df_red_clean, "../out/rds/Predictors_cleaned.rds")
+
+###
+
+df<- df_red_clean
+str(df)
+
+df$tp <- as.factor(as.character(df$tp))
+
+dta <- tidyr::gather(df, "variable", "value", -log_R2_1, -Order, -verbatim_name, -Family, -tp, -dataset)
+dta <- tidyr::gather(df[1:25] %>% select(-Telfer_1_2), "variable", "value", -log_R2_1, -verbatim_name, -tp, -dataset)
+
+dta %>% filter(tp == 1) %>%
+ggplot() +
+  geom_point(alpha = 0.4, aes(y = log_R2_1, x = value, color = dataset)) +
+  facet_wrap(~ variable, scales = "free_x", ncol = 4)
+
+
+o <- max.subtree(rfsrc(log_R2_1 ~., df %>% select(-Telfer_1_2, -verbatim_name), na.action = "na.impute"))
+o$topvars
+
+
+```
+
+## Data
+```{r, message = F}
+df <- df_red_clean %>% na.omit()
+df <- readRDS("Predictors_cleaned.rds") %>% na.omit()
+
+colSums(is.na(df))
+
+# Create grouping variables for modelling in loop:
+cols <- names(df)
+
+# Response:
+cols_logR <- cols[-which(cols == "Telfer_1_2")]
+cols_telfer <- cols[-which(cols == "log_R2_1")]
+
+# Group for predictor columns:
+# Geometry
+cols_g1 <- c("D_AOO_a", # Fractal dimension
+             "nsDist", "elonRatio", "circNorm", "relCirc", "lin",  # Species distribution geometric features
+             "minDist_toBorder", "minDist_toBorder_centr", # Distances
+             "Southernness", "Westernness", 
+             "moran", "x_intercept", # Spatial autocorrelation
+             "atlas_circNorm", "atlas_relCirc", # Atlas predictors
+             "dataset") # captures most of the geometry of the atlases (highly correlated)
+
+# Traits
+cols_g2 <- c("relative_occupancy_Ncells", # Occupancy 
+             "RL_Category", # Global red list categories
+             "Family", "Order", "FP", # Evolutionary relationships
+             "HWI", # Dispersal
+             "Mass", 
+             "Habitat", "Habitat.Density", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", # Life history traits
+             "Range.Size", # Global range size (Breeding & Resident)
+             "sd_PC1", "sd_PC2") # Climatic Niche Breadth
+
+# Diversity
+cols_g3 <- c("AlphaSR_sp", "BetaSR_sp", #Alpha and beta diversity
+             "Dist_toCOD",  # Distance from species centroid to center of gravity of the atlas
+             "CenterOfGravity_Atlas_lat", # latitude of center of gravity of the atlas
+             "sp_COG_long","sp_COG_lat") # species distribution centroid coordinates) # Distance from species centroid to center of gravity of the atlas
+
+```
+
+## Split data into future and past change for modelling:
+
+```{r}
+# Log Ratio df
+df_log_R <-  df %>% 
+  select(all_of(cols_logR)) %>%
+  distinct(tp, dataset, verbatim_name, .keep_all = T) %>%
+  filter(!is.na(log_R2_1))
+
+df_log_R1 <- df_log_R %>% filter(tp == 1) %>% select(-tp, -verbatim_name, -Family) # Future Change
+df_log_R2 <- df_log_R %>% filter(tp == 2) %>% select(-tp, -verbatim_name, -Family) # Past Change
+
+
+
+# Telfer df
+df_telfer <- df %>% 
+  select(all_of(cols_telfer)) %>%
+  distinct(tp, dataset, verbatim_name, .keep_all = T) %>%
+  filter(!is.na(Telfer_1_2))
+
+df_telfer1 <- df_telfer %>% filter(tp == 1) %>% select(-tp, -verbatim_name, -Family) # Future Change
+df_telfer2 <- df_telfer %>% filter(tp == 2) %>% select(-tp, -verbatim_name, -Family) # Past Change
+
+
+
+# Create list of data frame:
+dfs_list <- list(df_log_R1, df_log_R2, df_telfer1, df_telfer2)
+names(dfs_list) <- c("df_log_R1", "df_log_R2", "df_telfer1", "df_telfer2")
+
+```
+
+## Build models
+
+```{r}
+# create empty lists
+models_list <- list()
+models_res_list <-list()
+pred_list <- list()
+pp_list <-list()
+
+# loop through list of model dataframes
+for (dd in seq_along(dfs_list)){
+  model_df <- dfs_list[[dd]]
+  
+  # split into test and train #
+  set.seed(123)
+  samp <- sample(nrow(model_df), 0.8 * nrow(model_df))
+  train <- model_df[samp, ]; dim(train) 
+  test <- model_df[-samp, ]; dim(test) 
+
+  # create response variable
+  response_var <- if ("log_R2_1" %in% names(train)) "log_R2_1" else if ("Telfer_1_2" %in% names(train)) "Telfer_1_2" 
+  
+  # build models # 
+  model <- randomForest(as.formula(paste(response_var, "~ .")), data = train,
+                         ntree=1000, importance=TRUE, na.action = "na.omit")
+  # predict test data #
+  data_pred <- data.frame(Predicted = predict(model, newdata = test), Observed = test[[response_var]])
+  
+pp_list[[dd]] <- list(
+partialPlot(model, train, x.var = D_AOO_a, ylim=c(-1,1)),
+partialPlot(model, train, x.var = moran, ylim=c(-1,1)),
+partialPlot(model, train, x.var = relative_occupancy_Ncells, ylim=c(-1,1)),
+partialPlot(model, train, x.var = AlphaSR_sp, ylim=c(-1,1)),
+partialPlot(model, train, x.var = x_intercept, ylim=c(-1,1)),
+partialPlot(model, train, x.var = Mass, ylim=c(-1,1)))
+
+
+
+
+  models_list[[dd]] <- model    
+  pred_list[[dd]] <- data_pred
+  
+  # extract model results # 
+  imp <- as.data.frame(model$importance[,1])
+  names(imp) <- c("Importance")
+  imp$var <- rownames(imp)
+  imp2 <- imp %>% 
+    tidyr::pivot_wider(names_from = var,
+                       values_from = Importance)
+  # create summary df
+  model_res <- data.frame(
+    df = names(dfs_list)[[dd]],
+    mean_pseudo_OOB_R2 = model$rsq[1000],
+    mean_OOB_mse = model$mse[1000],
+    imp2) # add variable importance for each predictor
+  
+  models_res_list[[dd]] <- model_res
+  
+}
+
+
+models_res_df <- plyr::rbind.fill(models_res_list)
+par(mfrow=c(2,3));
+
+lapply(pp_list[[2]], plot, type="l", ylim=c(0,1))
+
+
+```
+
+```{r, OOB error}
+oob.err<-double(36)
+test.err<-double(36)
+
+obb.err_list <- list()
+test.err_list <- list()
+
+#mtry is no of Variables randomly chosen at each split
+# loop through list of model dataframes
+for (dd in seq_along(dfs_list[1:2])){
+  model_df <- dfs_list[[dd]]
+  
+  # split into test and train #
+  set.seed(123)
+  train<-sample(1:nrow(model_df),503)
+
+  # create response variable
+  response_var <- if ("log_R2_1" %in% names(model_df)) "log_R2_1" else if ("Telfer_1_2" %in% names(train)) "Telfer_1_2" 
+for(mtry in 1:36) {
+  rf <- randomForest(as.formula(paste(response_var, "~ .")), data = model_df, subset = train, mtry=mtry, ntree=1000) 
+  oob.err[mtry] = rf$mse[1000]  #Error of all Trees fitted
+  
+  pred<-predict(rf,model_df[-train,]) #Predictions on Test Set for each Tree
+  test.err[mtry]= with(model_df[-train,], mean((log_R2_1 - pred)^2)) #Mean Squared Test Error
+  
+  cat(mtry," ")
+  
+}
+  
+  obb.err_list[[dd]] <- oob.err
+  test.err_list[[dd]] <- test.err
+}
+
+
+
+matplot(1:mtry , 
+        cbind(obb.err_list[[1]],test.err_list[[1]]), pch=19 , col=c("red","blue"),
+        type="b",
+        ylab="Mean Squared Error",
+        xlab="Number of Predictors Considered at each Split",
+ylim = c(0,0.35), main = "Future Change")
+legend("topright",legend=c("Out of Bag Error","Test Error"),pch=19, col=c("red","blue"))
+
+
+matplot(1:mtry , 
+        cbind(obb.err_list[[2]],test.err_list[[2]]), pch=19 , col=c("red","blue"),
+        type="b",
+        ylab="Mean Squared Error",
+        xlab="Number of Predictors Considered at each Split",ylim = c(0,0.35), main = "Past Change")
+legend("topright",legend=c("Out of Bag Error","Test Error"),pch=19, col=c("red","blue"))
+
+
+saveRDS(obb.err_list, "OOB_Error.rds")
+saveRDS(test.err_list, "Test_Error.rds")
+
+```
+
+## Quick visualization:
+
+```{r}
+# Decrease of OOB MSE (?)
+
+mse_dfs <- list()
+for (i in seq_along(models_list)){
+  decrease_mse <- data.frame(Decr_OOB_MSE = importance(models_list[[i]], type = 1),
+                            data = case_when(i == 1 ~ "log_R_future",
+                                             i == 2 ~ "log_R_past",
+                                             i == 3 ~ "telfer_future",
+                                             i == 4 ~ "telfer_past"))
+  decrease_mse$var <- rownames(decrease_mse)
+  decrease_mse <- decrease_mse %>% mutate(group = case_when(
+    var %in% cols_g1 ~ "geometry",
+    var %in% cols_g2 ~ "traits",
+    var %in% cols_g3 ~ "diversity")) %>% 
+  rename("Decr_OOB_MSE" = "X.IncMSE")
+  mse_dfs[[i]] <- decrease_mse
+}
+
+mse_df <- plyr::rbind.fill(mse_dfs)
+
+# Figure:
+mse_df %>% 
+  group_by(data) %>%
+  filter(data %in% c("log_R_future", "log_R_past")) %>%
+  
+  ggplot2::ggplot(aes(y = fct_reorder(var, Decr_OOB_MSE), x = Decr_OOB_MSE, fill = group))+
+  geom_col()+
+  facet_wrap(data~.)+
+  xlab("Decrease of out-of-bag MSE")+
+  ylab("Predictor")+
+  theme_minimal()
+
+```
+
+
+```{r}
+df_all <- df_log_R
+df_f <- dfs_list[[1]]
+df_p <- dfs_list[[2]]
+
+all_model <- randomForest(log_R2_1 ~ ., data = df_all, na.roughfix = T)
+varImpPlot(all_model)
+
+f_model <- randomForest(log_R2_1 ~ ., data = df_f, na.roughfix = T)
+varImpPlot(f_model)
+
+p_model <- randomForest(log_R2_1 ~ ., data = df_p, na.roughfix = T)
+varImpPlot(p_model)
+
+```
+
+```{r}
+pacman::p_load(ggRandomForests, randomForestSRC)
+
+str(df_f)
+df_f$Order <- as.factor(df_f$Order)
+## Determine mtry & nodesize:
+o <- tune(log_R2_1 ~ ., df_f)
+model <- rfsrc(log_R2_1 ~ ., data = df_f, ntree=1000, mtry = 22, nodesize = 3, na.action = "na.impute")
+
+## Determine important vars:
+o2 <- max.subtree(model)
+o2$topvars
+
+
+# Extract OOBs
+x <- gg_rfsrc(model)
+plot(x, alpha=.5)
+y <- gg_error(model)
+plot(y)
+
+
+gg_dta <- gg_vimp(model) 
+plot(gg_dta)
+
+partial.obj <- partial.rfsrc(model, partial.xvar = "D_AOO_a", partial.values = model$xvar$D_AOO_a)
+pdta <- get.partial.plot.data(partial.obj)
+plot(pdta$x, pdta$yhat, type = "b", pch = 16,
+      xlab = "D_AOO_a", ylab = "partial effect of D on Change")
+
+partialPlot(model, train, x.var = moran, ylim=c(-1,1))
+partialPlot(model, train, x.var = relative_occupancy_Ncells, ylim=c(-1,1))
+partialPlot(model, train, x.var = AlphaSR_sp, ylim=c(-1,1))
+partialPlot(model, train, x.var = x_intercept, ylim=c(-1,1))
+partialPlot(model, train, x.var = Mass, ylim=c(-1,1))
+
+```
+

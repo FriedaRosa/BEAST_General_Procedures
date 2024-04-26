@@ -1,0 +1,444 @@
+---
+title: "Atlas Variables Calculations"
+author: "Friederike Wölke"
+date: "2024-04-20"
+output:
+  html_document:
+    code_folding: hide
+format:
+  html:
+    toc: true
+    number-sections: true
+    colorlinks: true
+---
+
+# Clean Environment
+```{r, message = F}
+rm(list=ls())
+gc()
+```
+
+# Libraries
+```{r, mesaage = F}
+# Spatial:
+library(sf) 
+sf_use_s2(FALSE) # switch spherical geometry off
+
+# Data handling:
+library(rstatix)
+library(dplyr) 
+library(tidyr) 
+# library(plyr) 
+## plyr is required but produces some issues with dplyr. Thus it will be called in each function individually and is not required to load here.
+
+# Telfer calculation:
+## sparta is not on CRAN and cannot be updated as usual because there is another package called sparta from CRAN but we don't want this.
+# library(devtools)
+# install_github('biologicalrecordscentre/sparta')
+library(sparta) 
+
+```
+
+# Load Environment
+```{r}
+load("../../out/RData/1_Atlas_Data_clean.RData")
+ls()
+```
+
+
+# Calculations
+## 1. Occupancy
+### 1.1 Calculate Areas from Atlases
+```{r,mesaage = F, warning = F}
+pres_dat_full_grain <- list()
+pres_dat_full_atlas <- list()
+
+for (n_atlas in seq_along(atlas_names)){
+  atlas_name <- atlas_names[n_atlas] # set variable for current run of the loop
+  atlas <- grid_list[[n_atlas]] # subset list of atlases to one
+  
+  for (grain in seq_along(atlas)){
+    # set some variables for current run of the loop
+    grain_a <- names(atlas)[grain]
+    grain_d <- as.numeric(gsub("\\D", "", grain_a)) # "\\D" = remove all non-numbers
+    
+    # subset atlas to one grain
+    atlas_1scale <- atlas[[grain]] %>% 
+      select(cell_grouping, cell_label, area, cell_long, cell_lat) %>%
+      st_drop_geometry()
+
+
+    ## =============================================================== ###
+    ## ================= Calculate Areas ============================= ###
+    ## =============================================================== ###
+
+
+    # Total Area and Total number of cells of the Atlas (as measured from grid)
+    atlas_1scale <- atlas_1scale %>% 
+      group_by(cell_grouping) %>%
+      mutate(
+        Total_area = sum(atlas_1scale$area),
+        Total_Ncells = n_distinct(cell_label))
+    
+    # Total number of sampled cells and total Area sampled per sampling period
+    Total_Ncells_samp <- presence_data_filt %>% 
+      filter(dataset == atlas_name & cell_grouping == grain_d) %>%
+      select(dataset, cell_grouping, cell_label, area) %>% unique() %>% na.omit() %>%
+      group_by(dataset, cell_grouping) %>% distinct(cell_label, .keep_all = T) %>%
+      summarise(
+        n_cells = n_distinct(cell_label),
+        area_samp = sum(area)) %>% 
+      ungroup() %>%
+      distinct(n_cells, area_samp)
+    
+    # Add columns to atlas
+    atlas_1scale$Total_area_samp <- Total_Ncells_samp$area_samp
+    atlas_1scale$Total_Ncells_samp <- Total_Ncells_samp$n_cells
+    map_atlas_1scale <- atlas_1scale
+    
+    # subset the presence/absence data to the current spatial grain:
+    pres_data_1atlas <- presence_data_filt %>% 
+      filter(dataset == atlas_name) %>%
+      filter(cell_grouping == grain_d) %>%
+      select(dataset, tp, verbatim_name, cell_label, cell_grouping)
+  
+    # Add Areas to data
+    pres_data_full_1atlas <- left_join(map_atlas_1scale, pres_data_1atlas)
+    pres_data_full_1atlas %>% filter(!is.na(verbatim_name))
+    pres_data_full_1atlas$dataset <- atlas_names[n_atlas]
+    pres_dat_full_grain[[grain]] <- pres_data_full_1atlas %>% 
+        unique() %>% 
+        filter(!is.na(verbatim_name))
+    
+  }
+  
+  pres_dat_grain2 <- plyr::rbind.fill(pres_dat_full_grain, fill=T)
+  pres_dat_full_atlas[[n_atlas]] <- pres_dat_grain2
+  
+}
+
+# Bind list to dataframe
+pres_dat_full <- plyr::rbind.fill(pres_dat_full_atlas, fill=T)
+pres_dat_full[pres_dat_full == "<NA>"] = NA #Fix NA issues in the data (takes a while.)
+
+# Add Column for grain size (in km, i.e., approx. length of the cell in the grid)
+pres_dat_final <- pres_dat_full %>%  
+  mutate(cell_grouping = factor(cell_grouping,levels = desired_levels),
+        grain = case_when(
+          dataset == atlas_names[1] ~ "10",
+          dataset == atlas_names[2] ~ "5",
+          dataset == atlas_names[3] ~ "20", 
+          dataset == atlas_names[4] ~ "50")) %>% 
+  filter(!is.na(verbatim_name))
+
+### =============================================== ###
+rm(pres_dat_full_atlas, pres_dat_full_grain, pres_dat_grain2, pres_dat_full, pres_data_1atlas, pres_data_full_1atlas, 
+map_atlas_1scale, atlas_1scale,
+Total_Ncells_samp, presence_data_filt, atlas, atlas_name, grain, grain_a, grain_d, n_atlas)
+### =============================================== ###
+
+```
+
+
+### 1.2 Calculate Occupancy 
+```{r}
+occ_data <- pres_dat_final %>%
+  ungroup() %>% 
+  distinct(dataset, tp, cell_grouping, verbatim_name, cell_label, .keep_all=T) %>%
+  group_by(dataset, tp, cell_grouping, verbatim_name) %>% 
+
+# Calculate AOO:
+  mutate(
+    mean_area = mean(area),
+    AOO = sum(area),
+    occ_Ncells = n_distinct(cell_label)) %>%
+
+# Calculate relative Occupancy:
+  mutate(
+    rel_AOO = AOO/Total_area_samp,
+    rel_occ_Ncells = occ_Ncells/Total_Ncells_samp) %>% 
+
+  ungroup() %>% group_by(dataset, tp, cell_grouping) %>%
+
+  mutate(
+    Gamma = n_distinct(verbatim_name)) %>%
+# Remove duplicated rows:
+  distinct() 
+
+# create scale column as a fraction of the full country:
+occ_data_final <- occ_data %>% 
+  ungroup() %>%
+  group_by(dataset) %>%
+  mutate(
+    scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "1", 1/64, NA),
+    scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "2", 1/32, scale), 
+    scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "4", 1/16, scale), 
+    scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "8", 1/8, scale),
+    scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "16", 1/4, scale),
+    scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "32", 1/2, scale),
+    scale = ifelse(dataset %in% c(atlas_names[1]) & cell_grouping == "64", 1, scale),
+    scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "1", 1/128, scale),
+    scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "2", 1/16, scale),
+    scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "4", 1/32, scale),
+    scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "8", 1/16, scale),
+    scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "16", 1/8, scale),
+    scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "32", 1/4, scale),
+    scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "64", 1/2, scale),
+    scale = ifelse(dataset %in% c(atlas_names[2:4]) & cell_grouping == "128", 1, scale))
+
+colSums(is.na(occ_data_final))
+
+
+# save reduced version of this to file:
+
+species_data <- occ_data_final %>% 
+  select(
+  dataset, tp, cell_grouping, verbatim_name, 
+  mean_area, Total_area, Total_area_samp, Total_Ncells, Total_Ncells_samp, 
+  Gamma,AOO, occ_Ncells, rel_occ_Ncells, rel_AOO) %>%
+  distinct(dataset, tp, cell_grouping, verbatim_name, .keep_all = T) 
+
+### =============================================== ###
+rm(occ_data, pres_dat_final)
+### =============================================== ###
+
+```
+
+## 2. Occupancy-Area-Relationship (OAR)
+### 2.1 Mark saturated scales 
+- code dummy column "exclude" to exclude species with < 2 scales not saturated (i.e, if less than two scales are available for OAR calculation)
+- Saturation: rel_AOO = 1
+
+```{r}
+list_sp <- list()
+list_tp <- list()
+list_a <- list()
+
+for (a in seq_along(atlas_names)){
+  temp_df <- species_data %>% filter(dataset == atlas_names[a])
+
+  for (t in seq_along(time_periods)) {
+    temp_df_t <- temp_df %>% filter(tp == time_periods[t])
+    species_names <- unique(temp_df_t$verbatim_name)
+
+    for (s in seq_along(species_names)){
+      temp_df_s <- temp_df_t %>% filter(verbatim_name == species_names[s])
+      
+      # Exclude saturated scales
+      temp_df_red <- temp_df_s %>% filter(rel_AOO < 1)
+      
+      if (nrow(temp_df_red) < 2 & nrow(temp_df_red) > 0) {
+        out_df <- data.frame(verbatim_name = species_names[s],
+                             dataset = atlas_names[a],
+                             tp = time_periods[t],
+                             exclude = 1,
+                             available_scales = nrow(temp_df_red),
+                             mean_relAOO = mean(temp_df_red$rel_AOO, na.rm=T))
+      } else if (nrow(temp_df_red) >= 2) {
+        out_df <- data.frame(verbatim_name = species_names[s],
+                             dataset = atlas_names[a],
+                             tp = time_periods[t],
+                             exclude = 0,
+                             available_scales = nrow(temp_df_red),
+                             mean_relAOO = mean(temp_df_red$rel_AOO, na.rm=T))
+      } else {
+                out_df <- data.frame(verbatim_name = species_names[s],
+                             dataset = atlas_names[a],
+                             tp = time_periods[t],
+                             exclude = 1,
+                             available_scales = nrow(temp_df_red),
+                             mean_relAOO = 1)
+                }
+      list_sp[[s]] <- out_df
+    
+      }
+    sp_df <- plyr::rbind.fill(list_sp)
+    list_tp[[t]] <- sp_df
+  
+    }
+  tp_df <- plyr::rbind.fill(list_tp)
+  list_a[[a]] <- tp_df
+
+}
+
+atlas_df <- plyr::rbind.fill(list_a)
+
+str(atlas_df)
+str(species_data)
+sp_data_new <- full_join(species_data, atlas_df) %>% distinct(dataset, tp, cell_grouping, verbatim_name, .keep_all=T)
+
+### =============================================== ###
+rm(a,t,s, temp_df, temp_df_red, temp_df_s, temp_df_t, atlas_df, species_data, sp_df, tp_df, list_a, list_sp, list_tp, out_df)
+### =============================================== ###
+
+```
+
+### 2.2 Calculate OAR & Fractal Dimension
+```{r}
+dd <- sp_data_new %>%
+  filter(exclude == 0) %>%
+  filter(rel_occ_Ncells < 1) %>% # exclude saturated scales
+  unique() %>%
+  filter_at(
+    vars(c(
+      cell_grouping, AOO, mean_area)), 
+    any_vars(!is.na(.)))
+
+## Variables:
+OAR_list_sp <- list()
+OAR_list_sp_tp <- list()
+OAR_list_sp_tp_atlas <- list()
+
+## Loop:
+for (n_atlas in seq_along(atlas_names)){
+  atlas_name <- atlas_names[n_atlas]
+  atlas <- dd %>% filter(dataset == atlas_name)
+
+  for (time in seq_along(time_periods)){
+    period_nr <-  time_periods[time]
+    atlas_1time <- atlas %>% filter(tp == period_nr) 
+    sp <- unique(atlas_1time$verbatim_name)
+    
+    for(spec in seq_along(sp)){
+      species <- sp[spec]
+      model_df <- atlas_1time %>% 
+        filter(verbatim_name == species) %>% 
+        distinct()
+
+      OAR <- lm(log(AOO) ~ log(mean_area), data = model_df)
+      
+      OAR_df <- data.frame(
+        verbatim_name = species,
+        dataset = atlas_name,
+        tp = period_nr,
+        m_AOO_a = OAR$coefficients[2],
+        b_AOO_a = OAR$coefficients[1])
+      
+      OAR_df$D_AOO_a <- -2*OAR_df$m_AOO_a+2
+      OAR_df$dataset <- as.factor(OAR_df$dataset)
+      OAR_list_sp[[spec]] <- OAR_df
+      
+    }
+    
+    OAR_df_sp <- plyr::rbind.fill(OAR_list_sp, fill = T)
+    OAR_list_sp_tp[[time]] <- OAR_df_sp
+     
+  }
+  OAR_df_sp_tp <- plyr::rbind.fill(OAR_list_sp_tp, fill = T)   
+  OAR_list_sp_tp_atlas[[n_atlas]] <- OAR_df_sp_tp
+}
+    
+OAR_final <- plyr::rbind.fill(OAR_list_sp_tp_atlas, fill = T) %>% distinct()
+colSums(is.na(OAR_final))
+
+
+species_data_new <- merge(sp_data_new, 
+                          OAR_final, 
+                          by=c(intersect(names(sp_data_new), names(OAR_final))), all = T) %>% distinct()
+
+### =============================================== ###
+rm(dd, OAR_list_sp_tp_atlas, OAR_list_sp_tp, OAR_df_sp_tp, OAR_list_sp, OAR_df_sp, OAR_df, sp, atlas_1time, model_df, atlas_name, OAR_final, n_atlas, OAR, period_nr, spec, species, species_names, time )
+
+
+colSums(is.na(species_data_new))
+
+species_data_new %>% 
+    filter(exclude == 1) %>%    
+    group_by(dataset, tp) %>% 
+    summarize(n = n_distinct(verbatim_name)) 
+### =============================================== ###
+
+```
+
+## 3. Telfer index of relative change
+
+```{r}
+# Telfer:
+telfer_res <- list()
+for (i in seq_along(atlas_names)){
+  df <- occ_data_final %>% 
+    filter(cell_grouping == 1 & dataset == atlas_names[i]) %>%
+    distinct(dataset, tp, verbatim_name, cell_label) 
+  telfer <- sparta::telfer(taxa = df$verbatim_name,
+                         site = df$cell_label,
+                         time_period = df$tp,
+                         minSite = 1)
+telfer$dataset <- atlas_names[i]
+telfer_res[[i]] <- telfer
+  
+}
+
+telfer_res_df <- plyr::rbind.fill(telfer_res, fill = T) %>% distinct() %>%
+  select(taxa, Telfer_1_2, dataset) %>% 
+  rename(verbatim_name = taxa)%>%
+  reorder_levels(dataset, order = atlas_names)
+
+telfer_res_df$Telfer_1_2 <- round(telfer_res_df$Telfer_1_2, 3)
+species_data_new2 <- left_join(species_data_new, telfer_res_df)
+
+### =============================================== ###
+colSums(is.na(species_data_new2))
+rm(atlas, df, species_data_new, sp_data_new,telfer, telfer_res_df, i, telfer_res )
+### =============================================== ###
+```
+
+## 4. Log Ratio of Change in Occupancy
+### 4.1 Long to wide format
+
+```{r}
+
+wide_dfs <- list()
+for (i in seq_along(time_periods)){
+
+    wide_dfs[[i]] <- species_data_new2 %>%
+        filter(cell_grouping == 1) %>% 
+        distinct(dataset, tp, verbatim_name, AOO) %>%
+        group_by(dataset, tp, verbatim_name) %>%
+        filter(tp == time_periods[i]) %>%
+        setNames(paste0('tp', i, '_', names(.))) %>% 
+        ungroup() %>%
+        select(-c(paste0("tp", i, "_tp"))) %>%
+        rename(
+            verbatim_name = paste0("tp", i, "_verbatim_name"),
+            dataset = paste0("tp", i, "_dataset"))
+       }
+
+sp_dat_wide <- merge(wide_dfs[[1]], wide_dfs[[2]])
+colSums(is.na(sp_dat_wide))
+
+
+### =============================================== ###
+rm(wide_dfs, i)
+### =============================================== ###
+```
+
+## 4.2 Calculate Log Ratio of Occupancy Change
+
+
+```{r}
+# Calculate log-Ratio of AOO (Temporal change)
+logRatio <- sp_dat_wide %>% 
+  mutate(log_R2_1 = log(tp2_AOO/tp1_AOO)) %>%
+  select(-tp1_AOO, -tp2_AOO)
+
+big_table <- full_join(species_data_new2, logRatio) %>% filter(cell_grouping == 1) %>%
+    distinct(dataset, tp, cell_grouping, verbatim_name, .keep_all=T) %>%
+    mutate_if(is.numeric, round, 3)
+
+
+big_table %>% group_by(dataset, tp) %>% 
+  summarise(across(everything(), ~ sum(is.na(.x))))
+
+### =============================================== ###
+rm(logRatio,sp_dat_wide)
+### =============================================== ###
+
+```
+
+
+# Save Output:
+```{r}
+saveRDS(occ_data_final, "../../out/rds/SpeciesDatPerCell.rds") # data per cell
+saveRDS(big_table, "../../out/predictors/BigTable.rds") # data per species
+save.image("../../out/RData/2_Atlas_Var_Calc.RData")
+```

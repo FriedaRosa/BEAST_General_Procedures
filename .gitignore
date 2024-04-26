@@ -67,3 +67,11 @@ Project_Frieda/StaticPredictors/out/pca_all.rds
 *.rds
 *.rds
 *.RDataTmp
+*.zip
+Project_Frieda/StaticPredictors.7z
+*.dbf
+*.prj
+*.shx
+*.shx
+*.shp
+*.shp
