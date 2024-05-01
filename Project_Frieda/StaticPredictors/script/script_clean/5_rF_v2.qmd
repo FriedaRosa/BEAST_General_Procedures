@@ -40,7 +40,7 @@ exclude_vars <- c("m_AOO_a", "Total_area", "Total_Ncells", "rel_occ_Ncells", "Ga
 
 atlas_vars <- c("Total_area_samp", "GammaSR", "mean_area", "atlas_lengthMinRect", "atlas_widthMinRect", "atlas_elonMinRect", "atlas_circ", "atlas_bearingMinRect", "atlas_bearing")
 
-df2 <- dat %>% select(!all_of(c(exclude_vars, atlas_vars)))
+df2 <- dat %>% select(!all_of(c(exclude_vars, atlas_vars))) %>% distinct(dataset, tp, verbatim_name, .keep_all = T)
 names(df2)
 
 df3 <- df2 %>% 
@@ -52,7 +52,10 @@ mutate(
     .default = IUCN))
 
 df3
+table(df3$IUCN)
+colSums(is.na(df3))
 
+# Dropping NAs as they are few
 model_df <- df3 %>% na.omit()
 ```
 
@@ -131,14 +134,35 @@ names(dfs_list) <- c("df_log_R1", "df_log_R2", "df_telfer1", "df_telfer2")
 
 # Model
 
-## tuning hyperparameters
+## Baseline models for comparison
 
 ```{r}
+m0_1 <- ranger(log_R2_1 ~ ., df_log_R1, num.trees = 1000)
 
+m1_1 <- ranger(log_R2_1 ~ ., df_log_R1, num.trees = 1000, importance = "permutation", splitrule = "variance", oob.error = T)
+
+importance(m0) %>% round(2) %>% sort() %>% tail()
+treeInfo(m0)
+```
+
+## functions
+
+```{r}
+# function to calculate RMSE 
 RMSE <- function(error){
     sqrt(mean(error^2))
 } 
 
+# function to calculate R2 
+R2 <- function(actual, predicted){
+  1 - sum((actual-predicted)^2)/sum((actual-mean(actual))^2)
+}
+
+```
+
+## tuning hyperparameters
+
+```{r}
 # create empty lists
 model_list <- list()
 PredPerformance_list <- list()
@@ -148,7 +172,7 @@ for (dd in seq_along(dfs_list)){
   model_df <- dfs_list[[dd]]
   
   # split into test and train
-  set.seed(123)
+  set.seed(42)
   samp <- sample(nrow(model_df), 0.8 * nrow(model_df))
   train <- model_df[samp, ]; dim(train) 
   test <- model_df[-samp, ]; dim(test) 
@@ -181,23 +205,27 @@ for (dd in seq_along(dfs_list)){
     actual <- train[,response_var]
     error <- c(predicted-actual) %>% as.data.frame() %>% pull(response_var)
     in_sample_err <- RMSE(error)
+    in_sample_R2 <- R2(predicted, actual)
 
     # Out-of-Sample error: # predicting 
     predicted <- predict(model, test)
     actual <- test[,response_var]
     error <- c(predicted-actual) %>% as.data.frame() %>% pull(response_var)
     out_of_sample_err <- RMSE(error)
+    out_of_sample_R2 <- R2(predicted, actual)
 
     PredPerformance <- data.frame(response = response_var,
                inBagErr = in_sample_err,
-               outBagErr = out_of_sample_err)
+               inBagR2 = in_sample_R2,
+               outBagErr = out_of_sample_err,
+               outBagR2 = out_of_sample_R2)
 
     PredPerformance_list[[dd]] <- PredPerformance
     
     
 }
 
-model_list[[4]]$finalModel
+model_list[[1]]$finalModel
 model$perfNames
 model$yLimits
 plot(varImp(model_list[[1]], scale = F))
@@ -206,5 +234,51 @@ plot(varImp(model_list[[1]], scale = F))
 ```
 
 ```{r}
+
+```
+
+# To dos:
+
+-   https://www.randomforestsrc.org/articles/speedup.html try this
+
+```{r}
+library(randomForestSRC)
+df_log_R1 <- as.data.frame(df_log_R1)
+str(df_log_R2)
+
+df_log_R1$IUCN <- as.factor(df_log_R1$IUCN)
+df_log_R1$log_R2_1 <- as.numeric(df_log_R1$log_R2_1)
+
+
+
+
+o <- tune(log_R2_1 ~ ., df_log_R1,
+          mtryStart = 1,
+          nodesizeTry = c(1:9, seq(10, 100, by = 5)),
+          ntreeTry = 1000,
+          doBest = T)
+
+
+
+m0_2 <- rfsrc.fast(log_R2_1 ~.,data = df_log_R1, ntree=1000, forest = T)
+m0_1;m0_2
+vimp(m0_2)
+str(df_log_R1)
+
+
+vimp(m0_2)$importance %>% sort() 
+
+
+CI_Vimp <- subsample(m0_2)
+
+# take a delete-d-jackknife procedure for example
+vimpCI <- extract.subsample(CI_Vimp)$var.jk.sel.Z
+cols_v <- vimpCI %>% filter(mean > 10 & signif == TRUE) %>% row.names()
+
+
+# Confidence Intervals for VIMP
+plot.subsample(CI_Vimp, xvar.names = cols_v, standardize = T, alpha = 0.01)
+# take the variable "IUCN" for example for partial plot
+plot.variable(m0_2, xvar.names = cols_v[1:3], partial = TRUE)
 
 ```

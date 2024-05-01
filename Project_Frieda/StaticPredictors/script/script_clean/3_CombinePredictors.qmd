@@ -42,16 +42,21 @@ BigTab_all <- pred_list[["BigTable"]] %>%
 
 BigTab_all %>% group_by(dataset, tp) %>% 
   summarise(across(everything(), ~ sum(is.na(.x))))
+
+BigTab_all %>% distinct(verbatim_name) %>% nrow()
+
 ```
 
 ## Phylogenetic distinctness // Fair proportion metric
 ```{r}
 library(ape); library(geiger); library(phyloregion)
-BL_crosswalk <- readxl::read_excel("~/PhD_Projects/StaticPredictors/Data/BL_taxonomy_crosswalk.xlsx", sheet = 1, col_names = T) %>% select(1, 41)
+BL_crosswalk <- readxl::read_excel("~/PhD_Projects/StaticPredictors/Data/BL_taxonomy_crosswalk.xlsx", sheet = 1, col_names = T) %>% 
+  select(1, 41)
 names(BL_crosswalk) <- c("ScientificName2018", "ScientificName2010")
 
 tree <- ladderize(read.tree("~/PhD_Projects/StaticPredictors/Data/Weeks_et_at_2022/singe_bird_phylo.tre"))
-fp <- phyloregion::evol_distinct(tree, type = "fair.proportion", scale = F, use.branch.lengths = T) %>% as.data.frame()
+fp <- phyloregion::evol_distinct(tree, type = "fair.proportion", scale = F, use.branch.lengths = T) %>% 
+  as.data.frame()
 fp$tip.label <- rownames(fp)
 names(fp) <- c("FP", "tip.label")
 fp$ScientificName2010 <- gsub("_", " ", fp$tip.label)

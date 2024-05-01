@@ -30,7 +30,7 @@ out_path <- c(paste0(source_Git, "out/"))
 data_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_beast_data.rds"), 
                 paste0(source_paths[2], "Birds_Atlas_New_York_beast_data.rds"), 
                 paste0(source_paths[3], "Birds_atlas_Japan_beast_data.rds"),
-                paste0(source_paths[4], "Birds_atlas_EBBA_beast_data.rds"))
+                paste0(source_paths[4], "2Birds_atlas_EBBA_beast_data.rds"))
 
 grid_paths <- c(paste0(source_paths[1],"Birds_Atlas_Czechia_grid.gpkg"), 
                 paste0(source_paths[2], "Birds_Atlas_New_York_grid.gpkg"), 
@@ -105,7 +105,7 @@ for (i in seq_along(data_paths)) {
 
 
 presence_sf_list <- readRDS(paste0(out_path, "rds/presence_sf_list.rds"))
-big_tab <- read.csv(file=paste0(out_path, "csv/Big_table_CZ_JP_NY_EU.csv")) %>% 
+big_tab <- readRDS(file=paste0(out_path, "predictors/BigTable.rds")) %>% 
   reorder_levels(cell_grouping, desired_levels)
 
 
