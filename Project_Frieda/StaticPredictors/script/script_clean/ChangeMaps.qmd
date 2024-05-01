@@ -1,8 +1,15 @@
 ---
-title: "ChangeMaps"
-author: "Frieda"
-format: html
-editor: visual
+title: "Atlas Data Clean"
+author: "Friederike Wölke"
+date: "2024-04-20"
+output:
+  html_document:
+    code_folding: hide
+format:
+  html:
+    toc: true
+    number-sections: true
+    colorlinks: true
 ---
 
 # Change Maps for each Atlas
@@ -218,19 +225,23 @@ gridExtra::grid.arrange(Map_CZ, Map_EU, Map_JP, Map_NY)
 ## Interactive maps: (saved per hand to figures folder)
 mapview::mapview(Change_per_cell %>% 
                    filter(dataset == "Birds_Atlas_Czechia") %>% 
-                   select(cell_mean_change), col.regions=RColorBrewer::brewer.pal(9, "PuOr"), legend = F )
+                   select(cell_mean_change), col.regions=RColorBrewer::brewer.pal(11, "PuOr"), legend = F )
 
 mapview::mapview(Change_per_cell %>% 
                    filter(dataset == "Birds_Atlas_New_York") %>% 
-                   select(cell_mean_change), col.regions=RColorBrewer::brewer.pal(9, "PuOr"), legend = F )
+                   select(cell_mean_change), col.regions=RColorBrewer::brewer.pal(11, "PuOr"), legend = F )
+
 
 mapview::mapview(Change_per_cell %>% 
                    filter(dataset == "Birds_atlas_Japan") %>% 
-                   select(cell_mean_change), col.regions=RColorBrewer::brewer.pal(9, "PuOr"), legend = F )
+                   select(cell_mean_change), col.regions=RColorBrewer::brewer.pal(11, "PuOr"), legend = F )
 
 mapview::mapview(Change_per_cell %>% 
                    filter(dataset == "Birds_atlas_EBBA") %>% 
-                   select(cell_mean_change), col.regions=RColorBrewer::brewer.pal(9, "PuOr"), legend = F )
+                   select(cell_mean_change), col.regions=RColorBrewer::brewer.pal(11, "PuOr"), legend = F )
+
+
+
 
 
 ```
@@ -261,20 +272,22 @@ sp_list <- extreme_sp %>% st_drop_geometry() %>% distinct(dataset, verbatim_name
 
 ### Example plot: Change
 ```{r}
-row_id <- 1
+row_id <- 2
 
 ## Quick example plot (looks great!)
-ggplot() +
-  geom_sf(data = grids[[sp_list[row_id,1]]], col = "grey", fill = "lightgrey" )+
-  geom_sf(data = change_sf2 %>% filter(verbatim_name == sp_list[row_id,2] & dataset == sp_list[row_id,1]),  
+exPlot <- ggplot() +
+  geom_sf(data = grids[[sp_list[[row_id,1]]]], col = "grey", fill = "lightgrey" )+
+  geom_sf(data = change_sf2 %>% filter(verbatim_name == sp_list[[row_id,2]] & dataset == sp_list[[row_id,1]]),  
           aes(fill = Change), size = 1.2) +
-   geom_sf(data = countries_list[[sp_list[row_id,1]]],  col = "black", fill = NA)+
+   geom_sf(data = countries_list[[sp_list[[row_id,1]]]],  col = "black", fill = NA)+
   scale_fill_manual(
     values = c(stable = "#f7f7f7",
     colonized = "#998ec3",
     extinct = "#f1a340")) +
   theme_void()+
-  labs(title = paste(sp_list[row_id,2], "-", sp_list[row_id,1], "*", change_sf2 %>% filter(verbatim_name == sp_list[row_id,2] & dataset == sp_list[row_id,1])%>% pull(trend) %>% unique(), "*"))
+  labs(title = paste(sp_list[[row_id,2]], "-", sp_list[[row_id,1]], "*", change_sf2 %>% filter(verbatim_name == sp_list[[row_id,2]] & dataset == sp_list[[row_id,1]])%>% pull(trend) %>% unique(), "*"))
+
+exPlot
 ```
 
 ### Save them all
