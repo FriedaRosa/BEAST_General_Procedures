@@ -4,7 +4,7 @@
 rm(list=ls())
 
 # Libraries
-pacman::p_load(dplyr, randomForestSRC, ggplot2, tidyr, viridis, ggRandomForests)
+pacman::p_load(dplyr, randomForestSRC, ggplot2, tidyr, viridis, ggRandomForests, randomForestExplainer)
 
 
 
@@ -27,6 +27,16 @@ exclude_vars <- c("m_AOO_a",  "b_AOO_a",
 dat2 <- dat %>% select(!all_of(c(exclude_vars)))
 str(dat2)
 
+
+
+
+
+
+
+
+
+
+
 # Visual plot of relationship between responses (are they good indicators of each other?)
 ### This shows that logR seems to predict more positive change than Telfer, especially for CZ and EU (points in upper left quadrat but none in lower right)
 ggplot(dat2, aes(y = log_R2_1, x = Telfer_1_2, col = factor(dataset)))+
@@ -36,6 +46,16 @@ ggplot(dat2, aes(y = log_R2_1, x = Telfer_1_2, col = factor(dataset)))+
   geom_hline(yintercept=0, col = "red")+
   scale_color_viridis(discrete = T)+
   theme_classic()
+
+
+
+
+
+
+
+
+
+
 
 
 caret::nearZeroVar(dat2, names = T) # IUCN
@@ -215,3 +235,88 @@ ggplot(data = dat_lR1, aes(y = log_R2_1,x = AOO, col = dataset))+
 ## - mtry, ntrees, min node size
 ## - chose the one that is the most accurate (lowest error)
 ## - typically start by using n_var^2 and then trying a few settings above and below that value
+
+
+
+
+
+###########
+
+
+## Trying something else: I'll model only one atlas 
+
+CZ_model_df1 <- dat2 %>% filter(dataset == "Birds_Atlas_Czechia" & tp == 1) %>% select(-Telfer_1_2, -verbatim_name)
+CZ_model_df2 <- dat2 %>% filter(dataset == "Birds_Atlas_Czechia" & tp == 2) %>% select(-Telfer_1_2, -verbatim_name)
+
+EBBA_model_df1 <- dat2 %>% filter(dataset == "Birds_atlas_EBBA" & tp == 1) %>% select(-Telfer_1_2, -verbatim_name)
+EBBA_model_df2 <- dat2 %>% filter(dataset == "Birds_atlas_EBBA" & tp == 2) %>% select(-Telfer_1_2, -verbatim_name)
+
+dfs_list <- list(CZ_model_df1, CZ_model_df2, EBBA_model_df1, EBBA_model_df2)
+
+
+topvars_list <- list()
+models_list <- list()
+for (dd in seq_along(dfs_list)){
+  
+  ##
+  model_df <- dfs_list[[dd]]
+  
+  ## 2 Train/Test split: 80/20
+  set.seed(42)
+  samp <- sample(nrow(model_df), 0.8 * nrow(model_df))
+  train <- model_df[samp, ]; dim(train) 
+  test <- model_df[-samp, ]; dim(test) 
+  
+  ## 3. tune parameters:
+  param_tuned <- tune(log_R2_1~., train, ntrees = 1000)
+  mtry = param_tuned$optimal[2]
+  ns = param_tuned$optimal[1]
+  
+  ## 4. Initial model:
+  m0 <- rfsrc(log_R2_1~., train, ntrees = 1000, mtry = mtry, nodesize = ns)
+  
+  # select important variables:
+  selected_vars3 <- var.select(log_R2_1 ~., train, ntrees = 1000, mtry = mtry, nodesize = ns,
+                               method="md")
+  length(selected_vars3$topvars)
+  topvars <- selected_vars3$topvars
+  
+  topvars_list[[dd]] <- topvars
+  
+  # Reduced models:
+  model_df2 <- dfs_list[[dd]] %>% select(all_of(topvars), log_R2_1)
+  
+  ## 2 Train/Test split: 80/20
+  set.seed(42)
+  samp2 <- sample(nrow(model_df2), 0.8 * nrow(model_df2))
+  train2 <- model_df2[samp2, ]; dim(train2) 
+  test2 <- model_df2[-samp2, ]; dim(test2) 
+  
+  ## 3. tune parameters:
+  param_tuned <- tune(log_R2_1~., data=train2)
+  mtry = param_tuned$optimal[2]
+  ns = param_tuned$optimal[1]
+  
+  m1 <- rfsrc(log_R2_1~., train2, ntrees = 1000, mtry = mtry, nodesize = ns)
+  
+  models_list[[dd]] <- list(m0, m1)
+  
+}
+
+names(models_list) <- c("CZ1", "CZ2", "EBBA1", "EBBA2")
+
+
+
+
+########
+
+
+
+
+
+library(randomForest)
+forest <- randomForest(log_R2_1 ~ ., train, ntrees = 1000, localImp = T, na.action = "na.omit" )
+importance_frame <- measure_importance(forest)
+(vars <- important_variables(importance_frame, k = 5, measures = c("mean_min_depth", "no_of_trees")))
+interactions_frame <- min_depth_interactions(forest, vars)
+plot_min_depth_interactions(interactions_frame)

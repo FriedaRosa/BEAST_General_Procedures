@@ -1,11 +1,15 @@
 # Tasks
+
 ### - plot all variables that seem to be important for assessing change
-### - we seem to have a highly dimensional problem here. 
+
+### - we seem to have a highly dimensional problem here.
+
 ### - make a categorical variable for change and use this?
+
 ### - maps with proportional change per cell??
 
-
 # Libraries
+
 ```{r}
 rm(list = ls())
 library(dplyr)
@@ -16,6 +20,7 @@ library(randomForestExplainer)
 ```
 
 # Data
+
 ```{r}
 dat <- readRDS("../../out/rds/Final_data.rds")
 sf_dat <- readRDS("../../out/rds/presence_sf_list.rds")
@@ -24,6 +29,7 @@ names(dat)
 ```
 
 # Pre-processing
+
 ```{r}
 hist(dat$log_R2_1, breaks = 300)
 mean(dat$log_R2_1)
@@ -60,7 +66,39 @@ for (i in seq_along(sf_dat)){
 }
 ```
 
+```{r}
+
+
+ plot_dta <- sf2_list[[1]] %>% select(cell_label, verbatim_name, tp) %>% na.omit() %>% unique()
+ 
+ CZ <- rnaturalearth::ne_countries(country = "czechia", scale = 10,  returnclass='sf') %>% st_crop(st_bbox(sf2_list[[1]]))
+ 
+plot_dta %>% filter(tp == 1 & verbatim_name == "Corvus corax") %>% ungroup() %>%  group_by(verbatim_name) %>% summarise() %>% st_polygonize() %>%
+   ggplot()+
+   geom_sf(fill = "black")+
+   geom_sf(data = CZ, fill = NA)+
+   theme_void()
+   
+ 
+
+dta <- sf2_list[[1]] %>% 
+   filter(tp == 1) %>% 
+   select(cell_label, verbatim_name) %>% unique() %>%
+   group_by(cell_label) %>%
+   mutate(cell_alpha = n_distinct(verbatim_name)) %>% 
+   select(cell_label, cell_alpha) %>% 
+   unique()
+
+ AlphaDiv <- dta %>%
+   ggplot()+
+      geom_sf(aes(fill = cell_alpha))+
+      geom_sf(data = CZ, fill = NA)+
+      theme_void()+
+      scale_fill_distiller(palette = "PuOr", direction = 1)
+```
+
 # Test plot
+
 ```{r}
 rm(sf_dat, sf2, sf1)
 
@@ -90,11 +128,12 @@ ggplot()+
   geom_sf(aes(fill = mean_trend_cell))
 
 
-esquisse::esquisser(sf_test)
+# esquisse::esquisser(sf_test)
 
 ```
 
 # Fig 1 & Fig 2
+
 ```{r}
 # Plot number of species per trend per dataset
 fig1 <- dat2 %>% 
@@ -156,6 +195,7 @@ fig2 <- ggplot(dat2) +
 ```
 
 # Classification model
+
 ```{r}
 discrete_m0 <- randomForestSRC::rfsrc(factor(trend) ~ ., dat2 %>% filter(tp == 1) %>% select(-tp, -verbatim_name, -log_R2_1, -Telfer_1_2))
 numeric_m0 <- randomForestSRC::rfsrc(log_R2_1 ~ ., dat2 %>% filter(tp == 1) %>% select(-tp,-verbatim_name, -Telfer_1_2, -trend))
@@ -179,7 +219,6 @@ good_sp <- dat2 %>% filter(tp == 1 & trend == "increase") %>% group_by(dataset, 
 bad_sp <- dat2 %>% filter(tp == 1 & trend == "decrease")%>% group_by(dataset, tp) %>% summarise(n_sp = n_distinct(verbatim_name))
 
 ```
-
 
 ```{r}
  dat2 %>% filter(trend == "increase") %>% group_by(dataset, tp) %>% 
@@ -227,4 +266,242 @@ dat2 %>% filter(trend == "stable") %>% group_by(dataset, tp) %>%
  theme_classic()
 
 #####
+```
+
+# Random Forests:
+
+```{r}
+gc()
+library(caret); library(ranger); library(dplyr); library(ggplot2)
+```
+
+## Data Prep:
+
+```{r}
+dat <- readRDS("../../out/rds/Final_data.rds")
+# Exclude variables:
+exclude_vars <- c("m_AOO_a", "Total_area", "Total_Ncells", "rel_occ_Ncells", "Gamma", "Range.Size", "GlobRangeSize_m2", "mean_cell_length", "increment2", "RL_Category", "atlas_xmax", "area", "b_AOO_a", "mean_relAOO", "occ_Ncells", "mean_prob_cooccur")
+
+atlas_vars <- c("Total_area_samp", "GammaSR", "mean_area", "atlas_lengthMinRect", "atlas_widthMinRect", "atlas_elonMinRect", "atlas_circ", "atlas_bearingMinRect", "atlas_bearing", "AtlasCOG_long", "AtlasCOG_lat")
+
+dat_red <- dat %>% select(!all_of(c(exclude_vars)))
+names(dat_red)
+
+
+## Log Ratio 1) Future Change 2) Past change
+
+dat1 <- dat_red %>% filter(tp == 1) %>% select(-tp, -Telfer_1_2, -verbatim_name)
+dat2 <- dat_red %>% filter(tp == 2) %>% select(-tp, -Telfer_1_2, -verbatim_name)
+
+dfs_list <- list(dat1, dat2)
+
+```
+
+### Group predictors by hypothesis
+
+```{r}
+names(dat1)
+cols_atlas <- c(#"dataset", 
+                "Total_area_samp", "mean_area", "atlas_lengthMinRect", "atlas_widthMinRect", "atlas_elonMinRect", "atlas_circ", "atlas_bearingMinRect", "atlas_bearing", "AtlasCOG_long", "AtlasCOG_lat")
+
+setdiff(names(dat1), cols_atlas)
+
+
+cols_geo <- c("D_AOO_a", # Fractal dimension
+            "Total_Ncells_samp",
+             "rel_nsDist", "rel_maxDist", "rel_ewDist",
+             "rel_elonRatio", "rel_circNorm", "rel_relCirc", "rel_lin",  # Species distribution geometric features
+             "minDist_toBorder_border", "minDist_toBorder_centr", # Distances
+             "maxDist_toBorder_border", "maxDist_toBorder_centr",
+             "bearingMinRect", "bearing", "elonMinRect","circ",
+             "lengthMinRect","widthMinRect",
+             "Southernness", "Westernness", 
+             "moran", "x_intercept", # Spatial autocorrelation
+             # "atlas_circNorm", "atlas_relCirc", # Atlas predictors
+             "datasetBirds_atlas_EBBA", "datasetBirds_atlas_Japan", "datasetBirds_Atlas_New_York", "datasetBirds_Atlas_Czechia",
+            # captures most of the geometry of the atlases (highly correlated)
+            "Dist_centroid_to_COG", "sp_centr_lon", "sp_centr_lat")
+
+setdiff(names(dat1), c(cols_geo, cols_atlas))
+
+# Traits
+cols_trait <- c("rel_AOO", # Occupancy 
+             "AOO",
+             "IUCNLC", "IUCNEN",  "IUCNNT" , "IUCNVU", 
+             # "IUCN", # Global red list categories
+             "FP", # Evolutionary relationships
+             "HWI", # Dispersal
+             "Mass", 
+             #"Habitat", "Habitat.Density", "Migration", "Trophic.Level", "Trophic.Niche", "Primary.Lifestyle", # Life history traits
+             "HabitatDesert","HabitatForest","HabitatGrassland","HabitatHuman Modified","HabitatMarine", "HabitatRiverine","HabitatRock","HabitatShrubland","HabitatWetland","HabitatWoodland","Habitat.Density2","Habitat.Density3","
+Migration2","Migration3",
+"Trophic.LevelHerbivore","Trophic.LevelOmnivore","Trophic.LevelScavenger",
+"Trophic.NicheFrugivore","Trophic.NicheGranivore","Trophic.NicheHerbivore aquatic","Trophic.NicheHerbivore terrestrial","Trophic.NicheInvertivore","Trophic.NicheNectarivore","Trophic.NicheOmnivore","Trophic.NicheScavenger","Trophic.NicheVertivore",
+"Primary.LifestyleAquatic","Primary.LifestyleGeneralist","Primary.LifestyleInsessorial","Primary.LifestyleTerrestrial",
+             "GlobRangeSize_km2", # Global range size (Breeding & Resident)
+             "sd_PC1", "sd_PC2") # Climatic Niche Breadth
+
+setdiff(names(dat1), c(cols_geo, cols_atlas, cols_trait))
+
+
+# Diversity
+cols_div <- c("GammaSR","AlphaSR_sp", "BetaSR_sp", #Gamma, Alpha and beta diversity
+             "Dist_centroid_to_COG",  # Distance from species centroid to center of gravity of the atlas
+             # "CenterOfGravity_Atlas_lat", # latitude of center of gravity of the atlas
+             "sp_centr_lon","sp_centr_lat") # species distribution centroid coordinates) # Distance from species centroid to center of gravity of the atlas
+
+
+```
+
+## Run Forests & calc MSE decrease
+
+```{r}
+library(caret)
+
+# set seeds:
+seeds <- c(42)
+
+# empty lists:
+models_list<-list()
+varImp_list <- list()
+seeds_res_list <- list()
+seeds_varImp_list <- list()
+seeds_models_list <- list()
+predictions <- list()
+seeds_predictions_list <- list()
+for (seed in seq_along(seeds)) {
+  
+  # Multiple seeds to check robustness of results:
+  set.seed(seeds[seed])
+  
+  for (dd in seq_along(dfs_list)){
+    
+    # Train & Test splits:
+    model_df <- dfs_list[[dd]] %>% na.omit()
+    samp <- sample(nrow(model_df), 0.8 * nrow(model_df))
+    train <- model_df[samp, ]; dim(train) 
+    test <- model_df[-samp, ]; dim(test) 
+    
+    # Model:
+    tictoc::tic()
+    model <- train(log_R2_1 ~ .,
+                   data = train,
+                   method = "ranger",
+                   importance ="permutation",
+                   num.trees = 1000,
+                   oob.error = T)
+    tictoc::toc() #265.77 sec elapsed
+    
+    models_list[[dd]] <- model$finalModel
+    
+    
+    pred_observed <- data.frame(Predicted = predict(model, test), Observed = test$log_R2_1, seed = seeds[seed], data = if_else(dd == 1, "log_R_future", "log_R_past"))
+    predictions[[dd]] <- pred_observed
+    
+    # MSE Decrease: 
+    varImpFrame <- as.data.frame(model$finalModel$variable.importance) 
+    names(varImpFrame) <- "MeanMSEdecrease"
+    
+    varImpFrame$data <- if_else(dd == 1, "log_R_future", "log_R_past")
+    varImpFrame$var <- row.names(varImpFrame)
+    varImpFrame$seed <- seeds[seed]
+    row.names(varImpFrame) <- NULL
+    
+    varImpFrame2 <- varImpFrame %>% 
+      mutate(group = case_when(
+    var %in% cols_geo ~ "geometry",
+    var %in% cols_trait ~ "traits",
+    var %in% cols_div ~ "diversity",
+    var %in% cols_atlas ~ "atlas"))
+    
+    varImp_list[[dd]] <- varImpFrame2
+  
+  }
+  seeds_varImp_list[[seed]] <- plyr::rbind.fill(varImp_list)
+  seeds_predictions_list[[seed]] <- plyr::rbind.fill(predictions)
+  seeds_models_list[[seed]] <- models_list
+  
+}
+
+mse_df <- plyr::rbind.fill(seeds_varImp_list)
+
+# Figure:
+mse_df %>% 
+  group_by(data) %>%
+  filter(data %in% c("log_R_future")) %>%
+  filter(MeanMSEdecrease > 0.007) %>%
+  
+  ggplot2::ggplot(aes(y = forcats::fct_reorder(var, MeanMSEdecrease), x = MeanMSEdecrease, fill = group))+
+  geom_col()+
+  facet_grid(~seed)+
+  xlab("Decrease of out-of-bag MSE")+
+  ylab("Predictor")+
+  theme_classic()+
+  scale_fill_brewer(palette = "Set3")+
+  labs(title = "Future Change")
+
+
+mse_df %>% 
+  group_by(data) %>%
+  filter(data %in% c( "log_R_past")) %>%
+  filter(MeanMSEdecrease > 0.007) %>%
+  
+  ggplot2::ggplot(aes(y = forcats::fct_reorder(var, MeanMSEdecrease), x = MeanMSEdecrease, fill = group))+
+  geom_col()+
+  facet_grid(~seed)+
+  xlab("Decrease of out-of-bag MSE")+
+  ylab("Predictor")+
+  theme_classic()+
+  scale_fill_brewer(palette = "Set3")+
+  labs(title = "Past Change")
+
+
+
+
+FutureChangeTopPred <- mse_df %>%
+ filter(MeanMSEdecrease >= 0.0105) %>%
+ filter(data %in% "log_R_future") %>%
+ filter(seed == 42) %>%
+ ggplot(aes(x = MeanMSEdecrease, fill = group, y = forcats::fct_reorder(var, MeanMSEdecrease))) +
+  geom_col() +
+  scale_fill_brewer(palette = "Pastel1", direction = 1) +
+  theme_classic()+ 
+  theme(axis.line = element_line(colour = "azure3",
+    linetype = "solid"), axis.ticks = element_line(linetype = "blank")) +
+  labs(title = "Future Change - Top 20 predictors",x = NULL, x = "Mean decrease in MSE")
+
+
+PastChangeTopPred <- mse_df %>%
+ filter(MeanMSEdecrease >= 0.0087) %>%
+ filter(data %in% "log_R_past") %>%
+ filter(seed == 42) %>%
+ ggplot(aes(x = MeanMSEdecrease, fill = group, y = forcats::fct_reorder(var, MeanMSEdecrease))) +
+  geom_col() +
+  scale_fill_brewer(palette = "Pastel1", direction = 1) +
+  theme_classic()+
+  theme(axis.line = element_line(colour = "azure3",
+    linetype = "solid"), axis.ticks = element_line(linetype = "blank")) +
+  labs(title = "Past Change - Top 20 predictors", y = NULL, x = "Mean decrease in MSE")
+
+
+save.image("../../out/RData/PosterPrepRF.RData")
+```
+
+## Predicted vs. observed plots
+
+```{r}
+pred_observed = seeds_predictions_list[[1]] %>% 
+ggplot(aes(x = Observed, y = Predicted, colour = data)) +
+  geom_point(shape = "circle", size = 1.5) +
+  geom_smooth(method = "loess")+
+  scale_color_manual(
+    values = c(log_R_future = "#C95E14",
+    log_R_past = "#560180")
+  ) +
+  theme_classic() +
+  theme(legend.position = "none")+
+  geom_hline(yintercept = 0)+
+  geom_vline(xintercept = 0)+
+  ylim(-2,2) + theme(legend.position = "right")
+
 ```
