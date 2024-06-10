@@ -42,17 +42,17 @@ If my model can predict temporal change from static patterns, this method will b
 I will use the caret package for the implemented machine learning models.
 
 ```{r, libraries, message=FALSE, warning=FALSE}
-# Data handling & visualization
-library(dplyr)
-library(ggplot2)
-library(reshape2)
+# Clean environment before starting
+rm(list=ls())
 
+source("functions.R") # function to load packages
 
-# Machine Learning packages
-library(caret)
-library(ranger)
-library(recipes)
+pckgs <- c("dplyr", "ggplot2", "reshape2",  # Data shaping
+           "caret", "ranger", "recipes") # Machine Learning
 
+install_and_load(pckgs)
+
+rm(pckges)
 ```
 
 ## Read data
@@ -72,6 +72,54 @@ Next, I'm splitting the datat into their time periods. In the following I will o
 Some predictor columns have NAs that result from either very rare species or highly cosmopolintain species (thus resulting in division by 0 during computation). WIth knowledge of how I computed the predictors, I manually set some rows with NAs to 0 or 1.
 
 Spatial autocorrelation (Morans I) cannot be calculated for species occupying 100% of an area, thus resulting in NA. these species are removed completly from the model.
+
+```{r, jaccard}
+dat <- readRDS("../../../out/rds/AllPredictors.rds")
+
+names(dat)
+
+dat <- dat %>% 
+  filter(cell_grouping == 1 & exclude == 0 & tp == 1) %>%
+  select(
+    verbatim_name, Jaccard, 
+    # Atlas specifics: [4:8]
+    dataset, mean_area, Total_area_samp, Total_Ncells_samp, mean_cell_length,
+    # Diversity metrics [9:11]
+    GammaSR, AlphaSR_sp, BetaSR_sp,
+    # Occupancy [12:15]
+    AOO, rel_occ_Ncells, D_AOO_a, mean_prob_cooccur,
+    # BirdLife data [16:19]
+    sd_PC1, sd_PC2, GlobRangeSize_m2, IUCN,
+    # Spatial autocorrelation [20:21]
+    moran, x_intercept,
+    # AVONET [22:30]
+    Mass, Habitat, Habitat.Density, Migration, Trophic.Level, Trophic.Niche, Primary.Lifestyle, FP, Hand.Wing.Index,
+    # Species range centroid [31:32]
+    sp_centr_lon, sp_centr_lat,
+    # Geometry1: [33:36]
+    lengthMinRect, widthMinRect, elonMinRect, bearingMinRect,
+    # Geometry2: [37:40]
+    circ, bearing, Southernness, Westernness,
+    # Geometry3: [41:47]
+    rel_maxDist, rel_ewDist, rel_nsDist, rel_elonRatio, rel_relCirc, rel_circNorm, rel_lin,
+    # Geometry4: [48:51]
+    Dist_centroid_to_COG, maxDist_toBorder_border, maxDist_toBorder_centr, minDist_toBorder_centr,
+    # Geometry 5: [52:59]
+    atlas_lengthMinRect, atlas_widthMinRect, atlas_elonMinRect, atlas_circ, 
+    atlas_bearingMinRect, atlas_bearing, AtlasCOG_long, AtlasCOG_lat) %>%
+  mutate(
+    D_AOO_a = 
+      case_when(is.na(D_AOO_a) & rel_occ_Ncells > 0.97 ~ 2, TRUE ~ D_AOO_a),
+    mean_prob_cooccur = 
+      case_when(is.na(mean_prob_cooccur) & rel_occ_Ncells < 0.05 ~ 0, TRUE ~ mean_prob_cooccur)
+    ) %>%
+  filter(!is.na(moran)) %>% 
+  distinct(verbatim_name, dataset, .keep_all = TRUE)  %>%
+  mutate_if(is.character, as.factor)
+
+str(dat)
+
+```
 
 ```{r, data, message=FALSE}
 rm(list = ls()) # start with clean environment
@@ -189,6 +237,14 @@ featurePlot(x = dat,
             plot = 'pairs')
 dev.off()
 
+
+png("featureplot_all_jacc.png", width = 10000, height = 10000, units = "px")
+featurePlot(x = dat %>% select(-verbatim_name),
+            y = dat$Jaccard, 
+            group = dat$dataset,
+            plot = 'pairs')
+dev.off()
+
 ```
 
 ![*Figure 1*: All Correlations between variables in the dataset to predict temporal change from static patterns.](featureplot_all.png){fig-align="center"}
@@ -295,7 +351,8 @@ print(feature_plots)
 This correlation matrix includes dummy variables for all factors / groups.
 
 ```{r, cor-mat, fig.height = 20, fig.width = 20}
-cor_df <- dat %>% select(-log_R2_1)
+# cor_df <- dat %>% select(-log_R2_1)
+cor_df <- dat %>% select(-Jaccard, -verbatim_name)
 
 p.mat <-  model.matrix(~0+., data=cor_df) %>% 
   ggcorrplot::cor_pmat()
@@ -350,6 +407,27 @@ Since random forest models do not estimate coefficients, scaling and centering i
 ### 1. Near Zero Variables & Correlations
 
 We will remove correlations \> 0.9 because these cannot be discerned anyway. This will leave us with 43 predictor variables in total which will go into the primary model & subsequent feature selection and hyperparameter tuning.
+
+```{r, Jaccard-model-preprocessing}
+# Pre-processing ====
+## 1. Near Zero Vars
+nzv <- nearZeroVar(dat, saveMetrics = T) 
+nzv %>% filter(nzv == T) # only IUCN, but this is an important predictor (!) we will keep it.
+
+# With recipe:
+pp_recipe <- recipe(Jaccard ~ .,
+                    data = dat) %>%
+  step_impute_knn(all_predictors()) %>%
+  #step_pca(all_of(cor_vars), threshold = .95) %>%
+  step_corr(all_numeric_predictors()) 
+  
+# process data:
+pp_recipe_prepped <- prep(pp_recipe, dat)
+dat_v2 <- bake(pp_recipe_prepped, dat)
+
+# remove old ojects
+rm(dat, nzv, pp_recipe, pp_recipe_prepped)
+```
 
 ```{r, model-preprocessing}
 # Pre-processing ====
@@ -410,6 +488,21 @@ dat_v2 %>%
 
 We will start with an initial test/train split for evaluation of the final model. We will create 10 samples but for now only use one of them for faster fitting and evaluation of initial parameters. The others will be used during feature selection and final modeling.
 
+```{r, Jacc-initial-train-test-split}
+
+# Create 10 training (80%) and testing (20%) sets
+set.seed(42)
+trainIndex0 <- createDataPartition(dat_v2$Jaccard, p = 0.8, 1) # 10 resamples
+
+# Initial split 
+trainData <- dat_v2[trainIndex0[[1]], ] %>% select(-verbatim_name) # first resample
+testData <- dat_v2[-trainIndex0[[1]], ] %>% select(-verbatim_name) # first resample
+
+set.seed(42)
+trainIndex <- createDataPartition(trainData$Jaccard, list = TRUE, p = 0.8, 10) # 10 resamples
+
+```
+
 ```{r, initial-train-test-split}
 
 # Create 10 training (80%) and testing (20%) sets
@@ -435,6 +528,130 @@ To yield the optimal hyperparameters for tuning the model, an extensive grid sea
 ***Internal validation:***
 
 I used 10-fold cross-validation with 5 repeats for model fitting across the grid search.
+
+```{r, Jacc-full-model-single-split, eval = FALSE}
+max_pred <-  model.matrix(~0+., data=trainData %>% select(-Jaccard)) %>% 
+  ncol()
+max_pred <- max_pred-1
+
+# Hyperparameter tuning
+tunedGrid <- expand.grid(
+  mtry = c(1:max_pred),
+  splitrule = c('extratrees'),
+  min.node.size = c(3,5))
+
+# Cross-Validation
+trainedControl <- trainControl(method = "repeatedcv", 
+                              number = 10, # 10 splits
+                              repeats = 5, # 3 repeats
+                              savePredictions = T,
+                              returnResamp = "all",
+                              index = trainIndex,
+                              verboseIter = TRUE)
+tictoc::tic()
+# Train the random forest model
+set.seed(42)
+model_rf0 <- train(
+  Jaccard ~ .,                  
+  data = trainData, 
+  # random forest model from ranger package
+  method = "ranger",
+  # Cross-validation & tuning
+  trControl = trainedControl, 
+  #tuneGrid = tunedGrid,
+  tuneLength = 20,
+  respect.unordered.factors=TRUE,
+  # Number of trees to grow
+  num.trees = 1000,
+  # local variable importance
+  importance = 'permutation',  
+  local.importance = T,
+  oob.error = T,
+  verbose = T)
+tictoc::toc() # 4367.37 sec elapsed (for 10-fold, 5 rep)
+
+
+plot(model_rf0)
+
+
+
+# Let's save the most important model results to a list object ====================================
+
+# Final Model details ====
+model_rf0$finalModel  ## OOB-R2 = 0.2167, OOB-MSE = 0.2352
+model_rf0$finalModel[21]$tuneValue # mtry = 67, splitrule = extratrees, min.node.size = 5
+
+# Model performance across resamples:
+postResample(pred = model_rf0$pred$pred, obs = model_rf0$pred$obs)
+
+
+# Model performance from final model with OOB-predictions:
+postResample(pred = predict(model_rf0, newdata = testData), obs = testData$Jaccard)
+
+
+# Check Model hyperparameter performance:
+pR2 <- ggplot(model_rf0, metric = "RMSE") + theme_bw()
+pRMSE <- ggplot(model_rf0, metric = "Rsquared") + theme_bw()
+
+# Variable importance:
+pVarImp <- ggplot(varImp(model_rf0))+ theme_bw()
+
+# Predictions
+#model_rf0$
+predictions <- predict(model_rf0, newdata = testData)
+dd <- data.frame(testData$Jaccard, testData$dataset, predictions)
+
+pPred1 <- xyplot(dd$predictions ~ dd$testData.Jaccard, 
+       groups = dd$testData.dataset, 
+       type = c("g", "p", "smooth"), 
+       ylim=c(-1, 2)) 
+
+
+# Model performance ====
+# In-bag Error:
+postResample(pred = predict(model_rf0, newdata = trainData), 
+             obs = trainData$Jaccard) # in-Bag-error: RMSE: 0.22, R2: 0.93
+
+# Out-of-bag Error:
+model_rf0$finalModel[13] # OOB R2: 0.205
+
+
+# Test error:
+postResample(pred = predictions, obs = testData$Jaccard)
+#  RMSE  Rsquared       MAE 
+# 0.4835645 0.1982548 0.2962670 
+
+pPred2 <- dd %>%
+ggplot(aes(x = testData.Jaccard, y = predictions)) +
+  geom_point(shape = "circle", size = 1.5) +
+  geom_smooth(method = "gam")+
+  ylim(-1, 2)+
+  theme_bw()
+
+# Save Model results to list object ===== 
+p_full_model <- list(
+  Plots = list(
+    pR2 = pR2,
+    pRMSE = pRMSE,
+    pVarImp = pVarImp,
+    pPred1 = pPred1,
+    pPred2 = pPred2),
+  Res = list(
+    Full_model = model_rf0,
+    Final_model = model_rf0$finalModel,
+    TuneVals = model_rf0$finalModel[21]$tuneValue,
+    TestPred = dd,
+    PredErr = model_rf0$finalModel$prediction.error, 
+    In_bag_err1 = postResample(pred = model_rf0$pred$pred, obs = model_rf0$pred$obs),
+    In_bag_err2 = postResample(pred = predict(model_rf0, newdata = trainData), obs = trainData$Jaccard),
+    OOB_err = model_rf0$finalModel[13]$r.squared,
+    Test_err = postResample(pred = predictions, obs = testData$Jaccard)))
+
+
+# Save workspace as this takes a while to run...
+save.image("Assignment_ws_rfFuncs.RData")
+
+```
 
 ```{r, full-model-single-split, eval = FALSE}
 max_pred <-  model.matrix(~0+., data=trainData %>% select(-log_R2_1)) %>% 
@@ -607,6 +824,100 @@ For both approaches we will use 10x resampling of the internal test/train splits
 -   try `subset = 1:81` predictors to select features for the final model.
 
 -   We will run this across all 10 resamples of the training/testing splits
+
+```{r, Jacc-recursive-feature-selection, eval = F}
+tictoc::tic()
+# rm(llist = ls())
+# library(caret)
+# library(dplyr)
+# load("Assignment_ws_rfFuncs.RData")
+
+# set plot theme:
+trellis.par.set(caretTheme())
+
+# Initally split data (1 resample)
+# trainData1
+# testData1
+
+trainIndices <- list(trainIndex0, trainIndex)
+# 4.1 Feature Selection (full data)
+y_nosplit <- dat_v2 %>% na.omit() %>% pull(Jaccard)
+x_nosplit <- dat_v2 %>% na.omit() %>% select(-Jaccard, -verbatim_name)
+
+# 4.2 Feature selection (single split data) - so that we can compare training to testing data
+y_split <- trainData %>% na.omit() %>% pull(Jaccard)
+x_split <- trainData %>% na.omit() %>% select(-Jaccard)
+
+# Lists with data to loop through (full data, split data)
+y_l <- list(y_nosplit, y_split)
+x_l <- list(x_nosplit, x_split)
+
+# Control for recursive feature selection
+set.seed(42)
+ctrl <- rfeControl(
+    functions = rfFuncs,
+    saveDetails = TRUE,
+    returnResamp = "all",
+    method = "repeatedcv",
+    number = 10, # 10-fold CV
+    repeats = 3, # 3 repeats
+    verbose = FALSE,
+    index = trainIndices[[1]]
+)
+
+ctrl2 <- rfeControl(
+    functions = rfFuncs,
+    saveDetails = TRUE,
+    returnResamp = "all",
+    method = "repeatedcv",
+    number = 10, # 10-fold CV
+    repeats = 3, # 3 repeats
+    verbose = FALSE,
+    index = trainIndices[[2]]
+)
+
+ctrls <- list(ctrl, ctrl2)
+# Subsets of predictors to use for recursive feature selection
+max_pred <- glmnet::makeX(trainData) %>% ncol() # get number of max. predictors (with dummy vars)
+subsets <- c(1:max_pred) # 1: max number of predictive variables (incl. dummy vars)
+out_list <- vector("list", length = 2)
+
+# Loop through both splitting-approaches =====
+for (i in seq_along(1:2)){
+  
+  # Recursive Features selection
+  set.seed(42)
+  rfProfile <- rfe(x_l[[i]], y_l[[i]],
+    sizes = subsets,
+    rfeControl = ctrls[[i]])
+  
+  # Write models to file
+  saveRDS(rfProfile, paste0("rfProfile_", i, ".rds"))
+  
+  # Save the Results
+  out_list[[i]] <- list(
+    Res = list(
+      object = rfProfile,
+      predictors = predictors(rfProfile),
+      variables = rfProfile$variables,
+      topVars = rfProfile$variables %>% 
+        group_by(var) %>% 
+        summarise(Mean_resamp = mean(Overall)) %>% 
+        arrange(desc(Mean_resamp), decreasing = T),
+      results =  rfProfile$results),
+    Plots = list(
+      plot1 = plot(rfProfile, type = c("g", "o")),
+      plot2 = xyplot(rfProfile$results$Rsquared + rfProfile$results$RMSE ~ rfProfile$results$Variables, type = c("g", "p", "l")),
+      plot3 = xyplot(rfProfile, type = c("g", "p", "smooth"), ylab = "RMSE CV Estimates"),
+      plot4 = densityplot(rfProfile, subset = Variables < 5, adjust = 1.25, as.table = TRUE, xlab = "RMSE CV Estimates", pch = "|")))
+  
+  }
+
+# Save results to file
+saveRDS(out_list, "out_list_FeatureSelection.rds")
+save.image("Assignment_ws_rfFuncs_2.RData")
+tictoc::toc()# 2153.62 sec elapsed
+```
 
 ```{r, recursive-feature-selection, eval = F}
 tictoc::tic()
