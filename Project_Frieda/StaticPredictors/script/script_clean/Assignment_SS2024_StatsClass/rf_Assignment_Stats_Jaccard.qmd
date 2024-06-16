@@ -1,15 +1,18 @@
 ---
-title: "Assignment_Wölke_Stats"
+title: "Report - Assignment for PhD Stats class 2024"
 author: 
-  - name: Friederike Wölke
-    orcid: 0000-0001-9034-4883
-    url: friedarosa.github.io
-    email: wolke@fzp.czu.cz
+  - name: "Friederike Wölke"
+    orcid: "0000-0001-9034-4883"
+    url: "https://friedarosa.github.io"
+    email: "wolke@fzp.czu.cz"
     corresponding: true
-date: 29.05.2024
-format: pdf
-toc: true
-editor: visual
+date: "2023-05-29"
+format: 
+  pdf:
+    toc: true
+    code-fold: true
+    code-overflow: wrap
+keep-tex: true
 ---
 
 # Assignment for PhD Stats class 2024
@@ -20,7 +23,7 @@ editor: visual
 
 [Name:]{.underline} MSc. Friederike Wölke
 
-[Supervisor:]{.underline} Petr Keil
+[Supervisor:]{.underline} Dr. Petr Keil
 
 [Thesis title:]{.underline} Universal imprints of temporal change in static spatial patterns of biodiversity
 
@@ -34,7 +37,7 @@ Biodiversity kinetics leave characteristics imprint in the spatial patterns that
 
 I aim at predicting the log ratio of temporal change in occupancy (i.e., the sum of area occupied by a species) between two sampling periods from a set of predictor variables that are either related to **H1) species traits and ecology**, **H2)  geometric features of the species range from a single sampling period**, **H3) biodiversity equilibrium dynamics via spatial diversity patterns**,  or **H4) to the characteristics of the study region** -- all of which may equally contribute and act in concert to explaining the temporal process that is underlying the spatial pattern.
 
-For this I use high-quality, spatially continuous atlas data from four breeding bird atlases from temperate zones across the globe. Atlas data comes with spatial grids that enable easy up- and downscaling of the data.
+For this I use high-quality, spatially continuous atlas data from four breeding bird atlases from temperate zones across the globe. Atlas data comes with spatial grids that enable easy up- and down scaling of the data.
 
 Here, I assess universal imprints of temporal change in breeding birds in Czech Republic, Japan, New York State and the whole of Europe across two aggregated sampling periods that took place pre-2000 and post-2000. Since data for two sampling periods are available, I will additionally test whether imprints in the spatial aggregation of species can better predict past or future biodiversity change.
 
@@ -46,16 +49,19 @@ If my model can predict temporal change from static patterns, this method will b
 
 ## Libraries
 
-I will use the caret package for the implemented machine learning models.
+I will use the `caret` package for the regression-type machine learning models in combination with the `ranger()` function from the `ranger` package (setting `respect.unordered.factors = TRUE`) and `randomForest()` from the `randomForest` package for recursive feature selection.
 
-```{r, libraries, message=FALSE, warning=FALSE, code-fold = TRUE}
+```{r, libraries, message = FALSE, warning = FALSE}
+
 # Clean environment before starting
-rm(list=ls())
+rm(list = ls())
 
 source("functions.R") # function to load packages
 
-pckgs <- c("dplyr", "ggplot2", "reshape2",  # Data shaping
-           "caret", "ranger", "recipes", "xtable") # Machine Learning
+pckgs <- c(
+  "dplyr", "ggplot2", "reshape2", # Data shaping
+  "caret", "ranger", "recipes", "randomForest", "glmnet", # Machine Learning
+  "xtable", "styler", "lintr")  # Code/output formater
 
 install_and_load(pckgs)
 
@@ -85,11 +91,12 @@ Spatial autocorrelation (Moran's I) cannot be calculated for species occupying 1
 ```{r, jaccard}
 dat <- readRDS("../../../out/rds/AllPredictors.rds")
 
-names(dat)
+dat0 <- dat %>%
 
-dat0 <- dat %>% 
-# Subset to highest resolution (smallest grid size) & first sampling period
+  # Subset to highest resolution (smallest grid size) & first sampling period
   filter(cell_grouping == 1 & exclude == 0 & tp == 1) %>%
+
+  # Initial selection of variables for modeling:
   select(
     # Response / species ID (remove verbatim_name before modelling)
     verbatim_name, Jaccard, log_R2_1, Telfer_1_2,
@@ -116,24 +123,34 @@ dat0 <- dat %>%
     # Geometry4: [48:51]
     Dist_centroid_to_COG, maxDist_toBorder_border, maxDist_toBorder_centr, minDist_toBorder_centr,
     # Geometry 5: [52:59]
-    atlas_lengthMinRect, atlas_widthMinRect, atlas_elonMinRect, atlas_circ, 
-    atlas_bearingMinRect, atlas_bearing, AtlasCOG_long, AtlasCOG_lat) %>%
-# Fixing some NAs: 
+    atlas_lengthMinRect, atlas_widthMinRect, atlas_elonMinRect, atlas_circ,
+    atlas_bearingMinRect, atlas_bearing, AtlasCOG_long, AtlasCOG_lat
+  ) %>%
+
+
+  # Fixing some NAs:
   mutate(
-    D_AOO_a = 
+    D_AOO_a =
       case_when(is.na(D_AOO_a) & rel_occ_Ncells > 0.97 ~ 2, TRUE ~ D_AOO_a),
-    mean_prob_cooccur = 
+      
+    mean_prob_cooccur =
       case_when(is.na(mean_prob_cooccur) & rel_occ_Ncells < 0.05 ~ 0, TRUE ~ mean_prob_cooccur)
-    ) %>%
-# Delete species with NA in Spatial Autocorrelationn (i.e., those species occupying 100% of area)
-  filter(!is.na(moran)) %>% 
-# Simplify data and remove replicated rows
-  distinct(verbatim_name, dataset, .keep_all = TRUE)  %>%
-# Transform all characters to factors for modeling
+  ) %>%
+
+
+  # Delete species with NA in Spatial Autocorrelationn (i.e., those species occupying 100% of area)
+  filter(!is.na(moran)) %>%
+
+
+  # Simplify data and remove replicated rows
+  distinct(verbatim_name, dataset, .keep_all = TRUE) %>%
+
+
+  # Transform all characters to factors for modeling
   mutate_if(is.character, as.factor)
 
-str(dat0) 
 
+str(dat0)
 ```
 
 There are some NAs left in the data. We will impute these later using knn-imputation. Some of these NAs derive from computation problems for some of the predictors, missing data for 3 species that were recently split from their sister clades and thus no unique trait or global range data was available. Otherwise, there should not be any other NAs.
@@ -255,12 +272,14 @@ First, a huge figure with all data for manual inspection of all interactions bet
 
 ``` New York = orange (``"#D55E00") ```
 
-```{r, fig.height = 100, fig.width = 100, eval = F}
+```{r, all-features, fig.height = 100, fig.width = 100, eval = FALSE, include = TRUE}
 png("featureplot_all_jacc.png", width = 10000, height = 10000, units = "px")
-featurePlot(x = dat,
-            y = dat$Jaccard, 
-            group = dat$dataset,
-            plot = 'pairs')
+featurePlot(
+  x = dat,
+  y = dat$Jaccard,
+  group = dat$dataset,
+  plot = "pairs"
+)
 dev.off()
 
 ```
@@ -273,7 +292,7 @@ Since this is not helpful due to the overwhelming amount of data, we will do fea
 
 We can find many relationships between predictor variables in the feature plots, indicated by the clustering of points along a curve / line. We will use a correlation analysis to identify highly correlated variables (R \> 0.85) and compute PCA for these.
 
-```{r, visualization-raw2, fig.height = 20, fig.width= 22}
+```{r, visualization-raw3, fig.height = 20, fig.width= 22}
 # Feature plots =====
 
 feature_plots <- list(
@@ -391,16 +410,16 @@ dev.off()
 
 
 # Second: Extract correlations to dataframe (only numeric)
-cor_matrix <- cor_df %>%   
-  select_if(is.numeric) %>% 
-  cor(use="pairwise.complete.obs") %>%
+cor_matrix <- cor_df %>%
+  select_if(is.numeric) %>%
+  cor(use = "pairwise.complete.obs") %>%
   as.table() %>%
   as.data.frame() %>%
   filter(Var1 != Var2) # Remove self-correlations
 
 # Grab highly correlated variables
 highly_correlated <- cor_matrix %>%
-  filter(abs(Freq) > 0.85)   # Adjust threshold as needed
+  filter(abs(Freq) > 0.65) # Adjust threshold as needed
 highly_correlated
 
 unique(highly_correlated$Var1)
